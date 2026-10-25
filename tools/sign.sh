@@ -34,5 +34,5 @@ apksigner verify --print-certs "$OUT" | grep -i "SHA-256 digest" | head -1
 echo "signiert: $OUT"
 
 if [ "${2:-}" = "--install" ]; then
-	adb install -r "$OUT"
+	adb -s "${ADB_SERIAL:-emulator-5554}" install -r "$OUT"
 fi
