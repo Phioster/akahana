@@ -227,84 +227,98 @@ class Quelle:
 
 
 class Weide:
-    """A weeping willow leaning over the water: a round dome of leaf clusters, lit from the upper left with
-    bright rims like the cherry crowns, and a curtain of long strands falling from it nearly to the ground,
-    dark inside so the strands read."""
+    """A weeping willow after real ones: a tall, curving trunk splitting into a few limbs that rise and arch
+    out; at every limb end a clump of leaves (lit at its upper left, bright rims like the cherry crowns) with
+    its own curtain of twigs hanging straight down. The clumps sit at many heights, so the curtains fall in
+    tiers over each other, the hem is ragged, and trunk and limbs show through the gaps."""
     def __init__(s, x, y, seed=4, size=1.0, lean=4):
         s.x, s.y, s.seed, s.size, s.lean = x, y, seed, size, lean
 
     def box(s):
-        r = int(22 * s.size)
-        return (s.x - r - 4, s.y - int(46 * s.size), s.x + r + 8, s.y + 4)
+        a, b = 24 * s.size, 22 * s.size
+        return (int(s.x - a - 4), int(s.y - 6 * s.size - 2 * b - 2), int(s.x + a + 10), s.y + 4)
 
     def draw(s, img, G):
+        import tree as T
         rng = np.random.default_rng(s.seed)
         g = lambda i, j: G[j % G.shape[0], i % G.shape[1]]
-        HI = hx('#b2c486')                                       # the brightest leaf edges
-        R = 17 * s.size
-        top = s.y - int(44 * s.size)
-        cx, cy = s.x + s.lean, top + R * 0.85                    # middle of the dome's base
-        for j in range(int(cy), s.y + 6):                        # its shade on the ground, lower right
-            for i in range(int(cx - R + 4), int(cx + R + 10)):
-                if ((i - cx - 6) / (R + 2)) ** 2 + ((j - s.y - 1) / 5) ** 2 < 1 and g(i, j) < 0.85:
-                    put(img, i, j, img[j, i] * 0.7) if 0 <= j < img.shape[0] and 0 <= i < img.shape[1] else None
-        hy, hry = (cy + s.y) / 2, (s.y - cy) / 2 + 2            # the hollow under the curtain: soft, round
-        for j in range(int(cy), s.y + 3):
-            for i in range(int(cx - R), int(cx + R) + 1):
-                e = ((i - cx) / (R * 0.85)) ** 2 + ((j - hy) / hry) ** 2
-                if e < 1 and g(i * 2, j) < 1.3 - e and 0 <= j < img.shape[0] and 0 <= i < img.shape[1]:
-                    img[j, i] = img[j, i] * (0.45 + 0.35 * e)
-        for h in range(int(30 * s.size)):                        # trunk, leaning towards the water
-            t = h / (30 * s.size)
-            tx = s.x + s.lean * t * t
-            for dx in range(-1, 2 + (h < 5)):
-                put(img, int(round(tx + dx)), s.y - h, q(BARK, 0.6 - 0.25 * dx, g(int(tx + dx), s.y - h)))
+        HI = hx('#b2c486')
+        sz = s.size
+        a, b = 24 * sz, 22 * sz                                     # the crown's outline: a broad dome
+        ex, ey = s.x + s.lean, s.y - 6 * sz - b                      # its middle
+        hem = lambda x: ey + b * np.sqrt(max(0.0, 1 - ((x - ex) / a) ** 2))
+        for j in range(s.y - 4, s.y + 6):                          # its shade on the ground, lower right
+            for i in range(int(s.x - a + 6), int(s.x + a + 12)):
+                if ((i - s.x - 6) / a) ** 2 + ((j - s.y - 1) / 5) ** 2 < 1 and g(i, j) < 0.85:
+                    put(img, i, j, img[j, i] * 0.68) if 0 <= j < img.shape[0] and 0 <= i < img.shape[1] else None
+        for j in range(int(ey), s.y + 2):                          # inside the curtain it is dark
+            for i in range(int(ex - a), int(ex + a) + 1):
+                if j < hem(i) + 2 and ((i - ex) / a) ** 2 < 0.85 and g(i * 2, j) < 0.8 and 0 <= j < img.shape[0] and 0 <= i < img.shape[1]:
+                    img[j, i] = img[j, i] * 0.5
 
-        def strand(sx, sy, L, out, lit0, step=0.9):
-            # a short arch out of the crown, then straight down: willow twigs hang, they do not stick out
-            for h in range(L):
-                t = h / L
-                i, j = int(round(sx + out * (1 - np.exp(-h / 2.5)) + 0.4 * np.sin(h * 0.25 + sx))), int(round(sy + h))
-                if rng.random() < step:
-                    lit = lit0 - 0.5 * t
-                    c = q(WILLOW, lit, g(i, j))
-                    if h < 3 and lit0 > 0.75 and g(i, j) < 0.4:
-                        c = WILLOW[4]
-                    put(img, i, j, c)
-        for k in range(int(40 * s.size)):                        # back strands, in shade
-            a = rng.uniform(-0.9, 0.9)
-            strand(cx + a * R * 0.85, cy - 2, int(rng.uniform(12, 26) * s.size), a * 1.2, 0.45, 0.8)
+        clumps = []                                                 # (x, y), denser towards the outline
+        while len(clumps) < int(30 * sz):
+            u, v = rng.uniform(-1.1, 1.1), rng.uniform(-1.08, 0.45)
+            r2 = u * u + v * v
+            if r2 > 1 + 0.15 * rng.random() or rng.random() > 0.35 + 0.65 * min(r2, 1):   # a lobed, uneven outline
+                continue
+            clumps.append((ex + u * a * 0.9, ey + v * b * 0.95))
+        top = np.array([s.x + s.lean * 0.6, s.y - 18 * sz])
+        strokes = []
+        for k, p in enumerate(T.bezier(np.array([s.x, s.y], float), np.array([s.x - s.lean * 0.8, s.y - 9 * sz]), top,
+                                       int(26 * sz))):              # an S in the trunk
+            strokes.append((p[0], p[1], 2.3 * sz * (1 - 0.3 * k / (26 * sz))))
+        outer = [c for c in clumps if abs(c[0] - ex) > 0.35 * a and c[1] < ey + 0.2 * b]
+        for cx, cy in outer[:int(7 * sz)]:                           # limbs to outer clumps: rise, then bow out
+            p2 = np.array([cx, cy])
+            p1 = np.array([top[0] + (cx - top[0]) * 0.25, min(cy, top[1]) - 0.5 * abs(top[1] - cy) - 4])
+            n = int(np.hypot(*(p2 - top)) * 1.5)
+            for k, p in enumerate(T.bezier(top, p1, p2, max(n, 4))):
+                strokes.append((p[0], p[1], 1.0 * sz * (1 - 0.6 * k / max(n, 4))))
 
-        # the dome: overlapping leaf clusters, each lit at its upper left, dark clefts between
-        clusters = []
-        for k in range(int(34 * s.size)):
-            a = rng.uniform(-1, 1)
-            hgt = rng.uniform(0, 1) ** 0.7
-            x = cx + a * R * (1 - 0.35 * hgt)
-            y = cy - hgt * R * 0.95 * np.sqrt(max(0.05, 1 - a * a * 0.6))
-            clusters.append((y, x, rng.uniform(3.2, 5.0) * s.size ** 0.5))
-        for y, x, r in sorted(clusters):                         # back to front: lower ones over upper ones
-            for j in range(int(y - r - 1), int(y + r + 2)):
-                for i in range(int(x - r - 1), int(x + r + 2)):
-                    e = ((i - x) / r) ** 2 + ((j - y) / (r * 0.8)) ** 2
-                    if e > 1:
+        def wood():
+            for x, y, w in strokes:
+                r = max(0.6, w)
+                for j in range(int(y - r), int(y + r) + 1):
+                    for i in range(int(x - r), int(x + r) + 1):
+                        if (i - x) ** 2 + (j - y) ** 2 <= r * r:
+                            put(img, i, j, q(BARK, 0.62 - 0.35 * (i - x) / (r + 0.5), g(i, j)))
+
+        def clump(cx, cy, back):
+            r = rng.uniform(2.6, 3.8) * sz ** 0.5
+            high = np.clip((ey + b - cy) / (2 * b), 0, 1)            # 1 at the crown top
+            dim = 0.6 if back else 1.0
+            for k in range(int(8 * sz)):                             # twigs: straight down to the hem
+                u = rng.uniform(-1, 1)
+                sx, sy = cx + u * r, cy + rng.uniform(0, r * 0.5)
+                L = int(max(4, hem(sx) - sy + rng.uniform(-11, 4) * sz))     # a ragged hem
+                lit0 = np.clip(0.8 - 0.3 * (u + 0.3) + 0.15 * high, 0.3, 0.95) * dim
+                for h in range(L):
+                    t = h / L
+                    i = int(round(sx + u * 1.2 * (1 - np.exp(-h / 2.5)) + 0.4 * np.sin(h * 0.25 + sx)))
+                    if rng.random() < 0.9:
+                        put(img, i, int(round(sy + h)), q(WILLOW, lit0 - 0.45 * t, g(i, int(sy + h))))
+            for j in range(int(cy - r - 1), int(cy + r + 1)):        # the clump: rounded top, lit upper left
+                for i in range(int(cx - r - 1), int(cx + r + 2)):
+                    e = ((i - cx) / r) ** 2 + ((j - cy) / (r * 0.75)) ** 2
+                    if e > 1 or g(i * 3, j) > 1.15 - 0.3 * e:
                         continue
-                    dome = np.clip(0.95 - ((i - cx) * 0.35 + (j - (cy - R)) * 0.55) / R * 0.7, 0.15, 1)
-                    local = np.clip(0.75 - ((i - x) * 0.5 + (j - y) * 0.8) / r * 0.5, 0, 1)
-                    lit = 0.55 * dome + 0.45 * local
-                    if e > 0.72 and (i - x) + (j - y) > 0:
-                        lit *= 0.55                               # cleft on its shaded side
+                    lit = np.clip(0.55 + 0.35 * high - ((i - cx) * 0.5 + (j - cy) * 0.85) / r * 0.5, 0.1, 1) * dim
+                    if e > 0.7 and (i - cx) + (j - cy) > 0:
+                        lit *= 0.55
                     c = q(WILLOW, lit, g(i, j))
-                    if e > 0.55 and (i - x) + (j - y) < -r * 0.6 and dome > 0.55 and g(i, j) < 0.55:
-                        c = HI                                    # a bright rim where the light catches it
+                    if not back and e > 0.5 and (i - cx) + (j - cy) < -r * 0.6 and lit > 0.6 and g(i, j) < 0.6:
+                        c = HI
                     put(img, i, j, c)
-        for k in range(int(52 * s.size)):                        # front curtain: a bell, ragged at the hem
-            a = np.clip(rng.normal(0, 0.55), -1, 1)
-            sx = cx + a * R * 0.98
-            sy = cy - R * 0.35 * np.sqrt(max(0, 1 - a * a)) + rng.uniform(-1, 3)
-            L = int(rng.uniform(10, 30) * s.size * (1 - 0.35 * abs(a)))
-            lit0 = np.clip(0.9 - 0.35 * (a + 0.3), 0.35, 0.95) * (0.7 if rng.random() < 0.3 else 1)
-            strand(sx, sy, L, a * 2.0 + rng.normal(0, 0.3), lit0)
+
+        back = [rng.random() < 0.2 for _ in clumps]
+        for (cx, cy), bk in sorted(zip(clumps, back), key=lambda c: c[0][1]):
+            if bk:
+                clump(cx, cy, True)
+        wood()
+        for (cx, cy), bk in sorted(zip(clumps, back), key=lambda c: c[0][1]):   # high to low: the curtains tier
+            if not bk:
+                clump(cx, cy, False)
 
 
 class Schilf:
