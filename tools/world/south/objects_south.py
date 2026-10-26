@@ -7,6 +7,8 @@ import os
 import sys
 
 import numpy as np
+from scipy import ndimage as ndi
+from scipy import ndimage as ndi
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'lib'))
 from objects2 import STONE, MOSS3, WOOD, hx  # noqa: E402
@@ -472,3 +474,100 @@ class Voegel:
             for (i, j, c) in [(0, 0, 1), (1, 0, 1), (2, 0, 0), (1, -1, 2), (0, -1, 1), (-1, 0, 0)]:
                 put(img, x + i, y + j, BIRD[c])
             put(img, x + 1, y + 1, img[y + 1, x + 1] * 0.7)
+
+
+class Kirschbaum:
+    """A young cherry tree grown the same way as the big one (tree.py), only smaller: shorter trunk,
+    fewer forks, smaller blossom clouds. Drawn small, never scaled."""
+    def __init__(s, x, y, seed=17, trunk=11.5, width=4.4, depth=5):
+        s.x, s.y, s.seed, s.trunk, s.width, s.depth = x, y, seed, trunk, width, depth
+        s.S = 90                                             # local canvas, foot at its bottom middle
+
+    def box(s):
+        return (s.x - s.S // 2, s.y - s.S + 12, s.x + s.S // 2, s.y + 6)
+
+    def _grow(s):
+        import tree as T
+        rng = np.random.default_rng(s.seed)
+        S = s.S
+        cx, by = S // 2, S - 12
+        out = {'strokes': [], 'tips': []}
+        T.grow(rng, np.array([cx, by], float), -np.pi / 2 + 0.1, s.trunk, s.width, s.depth, out)
+        yy, xx = np.mgrid[0:S, 0:S]
+        wood = np.zeros((S, S))
+        shade = np.zeros((S, S))
+        for x, y, w, _ in out['strokes']:
+            r = max(0.7, w)
+            m = (xx - x) ** 2 + (yy - y) ** 2 <= r * r
+            wood[m] = 1
+            shade[m] = np.maximum(shade[m], np.clip(0.5 - ((xx[m] - x) * 0.7 + (yy[m] - y) * 0.4) / (r + 0.5) * 0.5, 0, 1))
+        for a in np.linspace(-0.4, np.pi + 0.4, 5) + rng.normal(0, 0.15, 5):      # roots
+            L = rng.uniform(4, 7)
+            p0 = np.array([cx, by], float)
+            p2 = p0 + L * np.array([np.cos(a), 0.45 * np.sin(a) + 0.25])
+            for k, p in enumerate(T.bezier(p0, (p0 + p2) / 2, p2, 14)):
+                r = 1.8 * (1 - k / 14) + 0.5
+                m = (xx - p[0]) ** 2 + (yy - p[1]) ** 2 <= r * r
+                wood[m] = 1
+                shade[m] = np.maximum(shade[m], 0.35)
+        inner = [(x, y) for x, y, w, d in out['strokes'] if d <= 3 and rng.random() < 0.06]
+        tips = np.array(out['tips'] + inner)
+        noise = ndi.gaussian_filter(rng.normal(0, 1, (S, S)), 1.8)
+        noise /= noise.std()
+        fine = rng.random((S, S))
+        canopy = np.zeros((S, S))
+        light = np.zeros((S, S))
+        for tx, ty in tips:
+            R = rng.uniform(7, 11)
+            d = np.sqrt((xx - tx) ** 2 + ((yy - ty) * 1.15) ** 2)
+            c = np.clip(1 - d / R + 0.18 * noise, 0, 1)
+            canopy = np.maximum(canopy, c)
+            l = np.clip(0.55 - ((xx - tx) * 0.6 + (yy - ty) * 0.8) / R * 0.55, 0, 1) * (c > 0)
+            light = np.where(c > canopy - 1e-6, np.maximum(light, l), light)
+        cmask = (canopy > 0.08) | ((canopy > 0.02) & (fine < 0.35))
+        limbs = np.zeros((S, S), bool)
+        for x, y, w, d in out['strokes']:
+            if d >= s.depth - 2:
+                limbs |= (xx - x) ** 2 + (yy - y) ** 2 <= max(0.7, w) ** 2
+        out['limbs'] = limbs
+        light = light * 0.82                                  # deeper valleys between the blossom clouds
+        layer = np.zeros((S, S, 3), np.uint8)
+        T.paint(layer, S, S, wood > 0, shade, cmask, canopy, light, rng)
+        T.underside(layer, S, S, out, shade, cmask, canopy, by, rng)
+        # like the big crown: dark clefts between the clusters, branches showing through, a few open holes
+        cl = ndi.gaussian_filter(rng.normal(0, 1, (S, S)), 1.3)
+        cl /= cl.std()
+        cleft = cmask & (cl < -0.75) & (light < 0.55)
+        layer[cleft] = T.PK[0]
+        through = cleft & ndi.binary_dilation(limbs, iterations=1)
+        layer[through] = T.BARK[1]
+        holes = cmask & (cl < -1.35) & (canopy < 0.55) & ~limbs
+        ring = ndi.binary_dilation(cmask, iterations=3) & ~cmask
+        solid = ((wood > 0) | cmask | (ring & (layer.sum(-1) > 0))) & ~holes
+        return layer, solid, cmask
+
+    def draw(s, img, G):
+        layer, solid, cmask = s._grow()
+        S = s.S
+        ox, oy = s.x - S // 2, s.y - (S - 12)
+        g = lambda i, j: G[j % G.shape[0], i % G.shape[1]]
+        # the crown's shadow falls on the meadow to the lower right, softly broken
+        sh = ndi.binary_dilation(cmask, iterations=1)
+        ys, xs = np.nonzero(sh)
+        for j, i in zip(ys, xs):
+            wi, wj = ox + i + 9, oy + j + 16
+            if 0 <= wj < img.shape[0] and 0 <= wi < img.shape[1] and g(wi, wj) < 0.8 and wj > s.y - 6:
+                img[wj, wi] = img[wj, wi] * 0.7
+        ys, xs = np.nonzero(solid)
+        for j, i in zip(ys, xs):
+            wi, wj = ox + i, oy + j
+            if 0 <= wj < img.shape[0] and 0 <= wi < img.shape[1]:
+                img[wj, wi] = layer[j, i]
+        # petals already lying in the grass, downwind
+        rng = np.random.default_rng(s.seed + 1)
+        PKc = [hx(c) for c in ['#c87a90', '#e6aab8']]
+        for _ in range(26):
+            a, r = rng.normal(0.35, 0.7), abs(rng.normal(22, 9))
+            i, j = int(s.x + r * np.cos(a)), int(s.y + r * np.sin(a) * 0.6 + 4)
+            if 0 <= j < img.shape[0] and 0 <= i < img.shape[1]:
+                img[j, i] = PKc[rng.integers(0, 2)]

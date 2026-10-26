@@ -21,7 +21,7 @@ import extras  # noqa: E402
 from berg_objects import Pine  # noqa: E402
 import mood_map  # noqa: E402
 from objects_south import (Wegstein, Mauer, Vogelscheuche, Findling, Steinhaufen, Baumstumpf, Stamm,  # noqa: E402
-                           Zaun, HohesGras, Voegel)
+                           Zaun, HohesGras, Voegel, Kirschbaum)
 import ground as south_ground  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(HERE, '..', '..', '..'))
@@ -174,7 +174,8 @@ def render(kind, w, seed=7):
                Baumstumpf(520, CTX + 110), Baumstumpf(130, CTX + 560, 4), Stamm(690, CTX + 168, 724, CTX + 182),
                Zaun([(380, CTX + 460), (398, CTX + 466), (416, CTX + 471), (434, CTX + 478), (452, CTX + 484),
                      (470, CTX + 490)]),
-               Voegel(200, CTX + 420), Voegel(640, CTX + 110), Voegel(840, CTX + 380)]
+               Voegel(200, CTX + 420), Voegel(640, CTX + 110), Voegel(840, CTX + 380),
+               Kirschbaum(522, CTX + 462)]
     things += [HohesGras(x, CTX + y, int(rng.integers(8, 14)), int(rng.integers(0, 999))) for x, y in
                [(150, 200), (250, 470), (560, 420), (760, 290), (860, 140), (60, 520), (680, 560), (470, 120),
                 (590, 250)]]
@@ -182,7 +183,12 @@ def render(kind, w, seed=7):
     blocked = path.copy()
     for t in things:
         x0, y0, x1, y1 = t.box()
-        blocked[max(0, y1 - 8):y1, max(0, x0):x1] = True
+        if isinstance(t, (Stamm, Mauer, Steinhaufen, Findling, Baumstumpf, Zaun)):
+            y0 -= 2                                            # lying things: no poppies under them at all
+            x0, x1, y1 = x0 - 2, x1 + 2, y1 + 2
+        else:
+            y0 = y1 - 8                                        # upright things: only round the foot
+        blocked[max(0, y0):max(0, y1), max(0, x0):max(0, x1)] = True
     for f_ in firs:
         blocked[max(0, f_.p.y - 6):max(0, f_.p.y + 2), max(0, f_.p.x - 8):max(0, f_.p.x + 9)] = True   # never a negative end
     xs_ = np.arange(W)[None, :]
