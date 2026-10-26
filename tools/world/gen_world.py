@@ -483,7 +483,7 @@ for _ in range(4000):
 def on_stream(x_):
     k = int(np.argmin(np.abs(spx - x_)))
     return dict(x=float(x_), y=float(spy[k]))
-wisps = [on_stream(80), dict(x=229.0, y=352.0), dict(x=496.0, y=820.0), on_stream(430)]
+wisps = [dict(x=496.0, y=820.0)]   # just one, in the east where the forest with the ritual site will be
 with open(os.path.join(OUT, 'world.json'), 'w') as f:
     json.dump(dict(width=W, height=H, frames=FRAMES, fps=FPS, start=start, sprites=sprites,
                    brook=brook, birds=birds, wisps=wisps, fire=dict(x=float(fsx), y=float(fsy)),
