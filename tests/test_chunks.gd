@@ -67,3 +67,39 @@ func test_textures_arrive_through_poll() -> void:
 	assert_true(s.is_ready(c), "Bilder geladen")
 	assert_true(s.ground_tex(c) != null and s.flowers_tex(c) != null)
 	assert_eq(s.flowers_tex(c).get_size(), Vector2(196, 216))
+
+func _counter() -> Dictionary:
+	return {"made": 0, "dropped": 0}
+
+func test_activates_inside_near_and_drops_beyond_far() -> void:
+	var a := Activator.new()
+	var n := _counter()
+	var id := a.add(Rect2(500, 500, 10, 10), 40.0, 120.0, func(): n["made"] += 1; return Node.new(),
+			func(x): n["dropped"] += 1; x.free())
+	a.update(Rect2(0, 0, 100, 100))
+	assert_eq(a.active_count(), 0, "weit weg")
+	a.update(Rect2(400, 400, 80, 80))              # 20 px away
+	assert_eq(a.active_count(), 1)
+	assert_true(a.node(id) != null)
+	a.update(Rect2(0, 0, 100, 100))
+	assert_eq(a.active_count(), 0)
+	assert_eq(n["dropped"], 1)
+
+func test_no_flapping_between_near_and_far() -> void:
+	var a := Activator.new()
+	var n := _counter()
+	a.add(Rect2(500, 500, 10, 10), 40.0, 120.0, func(): n["made"] += 1; return Node.new(), func(x): x.free())
+	for i in 100:
+		var gap := 30.0 if i % 2 == 0 else 100.0       # inside near, then between near and far
+		a.update(Rect2(500 - gap - 50, 500, 50, 10))
+	assert_eq(n["made"], 1, "nur einmal erzeugt")
+	a.clear()
+
+func test_clear_drops_everything() -> void:
+	var a := Activator.new()
+	for i in 5:
+		a.add(Rect2(i * 10, 0, 1, 1), 40.0, 120.0, func(): return Node.new(), func(x): x.free())
+	a.update(Rect2(0, 0, 50, 10))
+	assert_eq(a.active_count(), 5)
+	a.clear()
+	assert_eq(a.active_count(), 0)
