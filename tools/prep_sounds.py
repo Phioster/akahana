@@ -104,7 +104,10 @@ if __name__ == '__main__':
     loop(f'{FS}/320231.ogg', 'feuer', 2, 24, 0.05, highpass=180.0)   # nearly all its energy was rumble
     loop(f'{FS}/680476.ogg', 'kerze', 5, 20, 0.1)
     loop(f'{FS}/181563.ogg', 'knistern', 2, 24, 0.1)
-    loop(f'{FS}/521883.ogg', 'schimmer', 0, 10, 0.1, fade=1.5)
+    w = load(f'{FS}/249809.ogg')                         # torch swing: one soft whoosh per breath of the wisp
+    from scipy import signal
+    w = signal.sosfiltfilt(signal.butter(2, 120, 'high', fs=SR, output='sos'), w)[:int(2.3 * SR)]
+    save('fackel', w * np.minimum(1, np.linspace(2.3, 0, len(w)) / 0.3), 0.1)
     for i, sid in enumerate([484366, 484367, 507265]):
         save(f'vogel_{i}', load(f'{FS}/{sid}.ogg'), 0.12)
     save('fluegel_0', load(f'{FS}/414671.ogg'), 0.12)          # chosen over 389633

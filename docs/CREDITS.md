@@ -9,6 +9,7 @@ Alles hier ist frei nutzbar. Die Namen stehen trotzdem hier, aus Dank.
 ## Klänge
 - Nox Sound, „Essentials Series“ (Schritte, Island-Schritte, Nacht, ruhiger Wind), CC0 1.0
 - Freesound.org, alle CC0 1.0:
+  - #249809 „Waving Torch“ von spookymodem
   - #434858 „evening grassland.WAV“ von cupido-1
   - #165526 „Wind singing in the mountain, some night cricket in background“ von felix.blume
   - #156045 „Wind blowing in the bush on the top of the mountain, in the desert of Atacama (Chile).“ von felix.blume
@@ -18,7 +19,6 @@ Alles hier ist frei nutzbar. Die Namen stehen trotzdem hier, aus Dank.
   - #320231 „By a small fire“ von Kukensius
   - #680476 „Candle wood wick flame mono 01.wav“ von roisin.gleeson
   - #181563 „Fire Crackling 01.wav“ von kingsrow
-  - #521883 „Shimmering Object 2.wav“ von opticaillusions
   - #484366 „Bird - 3.wav“ von SpaceJoe
   - #484367 „Bird - 2.wav“ von SpaceJoe
   - #507265 „Bird Noise - 5.wav“ von SpaceJoe
@@ -31,6 +31,7 @@ Alles hier ist frei nutzbar. Die Namen stehen trotzdem hier, aus Dank.
   - #484949 „Page Turn - 29“ von SpaceJoe
   - #484886 „Book Close - 6“ von SpaceJoe
   - #484884 „Book Close - 4“ von SpaceJoe
+
 
 ## Figur
 - Grundlage der Laufanimation: PixelLab (eigenes Konto), danach in den Farben der Welt umgemalt (tools/prep_char.py)

@@ -15,7 +15,7 @@ uniform vec4 light_info[16];          // kind, x seed, y seed, glowing pixel cou
 
 const float LOOP = 8.0;               // the wallpaper loops every 8 s; flicker uses the same phase
 const vec3 LCOL = vec3(1.0, 0.62, 0.30);
-const vec3 WCOL = vec3(0.55, 0.95, 0.85);    // the will-o'-the-wisp: a cold, pale green light
+const vec3 WCOL = vec3(1.0, 0.58, 0.26);      // the will-o'-the-wisp: a warm amber flame
 const vec3 MIST = vec3(214.0, 214.0, 212.0);
 
 float flick(float kind, float ph, vec2 s) {

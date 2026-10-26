@@ -87,7 +87,7 @@ func test_every_footstep_set_has_several_recordings() -> void:
 
 func test_ambience_recordings_exist() -> void:
 	for s in ["nacht", "wind_ruhig", "abendwiese", "bergwind_a", "bergwind_b", "bach_klein", "bach_mittel",
-			"bach_gross", "feuer", "kerze", "knistern", "schimmer", "vogel_0", "fluegel_0", "glocke", "frosch",
+			"bach_gross", "feuer", "kerze", "knistern", "fackel", "vogel_0", "fluegel_0", "glocke", "frosch",
 			"seite_0", "buch_zu_0"]:
 		assert_true(SoundBank.get_stream(s) != null, s)
 
@@ -211,3 +211,20 @@ func test_place_sounds_arrive_near_the_music_level() -> void:
 	assert_between(-27.9 + a.FIRE_DB, -30.0, -24.0, "Feuer")   # level of the audible part, rumble removed
 	assert_between(-27.8 + a.BROOK_DB["bach_mittel"], -32.0, -26.0, "Bach")
 	a.free()
+
+func test_wisp_flame_breathes_as_one_shape() -> void:
+	# ball and flame are one shape that grows on the in-breath (the tongues rise with it)
+	var low := Wisp.flame_pixels(Wisp.BREATH * 0.75, 1.0)      # sin at its lowest
+	var high := Wisp.flame_pixels(Wisp.BREATH * 0.25, 1.0)     # sin at its highest
+	assert_true(high.size() > low.size() + 6, "wächst beim Einatmen: %d -> %d" % [low.size(), high.size()])
+	var top_low := 0
+	var top_high := 0
+	for q in low: top_low = mini(top_low, q.y)
+	for q in high: top_high = mini(top_high, q.y)
+	assert_true(top_high < top_low, "Flammen schlagen höher")
+
+func test_wisp_fades_by_shrinking_not_by_transparency() -> void:
+	# half transparency dithers into a checkerboard - it shrinks away instead, and every pixel is opaque
+	assert_eq(Wisp.flame_pixels(1.0, 0.0).size(), 0, "ganz weg")
+	for c in Wisp.flame_pixels(1.0, 1.0).values():
+		assert_almost_eq(c.a, 1.0, 0.001, "deckend")
