@@ -32,7 +32,9 @@ from fireflies import Swarm  # noqa: E402
 ROOT = os.path.abspath(os.path.join(HERE, '..', '..', '..'))
 Y0 = z1.CTX + z1.NEW                        # first row of zone 2 on the shared canvas
 NEW = 400                                   # two chunk rows
-GRASS_FROM, GRASS_FULL = 170, 290           # rows into zone 2 where the tall grass starts and where it is a field
+GRASS_FROM, GRASS_FULL = -170, 320          # rows into zone 2 where the first stalks show (up in zone 1) and where it is a field
+GRASS_MIST = 0.45                           # mist over the green grass this thick (1 = as everywhere)
+EXT = 180                                   # zone-1 rows the grass reaches up into
 
 GREEN = [hx(c) for c in ['#283126', '#3a4635', '#4f5d43', '#677552', '#838d63', '#a3a676']]   # as the trial
 DRY = [hx(c) for c in ['#7c6c4a', '#9c8a62', '#b8a67c']]
@@ -48,15 +50,16 @@ def fbm(H, W_, s, seed):
 
 
 def grass_density():
-    """0 .. 1 for every zone-2 row and column: none above GRASS_FROM, a field below GRASS_FULL, an
-    uneven front between."""
-    yy = np.arange(NEW)[:, None] + 22 * fbm(NEW, W, 14, 61)
-    return np.clip((yy - GRASS_FROM) / (GRASS_FULL - GRASS_FROM), 0, 1)
+    """0 .. 1 from EXT rows above zone 2 to its end: none above GRASS_FROM, a field below GRASS_FULL, a long
+    uneven front between (single stalks first, so no hard edge on the whole map)."""
+    yy = np.arange(-EXT, NEW)[:, None] + 40 * fbm(NEW + EXT, W, 24, 61) + 12 * fbm(NEW + EXT, W, 6, 62)
+    u = np.clip((yy - GRASS_FROM) / (GRASS_FULL - GRASS_FROM), 0, 1)
+    return u ** 1.8
 
 
 def poppy_keep(y):
     """Share of poppies left at zone row y: all at the seam, about one in four by the grass."""
-    return float(np.clip(1 - 0.8 * (y / 140) ** 0.8, 0.2, 1)) if y < GRASS_FROM else 0.08
+    return float(np.clip(1 - 0.8 * (y / 150) ** 1.3, 0.2, 1)) if y < 230 else 0.08
 
 
 class Blade:
@@ -156,10 +159,16 @@ def render(w, seed=12):
     flow = np.clip(0.22 + 0.10 * fbm(NEW, W, 10, 205), 0, 1)
     tone = south_ground.continued_tone(south_ground.tone_of(g1), south_ground.fresh_tone(NEW, W, fog, flow, rng))
     ground = south_ground.ground_from_tone(tone, fog, flow, rng)
-    dens = grass_density()
+    dens_all = grass_density()
+    dens = dens_all[EXT:]
     t = (np.arange(NEW) / NEW)[:, None, None]
-    ground *= 1 - t * np.array([0.10, 0.0, 0.12])             # a soft green creeping in towards the south
+    ground *= 1 - (0.4 * t + 0.6 * dens[..., None]) * np.array([0.12, 0.0, 0.14])   # green comes in with the grass
     ground *= 1 - 0.38 * dens[..., None]                      # dark between the stalks
+    up = img[Y0 - EXT:Y0]
+    bare = np.abs(up - g1[Y0 - EXT:]).sum(-1) < 1               # zone 1's ground where it shows: the green starts there
+    d1 = dens_all[:EXT][..., None]
+    up[bare] = (up * (1 - 0.6 * d1 * np.array([0.12, 0.0, 0.14])) * (1 - 0.38 * d1))[bare]
+    free1 = bare | (np.abs(up - h1[Y0 - EXT:, :, :3]).sum(-1) < 1)  # ground or a poppy, no zone-1 thing
     img[Y0:] = ground
 
     # the two trails run on south; between them the new cross path with the lantern at its fork
@@ -170,9 +179,9 @@ def render(w, seed=12):
     path = np.zeros((H, W), bool)
     for pts in (trail_a, trail_b, cross):
         pm, pc, pd_, pw_ = extras.path_mask(H, W, pts, prng)
+        path |= pm                                             # (zone 1's part too: no grass on it)
         pm[:Y0 - 6] = False                                    # zone 1 drew its own part already
         extras.draw_path(img, pm, pc, pd_, pw_, prng)
-        path |= pm
 
     Y = lambda y: Y0 + y                                       # zone rows to canvas rows
     BANK = Bank(222, Y(130))
@@ -210,12 +219,15 @@ def render(w, seed=12):
     fl[8:] = flow
     fl[:8] = flow[:1]
     free = blocked[top:].copy()
-    free[:8] |= np.abs(img[top:Y0] - g1[top:Y0]).sum(-1) > 1   # on zone 1's last rows only where its ground shows
+    bare_top = bare[-8:]                                       # zone 1's last rows: a new head only on its bare ground
     for (x, y, k, ph) in patches(H - top, W, fl, free, rng, 420000):
         zy = y + top - Y0
         if rng.random() > poppy_keep(max(zy, 0)) or (zy > 0 and dens[min(zy + 4, NEW - 1), x + 2] > 0.6):
             continue
         head = field6.HEADS[k]
+        if zy < 0 and not all(bare_top[y + j, x + i] for j, row in enumerate(head) for i, ch in enumerate(row)
+                              if ch != '.' and y + j < 8):
+            continue
         for s_ in range(len(head), len(head) + 2):
             for sx_ in (x + 1, x + 2):
                 yy_ = y + top + s_
@@ -244,11 +256,13 @@ def render(w, seed=12):
 
     # the tall-grass field
     blades = []
-    for _ in range(int(W * NEW / 8.5)):
-        x, y = rng.uniform(14, W - 14), rng.uniform(0, NEW + 8)
+    for _ in range(int(W * (NEW + EXT) / 8.5)):
+        x, y = rng.uniform(14, W - 14), rng.uniform(-EXT, NEW + 8)
         yi = min(int(y), NEW - 1)
-        if rng.random() > dens[yi, int(x)] or path[min(Y(int(y)), H - 1), int(x)]:
+        if rng.random() > dens_all[yi + EXT, int(x)] or path[min(Y(int(y)), H - 1), int(x)]:
             continue
+        if y < 0 and not free1[int(y) + EXT - 13:int(y) + EXT + 1, int(x) - 1:int(x) + 3].all():
+            continue                                           # up in zone 1: only on open meadow
         foot = min(np.hypot(x - tx, (Y(y) - ty) * 1.6) for tx, ty in TREES)
         if foot < 7 or (foot < 13 and rng.random() < 0.6):     # trodden round the trunks: the trees stand on the ground
             continue
@@ -268,7 +282,7 @@ def render(w, seed=12):
     lit = z1.LIT + [l for t_ in things if hasattr(t_, 'lights') for l in t_.lights()]
     swarms = z1.SWARMS + SWARMS
     out = mood_map.mood(np.clip(img, 0, 255), dict(w, lights=lights + lit + [l for s_ in swarms for l in s_.lights(2.0)],
-                                                   wisps=[]), 2.0).astype(float)
+                                                   wisps=[]), 2.0, grass_mist=GRASS_MIST).astype(float)
     for s_ in swarms:
         s_.draw(out, 2.0)
     return out.astype(np.uint8)

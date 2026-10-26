@@ -66,7 +66,7 @@ def bilinear(tex, u, v):
             + t(y0 + 1, x0) * (1 - fx) * fy + t(y0 + 1, x0 + 1) * fx * fy)
 
 
-def mood(src, w, t):
+def mood(src, w, t, grass_mist=1.0):
     H, W = src.shape[:2]
     yy, xx = np.mgrid[0:H, 0:W]
     wx, wy = xx + 0.5, yy + 0.5
@@ -103,6 +103,9 @@ def mood(src, w, t):
     f = (0.55 * (bilinear(m1, (wx - 3.5 * t) / 256, wy / 256) - 0.5) * 6
          + 0.45 * (bilinear(m2, (wx - 6.0 * t) / 256, wy / 256) - 0.5) * 6)
     dens = np.clip((f - 0.2) * 0.36, 0, 0.32)[..., None]
+    if grass_mist != 1.0:                                     # thinner over green grass, where it stood out (per pixel, as a shader can)
+        green = np.clip((src[..., 1] - (src[..., 0] + src[..., 2]) / 2) / 10, 0, 1)
+        dens = dens * (1 - (1 - grass_mist) * green[..., None])
 
     p = np.pad(src, ((1, 1), (1, 1), (0, 0)), mode='edge')         # softness only where the mist is thick
     nb = p[1:-1, 2:] + p[1:-1, :-2] + p[2:, 1:-1] + p[:-2, 1:-1]
