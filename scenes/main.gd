@@ -245,7 +245,8 @@ func _process(delta: float) -> void:
 	if _camera_mode:
 		_cam_offset = c - player.position                 # stop the offset growing past the world edge
 	cam.position = c
-	var top_left := cam.position - view * 0.5
+	cam.force_update_scroll()                          # apply now: the shader must snap to THIS frame's view
+	var top_left := get_viewport().get_canvas_transform().affine_inverse() * Vector2.ZERO
 	post.set_shader_parameter("view_world", view)
 	post.set_shader_parameter("cam_pos", top_left)
 	_feed_lights(Rect2(top_left, view))

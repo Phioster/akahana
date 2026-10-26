@@ -326,3 +326,24 @@ func test_wisp_hovers_almost_still_when_left_alone() -> void:
 			last = now
 	assert_true(moves <= 30, "Pixelsprünge in 30 s: %d" % moves)
 	w.free()
+
+func test_post_shader_knows_where_the_camera_really_is() -> void:
+	# the post shader snaps to world pixels using cam_pos; if that lags the real view by a frame while
+	# scrolling, small bright things hop a pixel back and forth
+	var tree := Engine.get_main_loop() as SceneTree
+	var m: Node2D = load("res://scenes/main.gd").new()
+	tree.root.add_child(m)
+	await tree.process_frame
+	if m.world == null:
+		m.queue_free()
+		return
+	m.book.mode = BookUI.Mode.CLOSED
+	var worst := 0.0
+	for i in 20:
+		m.player.position += Vector2(0.37, -0.53)          # walking: the camera scrolls a fraction each frame
+		m._process(1.0 / 60.0)
+		var real := m.get_viewport().get_canvas_transform().affine_inverse() * Vector2.ZERO
+		var told: Vector2 = m.post.get_shader_parameter("cam_pos")
+		worst = maxf(worst, real.distance_to(told))
+	assert_true(worst < 0.01, "Shader liegt %.2f Pixel neben der echten Kamera" % worst)
+	m.queue_free()
