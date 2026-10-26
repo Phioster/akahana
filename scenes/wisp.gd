@@ -94,9 +94,10 @@ func step(delta: float, pl: Vector2) -> void:
 	elif pl.distance_to(anchor) > SHY + 40.0 and dist > SHY + 20.0:
 		# home only when that does not lead toward you: between "shy" (40) and this (50) it just hovers,
 		# otherwise, standing between it and its home, it stepped away and back every frame
-		var drift := Vector2(sin(_t * 0.25) * 1.5, sin(_t * 0.4) * 1.0)   # a slow, small sway: it rests in the air
+		# swaying in the wind: mostly sideways, a slow swing with a little gust on top, barely up and down
+		var drift := Vector2(sin(_t * 0.45) * 4.0 + sin(_t * 1.1 + 0.7) * 1.0, sin(_t * 0.3) * 1.0)
 		var to := anchor + drift - _pos
-		want = to.limit_length(6.0) if to.length() > 0.6 else Vector2.ZERO
+		want = to.limit_length(8.0) if to.length() > 0.6 else Vector2.ZERO
 	_vel = _vel.lerp(want, 1.0 - exp(-3.0 * delta))   # glide into each new heading, no sudden turns
 	_pos += _vel * delta
 	# the node itself stands on whole world pixels like the ground: with pixel snapping on, a fractional

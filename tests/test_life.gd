@@ -324,7 +324,22 @@ func test_wisp_hovers_almost_still_when_left_alone() -> void:
 		if now != last:
 			moves += 1
 			last = now
-	assert_true(moves <= 30, "Pixelsprünge in 30 s: %d" % moves)
+	assert_true(moves <= 75, "Pixelsprünge in 30 s: %d" % moves)
+	w.free()
+
+func test_wisp_sways_sideways_like_in_the_wind() -> void:
+	# it rests in the air but sways left and right a few pixels, hardly up and down
+	var w := Wisp.new()
+	w.anchor = Vector2(100, 100)
+	w.position = Vector2(100, 100)
+	var lo := Vector2(INF, INF)
+	var hi := -lo
+	for i in 1800:
+		w.step(1.0 / 60.0, Vector2(100, 190))
+		lo = lo.min(w.position)
+		hi = hi.max(w.position)
+	assert_between(hi.x - lo.x, 5.0, 12.0, "seitlich")
+	assert_true(hi.y - lo.y <= 3.0, "kaum hoch und runter: %.0f" % (hi.y - lo.y))
 	w.free()
 
 func test_post_shader_knows_where_the_camera_really_is() -> void:
