@@ -30,5 +30,5 @@ func _on_step() -> void:
 	_last = i
 	_out.stream = v[i]
 	_out.pitch_scale = randf_range(0.95, 1.05)
-	_out.volume_db = randf_range(-9.0, -6.0)
+	_out.volume_db = randf_range(-10.5, -7.5)       # steps sit just under the meadow
 	_out.play()
