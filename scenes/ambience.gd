@@ -93,7 +93,7 @@ func _process(delta: float) -> void:
 	_bell_in -= delta
 	if _bell_in <= 0.0:
 		_bell_in = randf_range(150.0, 260.0)
-		_play_once("glocke", RUIN + Vector2(0, -40), -8.5, 700.0, 1.0)
+		_play_once("glocke", RUIN + Vector2(0, -40), -8.5, 700.0, 1.0, 2.0)   # steeper: soft from afar
 	_frog_in -= delta
 	if _frog_in <= 0.0:
 		_frog_in = randf_range(7.0, 18.0)
@@ -113,8 +113,9 @@ func _near_water(at: Vector2, within: float) -> Vector2:
 	return best
 
 
-func _play_once(name: String, at: Vector2, db: float, reach: float, pitch: float) -> void:
+func _play_once(name: String, at: Vector2, db: float, reach: float, pitch: float, fall := 1.0) -> void:
 	_one.stream = SoundBank.get_stream(name)
+	_one.attenuation = fall
 	_one.position = at
 	_one.volume_db = db
 	_one.max_distance = reach
