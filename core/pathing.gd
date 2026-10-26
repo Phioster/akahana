@@ -71,7 +71,44 @@ func find_path(a: Vector2, b: Vector2) -> PackedVector2Array:
 	var ids := grid.get_id_path(ca, cb)
 	for id in ids:
 		out.append(Vector2(id.x * CELL + CELL * 0.5, id.y * CELL + CELL * 0.5))
+	return smooth(out)
+
+
+## Pull the grid staircase straight: from each point jump to the furthest later point that a straight,
+## free line reaches without costing more meadow than the steps it replaces. The camera followed every
+## little kink of the staircase, which made slanting walks look choppy.
+func smooth(way: PackedVector2Array) -> PackedVector2Array:
+	if way.size() < 3:
+		return way
+	var out := PackedVector2Array([way[0]])
+	var i := 0
+	while i < way.size() - 1:
+		var best := i + 1
+		var stairs := 0.0
+		for j in range(i + 1, way.size()):
+			stairs += _seg_cost(way[j - 1], way[j])
+			if j > i + 1 and _line_ok(way[i], way[j], stairs * 1.02):
+				best = j
+		out.append(way[best])
+		i = best
 	return out
+
+
+func _seg_cost(a: Vector2, b: Vector2) -> float:
+	return a.distance_to(b) * grid.get_point_weight_scale(cell_of(b))
+
+
+## Free all along, and no dearer than limit.
+func _line_ok(a: Vector2, b: Vector2, limit: float) -> bool:
+	var n := int(ceil(a.distance_to(b) / (CELL * 0.5)))
+	var cost := 0.0
+	var step := a.distance_to(b) / n
+	for k in range(1, n + 1):
+		var c := cell_of(a.lerp(b, float(k) / n))
+		if not is_free(c):
+			return false
+		cost += step * grid.get_point_weight_scale(c)
+	return cost <= limit
 
 
 ## Faster start-up: the generator already wrote one byte per cell (1 = free).
