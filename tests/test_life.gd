@@ -110,4 +110,4 @@ func test_trail_parts_the_poppies_ahead_of_the_feet() -> void:
 	t.update(0.13, Vector2(100, 50), Vector2.RIGHT, true)
 	var newest: Vector2 = t.points[0][0]
 	assert_true(newest.x >= 100.0 + Trail.LEAD - 0.01, "frischester Punkt liegt vor den Füßen")
-	assert_true(Trail.LEAD >= 4.0, "mindestens ein Schritt Vorlauf")
+	assert_between(Trail.LEAD, 2.0, 4.0)   # at his front edge: further reads as an aura

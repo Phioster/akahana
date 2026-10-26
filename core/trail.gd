@@ -5,7 +5,7 @@ extends RefCounted
 const SIZE := 14
 const EVERY := 0.12                  # seconds between remembered points
 const LIFE := 1.6                    # until the lane has closed again
-const LEAD := 6.0                    # px ahead of the feet: the poppies give way before he arrives
+const LEAD := 3.0                    # px ahead of the feet: they give way at his front edge, not before
 
 var points: Array = []               # [Vector2 pos, Vector2 dir, float age]
 var _since := EVERY                  # the first step parts them at once
