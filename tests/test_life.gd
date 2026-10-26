@@ -118,3 +118,10 @@ func test_trail_parts_the_poppies_ahead_of_the_feet() -> void:
 	var newest: Vector2 = t.points[0][0]
 	assert_true(newest.x >= 100.0 + Trail.LEAD - 0.01, "frischester Punkt liegt vor den Füßen")
 	assert_between(Trail.LEAD, 2.0, 4.0)   # at his front edge: further reads as an aura
+
+func test_book_paper_sounds_are_turned_down() -> void:
+	# the book should not sound bigger than the meadow: pages clearly lower, closing a little
+	var b := BookUI.new()
+	assert_true(b.SFX_DB["seite"] <= -5.0, "Blättern abgesenkt")
+	assert_between(b.SFX_DB["buch_zu"], -6.0, -1.0)
+	b.free()

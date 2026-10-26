@@ -269,7 +269,7 @@ func open_in_game() -> void:
 
 
 func close() -> void:
-	_play("buch_zu_%d" % (randi() % 2))
+	_play("buch_zu_0")
 	mode = Mode.CLOSED
 	_apply_mode()
 
@@ -313,7 +313,7 @@ func _camera_on() -> void:
 
 func _start(fresh: bool) -> void:
 	_in_game = true
-	_play("buch_zu_%d" % (randi() % 2))
+	_play("buch_zu_0")
 	mode = Mode.CLOSED
 	_apply_mode()
 	start_walking.emit(fresh)
@@ -381,8 +381,13 @@ func is_blocking() -> bool:
 	return mode in [Mode.START, Mode.MAIN, Mode.SETTINGS]
 
 
+## Paper sounds stay small: the book is a quiet thing in the hand, not an event.
+const SFX_DB := {"seite": -7.0, "buch_zu": -3.0}
+
+
 func _play(name: String) -> void:
 	var s := SoundBank.get_stream(name)
 	if s != null:
 		_sfx.stream = s
+		_sfx.volume_db = SFX_DB.get(name.rsplit("_", true, 1)[0], 0.0)
 		_sfx.play()

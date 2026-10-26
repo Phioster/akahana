@@ -102,12 +102,10 @@ if __name__ == '__main__':
     loop(f'{FS}/521883.ogg', 'schimmer', 0, 10, 0.1, fade=1.5)
     for i, sid in enumerate([484366, 484367, 507265]):
         save(f'vogel_{i}', load(f'{FS}/{sid}.ogg'), 0.12)
-    for i, sid in enumerate([414671, 389633]):
-        save(f'fluegel_{i}', load(f'{FS}/{sid}.ogg'), 0.12)
+    save('fluegel_0', load(f'{FS}/414671.ogg'), 0.12)          # chosen over 389633
     save('glocke', load(f'{FS}/266525.ogg'), 0.1)
     save('frosch', load(f'{FS}/536759.ogg'), 0.12)
     for i, sid in enumerate([484933, 484941, 484949]):
         save(f'seite_{i}', load(f'{FS}/{sid}.ogg'), 0.1)
-    for i, sid in enumerate([484886, 484884]):
-        save(f'buch_zu_{i}', load(f'{FS}/{sid}.ogg'), 0.1)
+    save('buch_zu_0', load(f'{FS}/484886.ogg'), 0.1)           # chosen over 484884
     print('ok', len(glob.glob(os.path.join(OUT, '*.ogg'))), 'Dateien')

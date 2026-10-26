@@ -46,7 +46,8 @@ func _land(f: Dictionary) -> void:
 
 
 func _on_took_off(b: Bird) -> void:
-	_wings.stream = SoundBank.get_stream("fluegel_%d" % (randi() % 2))
+	_wings.stream = SoundBank.get_stream("fluegel_0")
+	_wings.volume_db = -10.0
 	_wings.position = b.position
 	_wings.pitch_scale = randf_range(0.95, 1.1)
 	_wings.play()
