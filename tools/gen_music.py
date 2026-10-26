@@ -4,7 +4,8 @@
 Real recordings, both CC0: a gayageum (Freesound, spt3125, ids 24551-24573) plays sparse plucks, some
 pressed up after the pluck like a koto; a Kawai upright piano (FreePats "Upright Piano KW") carries
 the melody. D miyako-bushi: D Eb G A Bb. Form: koto alone, theme, a still middle part with a steady
-pulse, the theme an octave up, koto fading out (~70 s; the game puts long silences between plays).
+pulse, the theme an octave up, koto fading out (~88 s after the last pass: 15 % slower, a light
+echo; the game puts long silences between plays).
 Sources are read from ~/mohnweg-sounds (gayageum/*.ogg, piano/src/UprightPianoKW*/samples).
 Writes assets/audio/musik.ogg.
 """
@@ -119,7 +120,11 @@ L, R = np.tanh(L * g / 0.8) * 0.8, np.tanh(R * g / 0.8) * 0.8                  #
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 out = os.path.join(ROOT, 'assets', 'audio', 'musik')
 np.stack([L, R], 1).astype(np.float32).tofile(out + '.f32')
+# last pass, the way every piece is finished: 15 % slower (and so lower), a light echo, a soft top
+SLOW = 0.85
 subprocess.run(['ffmpeg', '-v', 'error', '-y', '-f', 'f32le', '-ar', str(SR), '-ac', '2', '-i', out + '.f32',
+                '-af', f'apad=pad_dur=3,asetrate={SR}*{SLOW},aresample={SR},aecho=0.9:0.9:90|210:0.16|0.08,'
+                       'lowpass=f=7000,volume=2dB,alimiter=limit=0.8,areverse,afade=t=in:d=4,areverse',
                 '-c:a', 'libvorbis', '-q:a', '5', out + '.ogg'], check=True)
 os.remove(out + '.f32')
-print('ok', round(LEN, 1), 's; Mittelteil ab', round(starts[m0], 1), '; Wiederkehr ab', round(starts[r0], 1))
+print('ok', round((LEN + 3) / SLOW, 1), 's; Mittelteil ab', round(starts[m0] / SLOW, 1), '; Wiederkehr ab', round(starts[r0] / SLOW, 1))
