@@ -631,3 +631,50 @@ class Kerzen:
             put(img, x + 1, y, WAX[0])
             put(img, x, y - h, FLAME[3])                       # the flame: a bright bead and its tip
             put(img, x, y - h - 1, FLAME[2])
+
+
+class Karren:
+    """An old handcart left by the path: a plank box on two wheels, its shafts resting on the ground,
+    two sacks inside and one leaning against a wheel."""
+    def __init__(s, x, y, seed=12):
+        s.x, s.y, s.seed = x, y, seed
+
+    def box(s):
+        return (s.x - 18, s.y - 14, s.x + 12, s.y + 4)
+
+    def draw(s, img, G):
+        x, y = s.x, s.y
+        g = lambda i, j: G[j % G.shape[0], i % G.shape[1]]
+        shade(img, G, x - 8, y - 1, 11, 3, 0.6)
+        for k in range(10):                                    # the shafts, sloping down to the ground on the left
+            for dy in (0, 4):
+                put(img, x - 9 - k, y - 6 + dy + k // 4, q(WOOD, 0.62 - 0.2 * (dy > 0), g(x - 9 - k, y + dy)))
+        bx0, bx1, top, front = x - 9, x + 9, y - 12, y - 5      # box: its inside seen from above, then the front boards
+        for j in range(top, front):
+            for i in range(bx0, bx1 + 1):
+                rim = j == top or i in (bx0, bx1)
+                v = 0.78 if rim and (j == top or i == bx0) else 0.5 if rim else 0.22 + 0.1 * ((i - bx0) % 4 == 0)
+                put(img, i, j, q(WOOD, v, g(i, j)))
+        for j in range(front, y - 1):
+            for i in range(bx0, bx1 + 1):
+                v = 0.55 - 0.08 * (j - front) + (0.12 if (j - front) == 0 else 0) - 0.15 * ((i - bx0) % 6 == 5)
+                put(img, i, j, q(WOOD, v, g(i, j)))
+        for (sx, sy, r) in [(x - 4, y - 10, 3.0), (x + 3, y - 9, 2.6)]:   # sacks inside, bulging over the rim
+            for j in range(int(sy - r), int(sy + r) + 1):
+                for i in range(int(sx - r - 1), int(sx + r + 2)):
+                    e = ((i - sx) / (r + 0.6)) ** 2 + ((j - sy) / r) ** 2
+                    if e <= 1:
+                        lit = (i - sx) + (j - sy) < -0.5
+                        put(img, i, j, q(SACK, 0.85 if lit else 0.45 - 0.2 * (e > 0.6), g(i, j)))
+            put(img, int(sx), int(sy - r), SACK[1])             # the tied neck
+        for wx in (x - 6, x + 6):                              # wheels: dark rims, a lighter hub, the lower edge in shade
+            for j in range(y - 5, y + 2):
+                for i in range(wx - 2, wx + 3):
+                    e = ((i - wx) / 2.3) ** 2 + ((j - (y - 1.5)) / 3.4) ** 2
+                    if e <= 1:
+                        put(img, i, j, WOOD[0] if e > 0.45 else (WOOD[3] if (i, j) == (wx, y - 2) else WOOD[1]))
+        for j in range(y - 4, y + 2):                          # a third sack leaning on the right wheel
+            for i in range(x + 9, x + 14):
+                e = ((i - x - 11.3) / 2.4) ** 2 + ((j - y + 1) / 3) ** 2
+                if e <= 1:
+                    put(img, i, j, q(SACK, 0.8 if (i - x - 11) + (j - y + 1) < 0 else 0.4, g(i, j)))

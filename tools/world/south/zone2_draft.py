@@ -159,6 +159,7 @@ def render(w, seed=12, raw=False):
     flow = np.clip(0.22 + 0.10 * fbm(NEW, W, 10, 205), 0, 1)
     tone = south_ground.continued_tone(south_ground.tone_of(g1), south_ground.fresh_tone(NEW, W, fog, flow, rng))
     ground = south_ground.ground_from_tone(tone, fog, flow, rng)
+    STASH.update(ground=ground.copy())                         # untinted: zone 3 grows its ground out of this
     dens_all = grass_density()
     dens = dens_all[EXT:]
     t = (np.arange(NEW) / NEW)[:, None, None]
@@ -170,13 +171,11 @@ def render(w, seed=12, raw=False):
     up[bare] = (up * (1 - 0.6 * d1 * np.array([0.12, 0.0, 0.14])) * (1 - 0.38 * d1))[bare]
     free1 = bare | (np.abs(up - h1[Y0 - EXT:, :, :3]).sum(-1) < 1)  # ground or a poppy, no zone-1 thing
     img[Y0:] = ground
-    STASH.update(ground=ground.copy())
 
     # the two trails run on south; between them the new cross path with the lantern at its fork
-    trail_a = [(322, 680), (360, 760), (350, 840), (336, 930), (318, 1040), (300, H + 12)]
-    trail_b = [(775, 700), (790, 760), (762, 860), (722, 960), (684, 1060), (652, H + 12)]
+    trail_a, trail_b = TRAIL_A, TRAIL_B
     cross = [(340, 912), (450, 926), (560, 936), (650, 944), (735, 958)]
-    south = [(560, 936), (548, 1010), (532, 1090), (520, H + 12)]   # down to the spring in zone 3
+    south = TRAIL_S
     prng = np.random.default_rng(93)
     path = np.zeros((H, W), bool)
     for pts in (trail_a, trail_b, cross, south):
@@ -257,11 +256,12 @@ def render(w, seed=12, raw=False):
         blocked[Y(y) - 3:Y(y) + 1, x - 1:x + 2] = True
 
     # the tall-grass field
+    path_wide = ndi.binary_dilation(path, iterations=2)          # leaning stalks would cover a narrow path
     blades = []
     for _ in range(int(W * (NEW + EXT) / 8.5)):
         x, y = rng.uniform(14, W - 14), rng.uniform(-EXT, NEW)   # feet in this zone only: zone 3 grows its own
         yi = min(int(y), NEW - 1)
-        if rng.random() > dens_all[yi + EXT, int(x)] or path[min(Y(int(y)), H - 1), int(x)]:
+        if rng.random() > dens_all[yi + EXT, int(x)] or path_wide[min(Y(int(y)), H - 1), int(x)]:
             continue
         if y < 0 and not free1[int(y) + EXT - 13:int(y) + EXT + 1, int(x) - 1:int(x) + 3].all():
             continue                                           # up in zone 1: only on open meadow
@@ -293,6 +293,13 @@ def render(w, seed=12, raw=False):
 
 
 STASH = {}                                   # zone 2's ground of the last render, for the zone below
+# the trails run on through zone 3 as one line each (two separate splines met in a little fork at the seam)
+TRAIL_A = [(322, 680), (360, 760), (350, 840), (336, 930), (318, 1040), (300, 1172), (270, 1250), (240, 1360),
+           (270, 1460), (230, 1580), (260, 1680), (330, 1772)]
+TRAIL_B = [(775, 700), (790, 760), (762, 860), (722, 960), (684, 1060), (652, 1172), (690, 1270), (720, 1380),
+           (770, 1480), (800, 1580), (770, 1680), (730, 1772)]
+TRAIL_S = [(560, 936), (548, 1010), (532, 1090), (520, 1172), (560, 1220), (612, 1280), (616, 1360), (570, 1480),
+           (505, 1580), (472, 1680), (468, 1772)]   # past the spring down to the lake
 # fireflies by the bench, the trees, a boulder and over the grass
 SWARMS = [Swarm(250, Y0 + 180, 10, 11), Swarm(600, Y0 + 270, 9, 12), Swarm(800, Y0 + 350, 9, 13),
           Swarm(120, Y0 + 330, 8, 14), Swarm(470, Y0 + 90, 8, 15)]

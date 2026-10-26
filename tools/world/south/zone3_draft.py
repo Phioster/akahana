@@ -24,7 +24,7 @@ import mood_map  # noqa: E402
 import zone2_draft as z2  # noqa: E402
 from zone1_draft import Fir, W  # noqa: E402
 from zone2_draft import Blade, fbm  # noqa: E402
-from objects_south import Findling  # noqa: E402
+from objects_south import Findling, Karren  # noqa: E402
 import objects_water as o  # noqa: E402
 import ground as south_ground  # noqa: E402
 from fireflies import Swarm  # noqa: E402
@@ -59,10 +59,8 @@ def layout():
     CC = meander([(14, 360), (70, 390), tuple(CA[150])], 2.5, 9, 120)
     fine = lambda c: curve(c[::2] if len(c) > 200 else c, 900)
     brooks = {'A': (fine(CA), 12, 17), 'Q': (fine(CQ), 8, 11), 'B': (fine(CB), 9, 13), 'C': (fine(CC), 5, 7)}
-    trails = {'west': [(300, -14), (270, 90), (240, 200), (270, 300), (230, 420), (260, 520), (330, 612)],
-              'ost': [(652, -14), (690, 110), (720, 220), (770, 320), (800, 420), (770, 520), (730, 612)],
-              'mitte': [(520, -14), (560, 60), (612, 120), (616, 200), (570, 320), (505, 420), (472, 520),
-                        (468, 612)],
+    zone = lambda pts: [(x, y - Y3) for x, y in pts]
+    trails = {'west': zone(z2.TRAIL_A), 'ost': zone(z2.TRAIL_B), 'mitte': zone(z2.TRAIL_S),
               'q1': [(255, 250), (330, 262), (420, 250), (520, 236), (614, 214)],
               'weide': [(268, 150), (200, 156), (130, 168), (62, 160)],
               'q3': [(250, 490), (330, 505), (400, 515), (476, 512)]}
@@ -134,7 +132,7 @@ def render(w, seed=21):
     cr = crossings(brooks, trails)
     things = [kind(x, Y(y), ang, wd) for kind, x, y, ang, wd in cr]
     QUELLE = o.Quelle(566, Y(128))
-    things += [QUELLE, Holzlaterne(594, Y(112))]
+    things += [QUELLE, Holzlaterne(594, Y(112)), Karren(550, Y(268))]
     wa, wb = on_bank(brooks['A'][0], 180, -26), on_bank(brooks['B'][0], 600, -24)
     things += [o.Weide(int(wa[0]), Y(wa[1]), seed=4, size=1.45, lean=5), o.Weide(int(wb[0]), Y(wb[1]), seed=9, size=1.3, lean=-4)]
     things += [Findling(400, Y(90), 7, 31), Findling(80, Y(460), 8, 32), Findling(860, Y(470), 6, 33),
@@ -173,7 +171,7 @@ def render(w, seed=21):
     keep_off = np.zeros((H, W), bool)
     wet = np.zeros((H, W), bool)
     wet[Y3:] = ndi.binary_dilation(water.mask, iterations=3)
-    keep_off |= path | wet
+    keep_off |= ndi.binary_dilation(path, iterations=2) | wet      # leaning stalks would cover a narrow path
     # a stalk stands on its foot and grows up to 13 px: none whose foot is just below water or a low thing
     low = wet.copy()
     for t_ in things:
@@ -187,7 +185,7 @@ def render(w, seed=21):
         if isinstance(t_, o.Quelle):
             x0, y0, x1, y1 = x0 - 5, y0 - 3, x1 + 5, y1 + 3                  # a little clearing round the spring
             keep_off[max(0, y0):y1, max(0, x0):x1] = True
-        if isinstance(t_, (o.Quelle, o.Bruecke, o.Brett, o.Trittsteine, Findling, o.Weide)):
+        if isinstance(t_, (o.Quelle, o.Bruecke, o.Brett, o.Trittsteine, Findling, o.Weide, Karren)):
             low[max(0, y0):max(0, y1), max(0, x0):max(0, x1)] = True
     shadow_of_low = low.copy()                                   # the 12 rows below each
     for k in range(1, 13):
