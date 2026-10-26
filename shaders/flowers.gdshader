@@ -9,6 +9,7 @@ const float R1 = 13.0;                // ... at its far end
 const float PUSH = 4.0;               // most a flower nods aside, in whole pixels
 
 uniform vec2 tex_size;
+uniform vec2 origin;                  // world position of this picture's top-left texel (chunk minus apron)
 uniform vec4 trail[24];               // x, y, walking direction x, y
 uniform float trail_k[24];            // 1 just stepped .. 0 swung back (linear in time)
 
@@ -29,7 +30,7 @@ float vnoise(vec2 q) {
 }
 
 void fragment() {
-	vec2 p = floor(UV * tex_size);
+	vec2 p = origin + floor(UV * tex_size);              // world pixel: wind and trail line up across chunks
 	float ph = 6.2831853 * TIME / 8.0;
 	// gusts are drifting patches of noise, not bands: straight waves read as lines laid over the field
 	vec2 q = vec2(p.x / 70.0 - 0.0455 * TIME, p.y / 45.0 - 0.078 * TIME);
@@ -67,6 +68,6 @@ void fragment() {
 		trampled = abs(bo) < 1.0 && h < 0.5 * ease;        // here and there one bent under his feet
 		src = p - bn * sign(bo) * off;
 	}
-	vec4 c = texture(TEXTURE, (floor(src) - vec2(dx, 0.0) + 0.5) / tex_size);
+	vec4 c = texture(TEXTURE, (floor(src) - vec2(dx, 0.0) - origin + 0.5) / tex_size);
 	COLOR = trampled ? vec4(0.0) : c;
 }

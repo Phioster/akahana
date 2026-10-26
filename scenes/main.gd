@@ -15,8 +15,8 @@ var pathing := Pathing.new()
 var player: Player
 var cam: Camera2D
 var post: ShaderMaterial
-var fmat: ShaderMaterial
-var animated: Array = []             # [Sprite2D, frames, fps]
+var store: ChunkStore
+var view_node: WorldView
 var marker: TapMarker
 var book: BookUI
 var save := SaveData.new()
@@ -41,27 +41,16 @@ func _ready() -> void:
 	save = SaveData.load_from()
 	AudioSetup.apply(save)
 
-	add_child(_flat("res://assets/world/ground.png"))
-	var flowers := _flat("res://assets/world/flowers.png")
-	fmat = ShaderMaterial.new()
-	fmat.shader = load("res://shaders/flowers.gdshader")
-	fmat.set_shader_parameter("tex_size", Vector2(world.width, world.height))
-	flowers.material = fmat
-	add_child(flowers)
-
+	store = ChunkStore.new(world.grid)
+	view_node = WorldView.new()
+	view_node.world = world
+	view_node.store = store
+	add_child(view_node)
 	sorted = Node2D.new()
 	sorted.y_sort_enabled = true
 	add_child(sorted)
-	for s in world.sprites:
-		var sp := Sprite2D.new()
-		sp.texture = TextureLoader.load_texture("res://assets/world/sprites/%s.png" % s["name"])
-		sp.centered = false
-		sp.hframes = int(s["frames"])
-		sp.position = Vector2(float(s["x"]), float(s["foot"]))
-		sp.offset = Vector2(0, float(s["y"]) - float(s["foot"]))
-		sorted.add_child(sp)
-		if int(s["frames"]) > 1:
-			animated.append([sp, int(s["frames"]), float(s["fps"])])
+	view_node.sorted = sorted
+	view_node.load_around(_start_position())
 
 	player = Player.new()
 	player.position = _start_position()
@@ -137,13 +126,6 @@ func _start_position() -> Vector2:
 	if save.has_position and world.is_walkable(save.position):
 		return save.position
 	return world.start
-
-
-func _flat(path: String) -> Sprite2D:
-	var sp := Sprite2D.new()
-	sp.texture = TextureLoader.load_texture(path)
-	sp.centered = false
-	return sp
 
 
 # ---------------------------------------------------------------- journal and saving
@@ -235,14 +217,11 @@ func _process(delta: float) -> void:
 	if world == null:
 		return
 	_time += delta
-	for a in animated:
-		a[0].frame = int(_time * a[2]) % a[1]
 	var moved := player.position - _last_pos
 	trail.update(delta, player.position, moved, player.is_walking())
 	_last_pos = player.position
 	var u: Array = trail.uniforms()
-	fmat.set_shader_parameter("trail", u[0])
-	fmat.set_shader_parameter("trail_k", u[1])
+	view_node.set_trail(u[0], u[1])
 
 	var view := get_viewport().get_visible_rect().size
 	var c := player.position + _cam_offset                # no rounding: the camera glides in screen pixels
@@ -270,6 +249,7 @@ func _process(delta: float) -> void:
 	var top_left := get_viewport().get_canvas_transform().affine_inverse() * Vector2.ZERO
 	post.set_shader_parameter("view_world", view)
 	post.set_shader_parameter("cam_pos", top_left)
+	view_node.update(Rect2(top_left, view))
 	_feed_lights(Rect2(top_left, view))
 
 	_save_in -= delta

@@ -103,3 +103,42 @@ func test_clear_drops_everything() -> void:
 	assert_eq(a.active_count(), 5)
 	a.clear()
 	assert_eq(a.active_count(), 0)
+
+func _view(at: Rect2) -> WorldView:
+	var tree := Engine.get_main_loop() as SceneTree
+	var v := WorldView.new()
+	v.world = WorldData.load_default()
+	v.store = ChunkStore.new(v.world.grid)
+	v.sorted = Node2D.new()
+	tree.root.add_child(v)
+	v.add_child(v.sorted)
+	var t := Time.get_ticks_msec()
+	while Time.get_ticks_msec() - t < 4000:
+		v.update(at)
+		if v.chunk_nodes() >= v.wanted_count():
+			break
+		OS.delay_msec(10)
+	return v
+
+func test_view_loads_only_what_the_camera_needs() -> void:
+	var v := _view(Rect2(180, 400, 180, 400))
+	assert_true(v.chunk_nodes() > 0, "etwas geladen")
+	assert_true(v.chunk_nodes() <= 12, "höchstens 3×4 Kacheln: %d" % v.chunk_nodes())
+	v.queue_free()
+
+func test_objects_appear_only_near_the_view() -> void:
+	var at := Rect2(180, 400, 180, 400)
+	var v := _view(at)
+	var expect := 0
+	for s in v.world.sprites:
+		var r := Rect2(float(s["x"]), float(s["y"]), float(s["w"]), float(s["h"]))
+		if Activator._gap(r, at) < 40.0:
+			expect += 1
+	assert_eq(v.object_nodes(), expect)
+	assert_true(expect < v.world.sprites.size(), "nicht alle Objekte")
+	v.queue_free()
+
+func test_flower_shader_reads_world_coordinates() -> void:
+	var code: String = (load("res://shaders/flowers.gdshader") as Shader).code
+	assert_true(code.contains("uniform vec2 origin"))
+	assert_true(code.contains("origin + floor(UV * tex_size)"))
