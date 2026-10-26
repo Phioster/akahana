@@ -418,3 +418,22 @@ func test_small_side_steps_leave_the_view_still() -> void:
 		m._process(1.0 / 60.0)
 	assert_true(m.cam.position.x > before.x + 15.0, "folgt bei echtem Laufen")
 	m.queue_free()
+
+func test_the_view_comes_to_rest_on_a_whole_pixel() -> void:
+	# resting between two art pixels, the post shader read right on their border and the whole picture
+	# smeared until you walked on
+	var tree := Engine.get_main_loop() as SceneTree
+	var m: Node2D = load("res://scenes/main.gd").new()
+	tree.root.add_child(m)
+	await tree.process_frame
+	if m.world == null:
+		m.queue_free()
+		return
+	m.player.position += Vector2(-27.5, 0)
+	for i in 240:
+		m._process(1.0 / 60.0)
+	var c: Vector2 = m.cam.position
+	assert_true(c == c.round(), "Kamera ruht auf %s" % c)
+	var tl: Vector2 = m.post.get_shader_parameter("cam_pos")
+	assert_true(tl == tl.round(), "Shader-Ecke %s" % tl)
+	m.queue_free()
