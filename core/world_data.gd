@@ -16,7 +16,9 @@ var brook: Array = []                # points along the stream, for its sound an
 var birds: Array = []                # open spots where small birds land
 var wisps: Array = []                # where the will-o'-the-wisps live
 var fire := {}
-var walk := PackedByteArray()        # one byte per art pixel, 1 = walkable
+var walk := PackedByteArray()        # one byte per art pixel, 1 = walkable (until the chunks take over)
+var chunks := Vector2i.ZERO          # how many chunks across and down
+var grid: ChunkGrid
 
 
 static func load_default() -> WorldData:
@@ -37,6 +39,12 @@ static func load_default() -> WorldData:
 	d.birds = j.get("birds", [])
 	d.wisps = j.get("wisps", [])
 	d.fire = j.get("fire", {})
+	var cs: Array = j.get("chunks", [0, 0])
+	d.chunks = Vector2i(int(cs[0]), int(cs[1]))
+	d.grid = ChunkGrid.new(d.chunks.x, d.chunks.y)
+	var size: Array = j.get("chunk", [ChunkGrid.SIZE.x, ChunkGrid.SIZE.y])
+	if Vector2i(int(size[0]), int(size[1])) != ChunkGrid.SIZE:
+		push_error("world.json: Kachelgröße passt nicht zu ChunkGrid.SIZE")
 	var w := FileAccess.open(DIR + "walk.bin", FileAccess.READ)
 	if w == null:
 		push_error("walk.bin fehlt")
