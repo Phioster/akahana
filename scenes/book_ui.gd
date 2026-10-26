@@ -15,6 +15,7 @@ const FAINT := Color(120 / 255.0, 112 / 255.0, 100 / 255.0)
 const CHALK := Color(236 / 255.0, 230 / 255.0, 216 / 255.0)
 const BRASS := Color(186 / 255.0, 150 / 255.0, 84 / 255.0)
 const UI := "res://assets/ui/"
+const PAPER_RIGHT := 144.0          # where the paper of buch_seite ends; the leather beyond hides dark text
 
 var mode := Mode.START
 var has_save := false
@@ -37,6 +38,7 @@ func _ready() -> void:
 	layer = 20
 	_root = Control.new()
 	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE   # only a container: taps must reach the world
 	add_child(_root)
 	_dim = ColorRect.new()
 	_dim.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -160,6 +162,11 @@ func _layout() -> void:
 
 # ---------------------------------------------------------------- pages
 
+## Right edge for text inside _content: the paper's edge less a small margin.
+func _text_right() -> float:
+	return PAPER_RIGHT - _content.position.x - 4.0
+
+
 func _clear() -> void:
 	for c in _content.get_children():
 		c.queue_free()
@@ -232,7 +239,9 @@ func _show_main() -> void:
 	poppy.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_content.add_child(poppy)
 	var tag := _label("ein Spaziergang im Mohn", 16, FAINT)
-	tag.position = Vector2(0, 176)
+	tag.autowrap_mode = TextServer.AUTOWRAP_WORD          # too wide for one line in the hand
+	tag.size = Vector2(_text_right(), 0)
+	tag.position = Vector2(0, 160)
 	_content.add_child(tag)
 
 
@@ -245,7 +254,10 @@ func _show_settings() -> void:
 	if _in_game:
 		y = _entry(0, "Kameramodus", y, _camera_on)
 		y = _entry(1, "zum Hauptmenü", y, _to_start)
-		_entry(2, "weiterlaufen", 172, close, 44)
+		var probe := _label("weiterlaufen", 16, GRAPHITE)
+		var w := probe.get_minimum_size().x
+		probe.free()
+		_entry(2, "weiterlaufen", 172, close, _text_right() - 13 - w)   # flush right, inside the paper
 	else:
 		_entry(3, "zurück", 172, func(): _turn_to(Mode.MAIN), 44)
 

@@ -124,3 +124,41 @@ func test_book_paper_sounds_are_turned_down() -> void:
 	var b := BookUI.new()
 	assert_true(b.SFX_DB["seite"] <= -5.0, "Blättern abgesenkt")
 	b.free()
+
+func test_closed_book_lets_taps_through_to_the_world() -> void:
+	# with the book closed only its small button may catch a touch - everything else must reach the meadow
+	var tree := Engine.get_main_loop() as SceneTree
+	var b := BookUI.new()
+	tree.root.add_child(b)
+	b.show_start(false)
+	b._start(false)
+	var catching: Array = []
+	var stack: Array = [b]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		stack.append_array(n.get_children())
+		if n is Control and n.is_visible_in_tree() and n.mouse_filter != Control.MOUSE_FILTER_IGNORE and not (n is TextureButton):
+			catching.append(n.name)
+	assert_eq(catching, [], "fängt Tipps ab")
+	b.queue_free()
+
+func test_book_text_stays_on_the_page() -> void:
+	# every handwritten line must end before the page's right edge, in every page of the book
+	var tree := Engine.get_main_loop() as SceneTree
+	var b := BookUI.new()
+	tree.root.add_child(b)
+	var page_w: float = BookUI.PAPER_RIGHT - b._content.position.x - 4.0   # the paper, not the leather
+	var setups := [
+		func(): b.has_save = false; b.show_start(false); b.mode = BookUI.Mode.MAIN; b._apply_mode(),
+		func(): b.has_save = true; b.show_start(true); b.mode = BookUI.Mode.MAIN; b._apply_mode(),
+		func(): b._in_game = true; b.mode = BookUI.Mode.MAIN; b._apply_mode(),
+		func(): b._in_game = true; b.mode = BookUI.Mode.SETTINGS; b._apply_mode(),
+		func(): b._in_game = false; b.mode = BookUI.Mode.SETTINGS; b._apply_mode(),
+	]
+	for i in setups.size():
+		setups[i].call()
+		for c in b._content.get_children():
+			if c is Label and not c.is_queued_for_deletion():
+				var w: float = c.size.x if c.autowrap_mode != TextServer.AUTOWRAP_OFF else c.get_minimum_size().x
+				assert_true(c.position.x + w <= page_w + 0.5, "Seite %d: '%s' endet bei %.0f > %.0f" % [i, c.text, c.position.x + w, page_w])
+	b.queue_free()

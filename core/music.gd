@@ -20,7 +20,7 @@ func _ready() -> void:
 		stream.loop = false
 	_p = AudioStreamPlayer.new()
 	_p.stream = stream
-	_p.volume_db = -6.0
+	_p.volume_db = -9.0                  # under the meadow, not on top of it
 	_p.bus = AudioSetup.MUSIC
 	add_child(_p)
 	_p.finished.connect(func(): _wait = randf_range(PAUSE_MIN, PAUSE_MAX))

@@ -16,11 +16,26 @@ float hash(vec2 p) {
 	return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
 }
 
+float hash2(vec2 i) {
+	return fract(sin(i.x * 127.1 + i.y * 311.7) * 43758.5453);
+}
+
+float vnoise(vec2 q) {
+	vec2 i = floor(q);
+	vec2 f = q - i;
+	vec2 u = f * f * (3.0 - 2.0 * f);
+	float a = hash2(i), b = hash2(i + vec2(1.0, 0.0)), c = hash2(i + vec2(0.0, 1.0)), d = hash2(i + vec2(1.0, 1.0));
+	return a + (b - a) * u.x + (c - a) * u.y + (a - b - c + d) * u.x * u.y;
+}
+
 void fragment() {
 	vec2 p = floor(UV * tex_size);
 	float ph = 6.2831853 * TIME / 8.0;
-	float g = max(sin(6.2831853 * (p.x * 0.6 + p.y) / 170.0 - 2.0 * ph), 0.0);
-	float w = 1.4 * g * g + 0.4 * sin(3.0 * ph + p.x * 0.11 + p.y * 0.07);
+	// gusts are drifting patches of noise, not bands: straight waves read as lines laid over the field
+	vec2 q = vec2(p.x / 70.0 - 0.035 * TIME, p.y / 45.0 - 0.06 * TIME);
+	float n = vnoise(q) * 0.65 + vnoise(q * 2.3 + vec2(17.0, 5.0)) * 0.35;
+	float g = smoothstep(0.5, 0.85, n);
+	float w = 1.6 * g + 0.35 * sin(3.0 * ph + 6.2832 * vnoise(p / 23.0 + vec2(3.1, 8.7)));
 	float dx = floor(w + 0.5);
 
 	float best = 0.0;
