@@ -178,16 +178,16 @@ def render(w, seed=21):
     low = wet.copy()
     for t_ in things:
         x0, y0, x1, y1 = t_.box()
-        if isinstance(t_, (o.Weide,)):
-            x0, y0 = t_.x - 6, t_.y - 4                          # only round the trunk
-            x1, y1 = t_.x + 7, t_.y + 3
+        if isinstance(t_, (o.Weide,)):                           # under the willow the grass stays short:
+            x0, y0 = t_.x - int(16 * t_.size), t_.y - 16           # its curtain reaches nearly to the ground
+            x1, y1 = t_.x + int(20 * t_.size), t_.y + 3
         if isinstance(t_, (o.Schilf, o.Rohrkolben, o.Farn)):
             y0 = y1 - 2
         keep_off[max(0, y0):max(0, y1), max(0, x0):max(0, x1)] = True
         if isinstance(t_, o.Quelle):
             x0, y0, x1, y1 = x0 - 5, y0 - 3, x1 + 5, y1 + 3                  # a little clearing round the spring
             keep_off[max(0, y0):y1, max(0, x0):x1] = True
-        if isinstance(t_, (o.Quelle, o.Bruecke, o.Brett, o.Trittsteine, Findling)):
+        if isinstance(t_, (o.Quelle, o.Bruecke, o.Brett, o.Trittsteine, Findling, o.Weide)):
             low[max(0, y0):max(0, y1), max(0, x0):max(0, x1)] = True
     shadow_of_low = low.copy()                                   # the 12 rows below each
     for k in range(1, 13):

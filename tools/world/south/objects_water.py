@@ -151,18 +151,23 @@ class Trittsteine:
     def draw(s, img, G):
         rng = np.random.default_rng(s.seed)
         g = lambda i, j: G[j % G.shape[0], i % G.shape[1]]
-        n = max(2, int(round(s.L / 6)))
+        n = max(2, int(round(s.L / 7)))                            # with water between them
         ca, sa = np.cos(s.ang), np.sin(s.ang)
         for k in range(n):
             u = -s.L / 2 + (k + 0.5) * s.L / n + rng.uniform(-0.6, 0.6)
             cx, cy = s.x + ca * u + rng.uniform(-0.8, 0.8), s.y + sa * u
-            rx, ry = rng.uniform(2.8, 3.5), rng.uniform(1.9, 2.4)
+            rx, ry = rng.uniform(2.6, 3.0), rng.uniform(2.2, 2.6)        # round, not flat slabs
             for j in range(int(cy - 5), int(cy + 6)):
                 for i in range(int(cx - 6), int(cx + 7)):
                     e = ((i - cx) / rx) ** 2 + ((j - cy) / ry) ** 2
                     if e <= 1:
                         lit = (i - cx) + (j - cy) * 1.3 < -0.5
-                        put(img, i, j, q(STONE, (0.95 if lit else 0.68) - 0.3 * (j > cy + 0.6), g(i, j)))
+                        c = q(STONE, (0.98 if lit else 0.7) - 0.35 * (j > cy + 0.6), g(i, j))
+                        if lit and e < 0.35:
+                            c = hx('#c4bfb6')                    # wet shine on top
+                        put(img, i, j, c)
+                    elif e <= 1.5 and j >= cy - 0.5:
+                        put(img, i, j, STONE[0])                 # the wet, dark foot of the stone
                     elif e <= 1.9 and j > cy and g(i, j) < 0.5:
                         put(img, i, j, hx('#7f989c'))          # ripples round the stone
 
