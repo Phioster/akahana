@@ -182,6 +182,7 @@ def render(w, seed=12, raw=False):
         pm, pc, pd_, pw_ = extras.path_mask(H, W, pts, prng)
         path |= pm                                             # (zone 1's part too: no grass on it)
         pm[:Y0 - 6] = False                                    # zone 1 drew its own part already
+        pc[:Y0 - 6] = False
         extras.draw_path(img, pm, pc, pd_, pw_, prng)
 
     Y = lambda y: Y0 + y                                       # zone rows to canvas rows

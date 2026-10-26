@@ -124,6 +124,7 @@ def render(w, seed=21):
     for k, pts in trails.items():
         pm, pc, pd_, pw_ = extras.path_mask(H, W, [(x, Y3 + y) for x, y in pts], prng)
         pm[:Y3 - 4] = False
+        pc[:Y3 - 4] = False                                    # its middle too: zone 2 is finished up there
         extras.draw_path(img, pm, pc, pd_, pw_, prng)
         path |= pm
     water.y0 = Y3
