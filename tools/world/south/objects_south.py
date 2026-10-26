@@ -571,3 +571,63 @@ class Kirschbaum:
             i, j = int(s.x + r * np.cos(a)), int(s.y + r * np.sin(a) * 0.6 + 4)
             if 0 <= j < img.shape[0] and 0 <= i < img.shape[1]:
                 img[j, i] = PKc[rng.integers(0, 2)]
+
+
+FLAME = [hx(c) for c in ['#c2541e', '#f08a2a', '#ffc85a', '#fff0b0']]        # deep .. white hot
+WAX = [hx(c) for c in ['#a89f8c', '#cfc6b0', '#ebe4d0']]
+
+
+class Fackel:
+    """A torch on a stick pushed into the ground: a wrapped head, a small flickering flame (one frame
+    here; in the game it flickers like the lanterns)."""
+    def __init__(s, x, y, t=0.0):
+        s.x, s.y, s.t = x, y, t
+
+    def box(s):
+        return (s.x - 3, s.y - 18, s.x + 5, s.y + 3)
+
+    def lights(s):
+        return [{'x': s.x + 0.5, 'y': s.y - 14.5, 'r': 30.0, 'k': 0.75, 'kind': 'wood'}]
+
+    def draw(s, img, G):
+        x, y = s.x, s.y
+        g = lambda i, j: G[j % G.shape[0], i % G.shape[1]]
+        _cast(img, G, [(x, y - d) for d in range(4)], dx=2)
+        for j in range(y - 12, y + 1):                         # the stick
+            put(img, x, j, q(WOOD, 0.7, g(x, j)))
+            put(img, x + 1, j, q(WOOD, 0.3, g(x + 1, j)))
+        for j in (y - 14, y - 13):                             # the wrapped, sooty head
+            for i in (x - 1, x, x + 1, x + 2):
+                put(img, i, j, BARK[1] if (i + j) % 2 else BARK[2])
+        rng = np.random.default_rng(int(s.t * 8) + x)
+        for (i, j, c) in [(0, -15, 3), (1, -15, 2), (-1, -15, 1), (2, -15, 1), (0, -16, 2), (1, -16, 2),
+                          (0, -17, 1), (1, -18, 0)]:
+            if rng.random() < 0.9 or c >= 2:
+                put(img, x + i + (rng.random() < 0.2), y + j, FLAME[c])
+
+
+class Kerzen:
+    """A few candle stubs set down somewhere quiet, as a small offering."""
+    def __init__(s, pts, seed=9, on=None):
+        s.pts, s.seed = pts, seed
+        s.order = on.box()[3] + 1 if on is not None else None   # standing on something: drawn after it
+
+    def box(s):
+        xs = [p[0] for p in s.pts]
+        ys = [p[1] for p in s.pts]
+        return (min(xs) - 2, min(ys) - 6, max(xs) + 3, max(ys) + 2)
+
+    def lights(s):
+        cx = sum(p[0] for p in s.pts) / len(s.pts)
+        cy = sum(p[1] for p in s.pts) / len(s.pts)
+        return [{'x': cx + 0.5, 'y': cy - 2.5, 'r': 16.0, 'k': 0.55, 'kind': 'candle'}]
+
+    def draw(s, img, G):
+        rng = np.random.default_rng(s.seed)
+        for (x, y) in s.pts:
+            h = int(rng.integers(2, 4))
+            for d in range(h):
+                put(img, x, y - d, WAX[2] if d == h - 1 else WAX[1])
+            put(img, x + 1, y, WAX[0])
+            put(img, x, y - h, FLAME[3])                       # the flame: a bright bead and its tip
+            put(img, x, y - h - 1, FLAME[2])

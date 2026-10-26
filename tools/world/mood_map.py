@@ -20,8 +20,8 @@ D = os.path.join(ROOT, 'build', 'world_full')
 LCOL = np.array([1.0, 0.62, 0.30])
 WCOL = np.array([1.0, 0.58, 0.26])
 MIST = np.array([214.0, 214.0, 212.0])
-KIND = {'fire': 0, 'lantern': 1, 'wood': 2, 'candle': 3, 'wisp': 4}
-GLOW = {'fire': 40.0, 'lantern': 6.0, 'wood': 8.0, 'candle': 4.0, 'wisp': 4.0}
+KIND = {'fire': 0, 'lantern': 1, 'wood': 2, 'candle': 3, 'wisp': 4, 'firefly': 3}
+GLOW = {'fire': 40.0, 'lantern': 6.0, 'wood': 8.0, 'candle': 4.0, 'wisp': 4.0, 'firefly': 0.6}
 BAYER = np.array([[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]) + 0.5
 BAYER /= 16.0
 

@@ -21,8 +21,9 @@ import extras  # noqa: E402
 from berg_objects import Pine  # noqa: E402
 import mood_map  # noqa: E402
 from objects_south import (Wegstein, Mauer, Vogelscheuche, Findling, Steinhaufen, Baumstumpf, Stamm,  # noqa: E402
-                           Zaun, HohesGras, Voegel, Kirschbaum)
+                           Zaun, HohesGras, Voegel, Kirschbaum, Fackel, Kerzen)
 import ground as south_ground  # noqa: E402
+from fireflies import Swarm  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(HERE, '..', '..', '..'))
 W, OLD_W, OLD_H = 900, 540, 1200
@@ -128,7 +129,7 @@ def field(rng):
     return fog, flow
 
 
-def render(kind, w, seed=7):
+def render(kind, w, seed=7, raw=False):
     rng = np.random.default_rng(seed)
     field6.HEADS[:] = field6.make_heads(np.random.default_rng(31))
     Hc = CTX + NEW
@@ -170,12 +171,16 @@ def render(kind, w, seed=7):
     things = [Wegstein(306, CTX + 146, kind), Vogelscheuche(612, CTX + 330, kind),
               Mauer([(110, CTX + 300), (140, CTX + 296), (172, CTX + 304), (205, CTX + 318), (226, CTX + 336)])]
     # small things to stop and look at, so almost every screen has one
+    STUMP = Baumstumpf(520, CTX + 110)
     things += [Findling(80, CTX + 120, 9, 11), Findling(830, CTX + 520, 7, 12), Steinhaufen(440, CTX + 300),
-               Baumstumpf(520, CTX + 110), Baumstumpf(130, CTX + 560, 4), Stamm(690, CTX + 168, 724, CTX + 182),
+               STUMP, Baumstumpf(130, CTX + 560, 4), Stamm(690, CTX + 168, 724, CTX + 182),
                Zaun([(380, CTX + 460), (398, CTX + 466), (416, CTX + 471), (434, CTX + 478), (452, CTX + 484),
                      (470, CTX + 490)]),
                Voegel(200, CTX + 420), Voegel(640, CTX + 110), Voegel(840, CTX + 380),
-               Kirschbaum(522, CTX + 462)]
+               Kirschbaum(522, CTX + 462),
+               Fackel(290, CTX + 150),                                       # a torch at the fork
+               Kerzen([(517, CTX + 104), (520, CTX + 103), (523, CTX + 105)], 9, STUMP),   # candles on the stump
+               Kerzen([(229, CTX + 338), (233, CTX + 340)], 10)]                 # and at the wall's end
     things += [HohesGras(x, CTX + y, int(rng.integers(8, 14)), int(rng.integers(0, 999))) for x, y in
                [(150, 200), (250, 470), (560, 420), (760, 290), (860, 140), (60, 520), (680, 560), (470, 120),
                 (590, 250)]]
@@ -243,7 +248,7 @@ def render(kind, w, seed=7):
         firs.append(Fir(fx, fy, max(h, 30),
                         int(rng.integers(0, 10 ** 6))))
     draw_sprites(img, [s_ for s_ in osprites if s_ not in cut], -(OLD_H - CTX))   # the camp, unchanged
-    for t in sorted(things + firs, key=lambda t: t.box()[3] if hasattr(t, 'box') else t.p.y):
+    for t in sorted(things + firs, key=lambda t: (getattr(t, 'order', None) or t.box()[3]) if hasattr(t, 'box') else t.p.y):
         if isinstance(t, Fir):
             t.draw(img)
         else:
@@ -251,7 +256,21 @@ def render(kind, w, seed=7):
 
     lights = [dict(l, y=l['y'] - (OLD_H - CTX)) for l in w['lights']]
     fake = dict(w, lights=lights, wisps=[])
-    return mood_map.mood(np.clip(img, 0, 255), fake, 2.0)
+    lit = [l for t in things if hasattr(t, 'lights') for l in t.lights()]
+    LIT[:] = lit
+    if raw:
+        return np.clip(img, 0, 255), fake
+    out = mood_map.mood(np.clip(img, 0, 255), dict(fake, lights=lights + lit + [l for s_ in SWARMS for l in s_.lights(2.0)]), 2.0)
+    out = out.astype(float)
+    for s_ in SWARMS:
+        s_.draw(out, 2.0)
+    return out.astype(np.uint8)
+
+
+LIT = []                                     # the lights of torches and candles, for the animation
+# fireflies over the quiet spots: by the cherry tree, the fence, the log, a boulder, the scarecrow, the wall
+SWARMS = [Swarm(510, CTX + 478, 12, 1), Swarm(430, CTX + 455, 8, 2), Swarm(705, CTX + 160, 9, 3),
+          Swarm(835, CTX + 500, 8, 4), Swarm(640, CTX + 320, 8, 5), Swarm(150, CTX + 285, 10, 6)]
 
 
 if __name__ == '__main__':
