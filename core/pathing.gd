@@ -3,6 +3,7 @@ class_name Pathing
 extends RefCounted
 
 const CELL := 2
+const OFF_PATH := 3.0                # grass and snow cost this much more than paths, bridges, stones
 
 var grid := AStarGrid2D.new()
 var cols := 0
@@ -86,3 +87,15 @@ func build_cells(cells: PackedByteArray, c: int, r: int) -> void:
 	for i in cells.size():
 		if cells[i] == 0:
 			grid.set_point_solid(Vector2i(i % cols, i / cols), true)
+
+
+## Paths, bridges, stepping stones and the stone court are cheap; open meadow and snow cost OFF_PATH.
+## So he keeps to the ways that are there and only cuts across where you really tapped out in the open.
+func apply_ground(ground: GroundMat) -> void:
+	if ground == null or ground.cells.is_empty():
+		return
+	for cy in mini(rows, ground.h):
+		for cx in mini(cols, ground.w):
+			var m := ground.cells[cy * ground.w + cx]
+			if m == GroundMat.GRASS or m == GroundMat.SNOW:
+				grid.set_point_weight_scale(Vector2i(cx, cy), OFF_PATH)

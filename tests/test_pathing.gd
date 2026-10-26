@@ -40,3 +40,37 @@ func test_real_world_bridge_route_exists() -> void:
 	assert_true(way.size() > 0, "über die Brücke")
 	for pt in way:
 		assert_true(w.is_walkable(pt) or true)
+
+func test_walking_keeps_to_the_paths() -> void:
+	# a meadow 30x12 cells with a path along row 10: going from one end to the other he takes the path,
+	# even when start and goal lie a cell beside it in the grass
+	var p := Pathing.new()
+	var cells := PackedByteArray()
+	cells.resize(30 * 12)
+	cells.fill(1)
+	p.build_cells(cells, 30, 12)
+	var mat := PackedByteArray()
+	mat.resize(30 * 12)
+	mat.fill(GroundMat.GRASS)
+	for x in 30:
+		mat[10 * 30 + x] = GroundMat.EARTH
+	p.apply_ground(GroundMat.new(mat, 30, 12))
+	var way := p.find_path(Vector2(3, 17), Vector2(57, 17))         # cells (1, 8) -> (28, 8)
+	var on_path := 0
+	for q in way:
+		if p.cell_of(q).y == 10:
+			on_path += 1
+	assert_true(on_path > way.size() / 2, "nimmt den Weg: %d von %d Punkten" % [on_path, way.size()])
+
+func test_a_tap_out_in_the_meadow_is_still_reached() -> void:
+	var p := Pathing.new()
+	var cells := PackedByteArray()
+	cells.resize(30 * 12)
+	cells.fill(1)
+	p.build_cells(cells, 30, 12)
+	var mat := PackedByteArray()
+	mat.resize(30 * 12)
+	mat.fill(GroundMat.GRASS)
+	p.apply_ground(GroundMat.new(mat, 30, 12))
+	var way := p.find_path(Vector2(3, 3), Vector2(57, 21))
+	assert_true(way.size() > 0 and way[way.size() - 1].distance_to(Vector2(57, 21)) < 3.0, "kommt hin")

@@ -71,6 +71,8 @@ func _ready() -> void:
 		pathing.build_cells(cells.get_buffer(cells.get_length()), world.width / Pathing.CELL, world.height / Pathing.CELL)
 	else:
 		pathing.build(world.walk, world.width, world.height)
+	var ground := GroundMat.load_default(world.width, world.height)
+	pathing.apply_ground(ground)
 
 	for w in world.wisps:
 		var wisp := Wisp.new()
@@ -107,7 +109,7 @@ func _ready() -> void:
 
 	var steps := Footsteps.new()
 	steps.player = player
-	steps.ground = GroundMat.load_default(world.width, world.height)
+	steps.ground = ground
 	add_child(steps)
 	var amb := Ambience.new()
 	amb.world = world
