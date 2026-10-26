@@ -38,3 +38,22 @@ func test_corners_are_walked_round_not_snapped() -> void:
 	assert_true(absf(worst) < 20.0, "größter Richtungswechsel je Bild: %.0f°" % worst)
 	assert_true(pl.position.distance_to(Vector2(30, 30)) < 0.5, "kommt trotzdem an")
 	pl.free()
+
+func test_a_tiny_diagonal_piece_does_not_jolt_him() -> void:
+	# clean 45-degree pieces of only 2 px between long runs: he swings through, no sudden turn
+	var pl := Player.new()
+	pl.walk_to(PackedVector2Array([Vector2(0, 30), Vector2(2, 32), Vector2(2, 70)]))
+	var last_dir := Vector2.ZERO
+	var worst := 0.0
+	var prev := pl.position
+	for i in 500:
+		pl._process(1.0 / 60.0)
+		var v := pl.position - prev
+		prev = pl.position
+		if v.length() > 0.0001:
+			if last_dir != Vector2.ZERO:
+				worst = maxf(worst, absf(rad_to_deg(last_dir.angle_to(v.normalized()))))
+			last_dir = v.normalized()
+	assert_true(worst < 20.0, "Ruck: %.0f°" % worst)
+	assert_true(pl.position.distance_to(Vector2(2, 70)) < 0.5, "kommt an")
+	pl.free()

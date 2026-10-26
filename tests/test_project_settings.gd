@@ -10,3 +10,7 @@ func test_art_resolution_and_nearest_filter() -> void:
 
 func test_portrait() -> void:
 	assert_eq(ProjectSettings.get_setting("display/window/handheld/orientation"), 1)
+
+func test_runs_at_a_steady_60_frames() -> void:
+	# a fixed frame rate makes the scroll steps predictable, also on a 120 Hz screen
+	assert_eq(int(ProjectSettings.get_setting("application/run/max_fps", 0)), 60)

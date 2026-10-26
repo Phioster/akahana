@@ -89,9 +89,46 @@ func smooth(way: PackedVector2Array) -> PackedVector2Array:
 			stairs += _seg_cost(way[j - 1], way[j])
 			if j > i + 1 and _line_ok(way[i], way[j], stairs * 1.15 + 6.0):   # small detours are not worth a kink
 				best = j
-		out.append(way[best])
+		_add_clean(out, way[best])
 		i = best
 	return out
+
+
+## A shallow slant scrolls one axis only a pixel every few frames, which reads as stutter. Straight and
+## exact 45-degree legs scroll evenly, so a slanting leg becomes a 45-degree part plus a straight part,
+## if that is free and not much dearer; the wanderer walks the bend between them round.
+func _add_clean(out: PackedVector2Array, b: Vector2) -> void:
+	var a := out[out.size() - 1]
+	var d := b - a
+	var m := minf(absf(d.x), absf(d.y))
+	if m < 0.01 or absf(absf(d.x) - absf(d.y)) < 0.01:
+		out.append(b)
+		return
+	var diag := Vector2(signf(d.x) * m, signf(d.y) * m)
+	var limit := (_line_cost(a, b) if _line_cost(a, b) >= 0.0 else INF) * 1.25 + 6.0
+	for corner in [a + diag, b - diag]:
+		var c1 := _line_cost(a, corner)
+		var c2 := _line_cost(corner, b)
+		if c1 >= 0.0 and c2 >= 0.0 and c1 + c2 <= limit:
+			out.append(corner)
+			out.append(b)
+			return
+	out.append(b)
+
+
+## Cost of walking the straight line a-b, or -1 if it is blocked.
+func _line_cost(a: Vector2, b: Vector2) -> float:
+	var len := a.distance_to(b)
+	if len < 0.01:
+		return 0.0
+	var n := int(ceil(len / (CELL * 0.5)))
+	var cost := 0.0
+	for k in range(1, n + 1):
+		var c := cell_of(a.lerp(b, float(k) / n))
+		if not is_free(c):
+			return -1.0
+		cost += len / n * grid.get_point_weight_scale(c)
+	return cost
 
 
 func _seg_cost(a: Vector2, b: Vector2) -> float:

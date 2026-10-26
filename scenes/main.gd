@@ -6,6 +6,7 @@ const MAX_LIGHTS := 16
 const KINDS := {"fire": 0.0, "lantern": 1.0, "wood": 2.0, "candle": 3.0, "wisp": 4.0}
 const GLOW := {"fire": 40.0, "lantern": 6.0, "wood": 8.0, "candle": 4.0, "wisp": 4.0}   # glowing pixels, for bloom
 const SAVE_EVERY := 5.0
+const CAM_EASE := 5.0                # how quickly the view catches up: starting and stopping glide
 
 var world: WorldData
 var pathing := Pathing.new()
@@ -26,6 +27,7 @@ var _camera_mode := false
 var _cam_offset := Vector2.ZERO
 var _last_tap := -10.0
 var _drag_from := Vector2.INF
+var _cam_at := Vector2.INF           # where the view is; INF = jump straight there (start, teleport)
 
 
 func _ready() -> void:
@@ -145,6 +147,7 @@ func _flat(path: String) -> Sprite2D:
 
 func _on_start_walking(fresh: bool) -> void:
 	if fresh:
+		_cam_at = Vector2.INF
 		save.forget_position()
 		player.path = PackedVector2Array()
 		player.position = world.start
@@ -244,7 +247,11 @@ func _process(delta: float) -> void:
 	c.y = clampf(c.y, view.y * 0.5, world.height - view.y * 0.5)
 	if _camera_mode:
 		_cam_offset = c - player.position                 # stop the offset growing past the world edge
-	cam.position = c
+	if _cam_at == Vector2.INF or _camera_mode:          # in camera mode your finger moves it directly
+		_cam_at = c
+	else:
+		_cam_at = _cam_at.lerp(c, 1.0 - exp(-CAM_EASE * delta))
+	cam.position = _cam_at
 	cam.force_update_scroll()                          # apply now: the shader must snap to THIS frame's view
 	var top_left := get_viewport().get_canvas_transform().affine_inverse() * Vector2.ZERO
 	post.set_shader_parameter("view_world", view)

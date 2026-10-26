@@ -116,4 +116,24 @@ func test_real_slanting_walks_have_few_kinks() -> void:
 				turns += 1
 		var per100 := turns * 100.0 / maxf(1.0, d.length())
 		worst = maxf(worst, per100)
-	assert_true(worst <= 5.0, "Knicke je 100 px: %.1f" % worst)   # was up to 24.6; the rest he walks round
+	assert_true(worst <= 8.0, "Knicke je 100 px: %.1f" % worst)   # was up to 24.6; clean 45-degree bends count too
+
+func test_slanting_walks_use_clean_angles() -> void:
+	# a shallow slant scrolls one axis a pixel only every few frames - that reads as stutter; straight and
+	# exact 45-degree runs scroll evenly. So every leg of a walk is one of the 8 clean directions
+	var p := Pathing.new()
+	var cells := PackedByteArray()
+	cells.resize(40 * 40)
+	cells.fill(1)
+	p.build_cells(cells, 40, 40)
+	var mat := PackedByteArray()
+	mat.resize(40 * 40)
+	mat.fill(GroundMat.GRASS)
+	p.apply_ground(GroundMat.new(mat, 40, 40))
+	for goal in [Vector2(70, 31), Vector2(15, 75), Vector2(9, 60), Vector2(66, 9)]:
+		var way := p.find_path(Vector2(3, 3), goal)
+		assert_true(way.size() <= 3, "%s: höchstens zwei Stücke, %d Punkte" % [goal, way.size()])
+		for i in range(1, way.size()):
+			var v := way[i] - way[i - 1]
+			var clean := absf(v.x) < 0.01 or absf(v.y) < 0.01 or absf(absf(v.x) - absf(v.y)) < 0.01
+			assert_true(clean, "%s: Stück %s ist schief" % [goal, v])
