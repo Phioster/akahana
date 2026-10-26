@@ -1,12 +1,12 @@
-// Poppy heads sway in the same gusts as in the wallpaper, and part around the wanderer's feet. Behind him
-// the parting opens into a V: narrow at his heels, wider and weaker further back, its edges frayed, until
-// the flowers have slowly swung back. Whole-pixel shifts only.
+// Poppy heads sway in the same gusts as in the wallpaper, and nod aside around the wanderer's feet. Each
+// flower moves as a whole by a few pixels (never the picture under it: that squashes the blossoms and
+// looks laid over the meadow). Behind him the nodding opens into a frayed V and swings back slowly.
 shader_type canvas_item;
 
 const int TRAIL = 24;
-const float R0 = 4.0;                 // half width of the parting right at the feet
-const float R1 = 12.0;                // ... at the far end of the wake
-const float GAP = 3.0;                // half width of the empty lane right at the feet
+const float R0 = 5.0;                 // half width of the wake right at the feet
+const float R1 = 13.0;                // ... at its far end
+const float PUSH = 4.0;               // most a flower nods aside, in whole pixels
 
 uniform vec2 tex_size;
 uniform vec4 trail[24];               // x, y, walking direction x, y
@@ -42,17 +42,16 @@ void fragment() {
 		}
 	}
 	vec2 src = p;
-	bool lane = false;
+	bool trampled = false;
 	float h = hash(p);
 	float rw = mix(R1, R0, bk);                            // the V opens with age
-	// frayed: each flower lets go at its own moment, on the edges and towards the end of the wake
-	if (best > 0.25 * h && abs(bo) < rw * (1.0 - 0.35 * h)) {
-		float push = bk * bk * (3.0 - 2.0 * bk);           // swings back slowly
-		float gap = GAP * push;
-		lane = abs(bo) < gap;
-		float so = sign(bo) * clamp((abs(bo) - gap) * rw / max(rw - gap, 0.001), 0.0, rw);
-		src = p - bn * (bo - so) * push;
+	if (best > 0.3 * h && abs(bo) < rw) {                  // frayed: each flower lets go at its own moment
+		float ease = bk * bk * (3.0 - 2.0 * bk);           // swings back slowly
+		float amt = PUSH * ease * clamp(1.0 - abs(bo) / rw, 0.0, 1.0) * 1.6;
+		float off = floor(clamp(amt, 0.0, PUSH) + h * 0.6);
+		trampled = abs(bo) < 1.0 && h < 0.5 * ease;        // here and there one bent under his feet
+		src = p - bn * sign(bo) * off;
 	}
 	vec4 c = texture(TEXTURE, (floor(src) - vec2(dx, 0.0) + 0.5) / tex_size);
-	COLOR = lane ? vec4(0.0) : c;
+	COLOR = trampled ? vec4(0.0) : c;
 }

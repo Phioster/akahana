@@ -4,7 +4,7 @@ extends RefCounted
 
 const SIZE := 24                     # = TRAIL in shaders/flowers.gdshader
 const EVERY := 0.13                  # seconds between remembered points
-const LIFE := 3.1                    # until the last flowers of the wake have swung back
+const LIFE := 3.0                    # until the last flowers of the wake have swung back
 const LEAD := 3.0                    # px ahead of the feet: they give way at his front edge, not before
 
 var points: Array = []               # [Vector2 pos, Vector2 dir, float age]
