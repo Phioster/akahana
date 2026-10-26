@@ -66,7 +66,7 @@ def bilinear(tex, u, v):
             + t(y0 + 1, x0) * (1 - fx) * fy + t(y0 + 1, x0 + 1) * fx * fy)
 
 
-def mood(src, w, t, grass_mist=1.0):
+def mood(src, w, t, grass_mist=1.0, water_band=None):
     H, W = src.shape[:2]
     yy, xx = np.mgrid[0:H, 0:W]
     wx, wy = xx + 0.5, yy + 0.5
@@ -106,6 +106,8 @@ def mood(src, w, t, grass_mist=1.0):
     if grass_mist != 1.0:                                     # thinner over green grass, where it stood out (per pixel, as a shader can)
         green = np.clip((src[..., 1] - (src[..., 0] + src[..., 2]) / 2) / 10, 0, 1)
         dens = dens * (1 - (1 - grass_mist) * green[..., None])
+    if water_band is not None:                                # over the brooks: a flat, thin band following the water
+        dens = dens * (1 - 0.5 * water_band[..., None]) + 0.06 * water_band[..., None]
 
     p = np.pad(src, ((1, 1), (1, 1), (0, 0)), mode='edge')         # softness only where the mist is thick
     nb = p[1:-1, 2:] + p[1:-1, :-2] + p[2:, 1:-1] + p[:-2, 1:-1]

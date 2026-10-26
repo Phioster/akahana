@@ -142,7 +142,7 @@ class Steinlaterne:
         Lantern3(s.x - x0, s.y - y0, None).draw(img[y0:y1, x0:x1], 0.0, 8.0)
 
 
-def render(w, seed=12):
+def render(w, seed=12, raw=False):
     base = z1.render('a', w, raw=True)[0]                      # zone 1 in full, its layers in z1.STASH
     rng = np.random.default_rng(seed)
     H = Y0 + NEW
@@ -170,14 +170,16 @@ def render(w, seed=12):
     up[bare] = (up * (1 - 0.6 * d1 * np.array([0.12, 0.0, 0.14])) * (1 - 0.38 * d1))[bare]
     free1 = bare | (np.abs(up - h1[Y0 - EXT:, :, :3]).sum(-1) < 1)  # ground or a poppy, no zone-1 thing
     img[Y0:] = ground
+    STASH.update(ground=ground.copy())
 
     # the two trails run on south; between them the new cross path with the lantern at its fork
     trail_a = [(322, 680), (360, 760), (350, 840), (336, 930), (318, 1040), (300, H + 12)]
     trail_b = [(775, 700), (790, 760), (762, 860), (722, 960), (684, 1060), (652, H + 12)]
     cross = [(340, 912), (450, 926), (560, 936), (650, 944), (735, 958)]
+    south = [(560, 936), (548, 1010), (532, 1090), (520, H + 12)]   # down to the spring in zone 3
     prng = np.random.default_rng(93)
     path = np.zeros((H, W), bool)
-    for pts in (trail_a, trail_b, cross):
+    for pts in (trail_a, trail_b, cross, south):
         pm, pc, pd_, pw_ = extras.path_mask(H, W, pts, prng)
         path |= pm                                             # (zone 1's part too: no grass on it)
         pm[:Y0 - 6] = False                                    # zone 1 drew its own part already
@@ -281,6 +283,8 @@ def render(w, seed=12):
     lights = [dict(l, y=l['y'] - (z1.OLD_H - z1.CTX)) for l in w['lights']]
     lit = z1.LIT + [l for t_ in things if hasattr(t_, 'lights') for l in t_.lights()]
     swarms = z1.SWARMS + SWARMS
+    if raw:
+        return np.clip(img, 0, 255), lights + lit, swarms
     out = mood_map.mood(np.clip(img, 0, 255), dict(w, lights=lights + lit + [l for s_ in swarms for l in s_.lights(2.0)],
                                                    wisps=[]), 2.0, grass_mist=GRASS_MIST).astype(float)
     for s_ in swarms:
@@ -288,6 +292,7 @@ def render(w, seed=12):
     return out.astype(np.uint8)
 
 
+STASH = {}                                   # zone 2's ground of the last render, for the zone below
 # fireflies by the bench, the trees, a boulder and over the grass
 SWARMS = [Swarm(250, Y0 + 180, 10, 11), Swarm(600, Y0 + 270, 9, 12), Swarm(800, Y0 + 350, 9, 13),
           Swarm(120, Y0 + 330, 8, 14), Swarm(470, Y0 + 90, 8, 15)]
