@@ -295,6 +295,8 @@ class Weide:
                 u = rng.uniform(-1, 1)
                 sx, sy = cx + u * r, cy + rng.uniform(0, r * 0.5)
                 L = int(max(4, hem(sx) - sy + rng.uniform(-11, 4) * sz))     # a ragged hem
+                if high > 0.7:                                       # the top clumps: long but uneven, so no straight edge
+                    L = int(L * rng.uniform(0.5, 1.0))
                 lit0 = np.clip(0.8 - 0.3 * (u + 0.3) + 0.15 * high, 0.3, 0.95) * dim
                 for h in range(L):
                     t = h / L
