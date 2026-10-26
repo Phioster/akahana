@@ -17,6 +17,9 @@ func _ready() -> void:
 		player.stepped.connect(_on_step)
 
 
+const SET_DB := {"schritt_holz": 2.0}   # boards a touch louder: the bridge should be heard
+
+
 func _on_step() -> void:
 	var name := SoundBank.step_set(ground.at(player.position) if ground != null else GroundMat.GRASS, player.position.y)
 	if not _sets.has(name):
@@ -30,5 +33,5 @@ func _on_step() -> void:
 	_last = i
 	_out.stream = v[i]
 	_out.pitch_scale = randf_range(0.95, 1.05)
-	_out.volume_db = randf_range(-10.5, -7.5)       # steps sit just under the meadow
+	_out.volume_db = randf_range(-10.5, -7.5) + SET_DB.get(name, 0.0)   # steps sit just under the meadow
 	_out.play()

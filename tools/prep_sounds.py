@@ -29,25 +29,30 @@ def load(path, ss=0.0, t=None):
     return np.frombuffer(subprocess.run(cmd, capture_output=True, check=True).stdout, np.float32).astype(float)
 
 
-def save(name, x, rms=0.1):
+def save(name, x, rms=0.1, soft=False):
     x = x * (rms / (np.sqrt(np.mean(x ** 2)) + 1e-9))
     peak = np.abs(x).max()
-    if peak > 0.95:
+    if soft:                                             # spiky crackle: round the peaks off instead of
+        x = 0.95 * np.tanh(x / 0.95)                     # turning everything down for them
+    elif peak > 0.95:
         x *= 0.95 / peak
     subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-f', 'f32le', '-ar', str(SR), '-ac', '1', '-i', '-',
                     '-c:a', 'libvorbis', '-q:a', '3', os.path.join(OUT, name + '.ogg')],
                    input=x.astype(np.float32).tobytes(), check=True)
 
 
-def loop(src, name, ss, length, rms, fade=2.0):
+def loop(src, name, ss, length, rms, fade=2.0, highpass=0.0):
     x = load(src, ss, length + fade)
+    if highpass:                                         # drop rumble phones and earbuds cannot play, so the
+        from scipy import signal                         # level is set by what is actually heard
+        x = signal.sosfiltfilt(signal.butter(4, highpass, 'high', fs=SR, output='sos'), x)
     n, f = int(length * SR), int(fade * SR)
     if len(x) < n + f:                                   # short recording: use what is there
         n = len(x) - f
     out = x[:n].copy()
     ramp = np.linspace(0, 1, f)
     out[:f] = x[:f] * ramp + x[n:n + f] * (1 - ramp)     # the end flows into the start
-    save(name, out, rms)
+    save(name, out, rms, soft=bool(highpass))
 
 
 def step(src, name, rms):
@@ -96,7 +101,7 @@ if __name__ == '__main__':
     loop(f'{FS}/692538.ogg', 'bach_klein', 2, 30, 0.1)
     loop(f'{FS}/615249.ogg', 'bach_mittel', 5, 30, 0.1)
     loop(f'{FS}/826443.ogg', 'bach_gross', 5, 30, 0.1)
-    loop(f'{FS}/320231.ogg', 'feuer', 2, 24, 0.1)
+    loop(f'{FS}/320231.ogg', 'feuer', 2, 24, 0.05, highpass=180.0)   # nearly all its energy was rumble
     loop(f'{FS}/680476.ogg', 'kerze', 5, 20, 0.1)
     loop(f'{FS}/181563.ogg', 'knistern', 2, 24, 0.1)
     loop(f'{FS}/521883.ogg', 'schimmer', 0, 10, 0.1, fade=1.5)
