@@ -32,10 +32,10 @@ void fragment() {
 	vec2 p = floor(UV * tex_size);
 	float ph = 6.2831853 * TIME / 8.0;
 	// gusts are drifting patches of noise, not bands: straight waves read as lines laid over the field
-	vec2 q = vec2(p.x / 70.0 - 0.035 * TIME, p.y / 45.0 - 0.06 * TIME);
+	vec2 q = vec2(p.x / 70.0 - 0.0455 * TIME, p.y / 45.0 - 0.078 * TIME);
 	float n = vnoise(q) * 0.65 + vnoise(q * 2.3 + vec2(17.0, 5.0)) * 0.35;
-	float g = smoothstep(0.5, 0.85, n);
-	float w = 1.6 * g + 0.35 * sin(3.0 * ph + 6.2832 * vnoise(p / 23.0 + vec2(3.1, 8.7)));
+	float g = smoothstep(0.42, 0.8, n);
+	float w = 2.6 * g + 0.5 * sin(3.0 * ph + 6.2832 * vnoise(p / 23.0 + vec2(3.1, 8.7)));
 	float dx = floor(w + 0.5);
 
 	float best = 0.0;
