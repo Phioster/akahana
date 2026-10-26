@@ -36,4 +36,6 @@ Alles hier ist frei nutzbar. Die Namen stehen trotzdem hier, aus Dank.
 - Grundlage der Laufanimation: PixelLab (eigenes Konto), danach in den Farben der Welt umgemalt (tools/prep_char.py)
 
 ## Musik
-- Selbst erzeugt (tools/gen_music.py)
+- Komposition und Zusammenbau selbst (tools/gen_music.py)
+- Gayageum-Töne: Freesound #24551–#24573 „kayageum1_…“ von spt3125, CC0 1.0
+- Klavier: FreePats „Upright Piano KW“ (Kawai), Roberto / freepats.zenvoid.org, CC0 1.0
