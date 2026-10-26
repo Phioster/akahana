@@ -5,8 +5,8 @@ class_name Ambience
 extends Node2D
 
 const RUIN := Vector2(229, 352)
-const FIRE_DB := 2.0                 # the campfire should be heard from the path, not only beside it
-const FIRE_REACH := 170.0
+const FIRE_DB := -3.0                # the campfire should be heard from the path, not only beside it
+const FIRE_REACH := 150.0
 
 var world: WorldData
 var player: Node2D

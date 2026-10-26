@@ -187,5 +187,19 @@ func test_ducking_lowers_music_and_backdrop_then_brings_them_back() -> void:
 
 func test_campfire_can_be_heard_from_the_path() -> void:
 	var a := Ambience.new()
-	assert_true(a.FIRE_DB >= -2.0 and a.FIRE_REACH >= 150.0, "Feuer laut genug und weit genug")
+	assert_true(a.FIRE_DB >= -4.0 and a.FIRE_REACH >= 150.0, "Feuer laut genug und weit genug")
 	a.free()
+
+func test_the_wanderer_carries_the_ear() -> void:
+	# without a 2D listener Godot measures distances in screen pixels - on a phone that is ~5x the world,
+	# so the fire, brooks and birds all fell out of reach and were silent
+	var tree := Engine.get_main_loop() as SceneTree
+	var pl := Player.new()
+	tree.root.add_child(pl)
+	var ear: AudioListener2D = null
+	for c in pl.get_children():
+		if c is AudioListener2D:
+			ear = c
+	assert_true(ear != null, "Hörer am Mönch")
+	assert_true(ear != null and ear.is_current(), "Hörer ist aktiv")
+	pl.queue_free()

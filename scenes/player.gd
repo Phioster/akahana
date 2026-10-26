@@ -26,6 +26,11 @@ func _ready() -> void:
 	sprite.centered = false
 	sprite.offset = Vector2(-6, -15)    # feet at the node's position
 	add_child(sprite)
+	# the ear: without it Godot measures sound distances in (stretched) screen pixels, not world pixels
+	var ear := AudioListener2D.new()
+	ear.position = Vector2(0, -8)
+	add_child(ear)
+	ear.make_current()
 	queue_redraw()
 
 
