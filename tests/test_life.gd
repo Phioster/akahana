@@ -120,8 +120,7 @@ func test_trail_parts_the_poppies_ahead_of_the_feet() -> void:
 	assert_between(Trail.LEAD, 2.0, 4.0)   # at his front edge: further reads as an aura
 
 func test_book_paper_sounds_are_turned_down() -> void:
-	# the book should not sound bigger than the meadow: pages clearly lower, closing a little
+	# the book should not sound bigger than the meadow: the pages clearly lower
 	var b := BookUI.new()
 	assert_true(b.SFX_DB["seite"] <= -5.0, "Blättern abgesenkt")
-	assert_between(b.SFX_DB["buch_zu"], -6.0, -1.0)
 	b.free()

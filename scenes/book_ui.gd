@@ -382,7 +382,7 @@ func is_blocking() -> bool:
 
 
 ## Paper sounds stay small: the book is a quiet thing in the hand, not an event.
-const SFX_DB := {"seite": -7.0, "buch_zu": -3.0}
+const SFX_DB := {"seite": -7.0}            # closing the book stays at full level
 
 
 func _play(name: String) -> void:
