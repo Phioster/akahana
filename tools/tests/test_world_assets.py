@@ -6,6 +6,8 @@ import unittest
 import numpy as np
 from PIL import Image
 
+from tools.tests.flood import reach
+
 D = os.path.join(os.path.dirname(__file__), '..', '..', 'assets', 'world')
 
 
@@ -58,10 +60,9 @@ class WorldAssets(unittest.TestCase):
 
     def test_the_ford_over_the_stepping_stones_can_be_walked(self):
         # drawn as a crossing, but each stone was an island: water between them shut the ford
-        from scipy import ndimage
-        part = self.cells[310:370, 45:75]                  # world y 620-740, x 90-150 round the stones
-        lab, _ = ndimage.label(part, structure=np.ones((3, 3)))
-        self.assertTrue(set(lab[0][lab[0] > 0]) & set(lab[-1][lab[-1] > 0]), 'Nord- und Suedufer verbunden')
+        part = self.cells[310:370, 45:75].astype(bool)     # world y 620-740, x 90-150 round the stones
+        got = reach(part, [(0, x) for x in range(part.shape[1])], diagonal=True)
+        self.assertTrue(got[-1].any(), 'Nord- und Suedufer verbunden')
 
     def test_brook_and_wisps_lie_inside_the_world(self):
         self.assertGreaterEqual(len(self.w['brook']), 10)
