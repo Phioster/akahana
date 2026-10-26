@@ -137,3 +137,51 @@ func test_slanting_walks_use_clean_angles() -> void:
 			var v := way[i] - way[i - 1]
 			var clean := absf(v.x) < 0.01 or absf(v.y) < 0.01 or absf(absf(v.x) - absf(v.y)) < 0.01
 			assert_true(clean, "%s: Stück %s ist schief" % [goal, v])
+
+func _fake_store(chunks: Array) -> ChunkStore:
+	# one chunk of open grass per entry; tests draw walls into it
+	var s := ChunkStore.new(ChunkGrid.new(3, 3))
+	for c in chunks:
+		var cells := PackedByteArray()
+		cells.resize(ChunkStore.CELLS.x * ChunkStore.CELLS.y)
+		cells.fill(1)
+		var mat := PackedByteArray()
+		mat.resize(cells.size())
+		mat.fill(GroundMat.GRASS)
+		s._cells[c] = cells
+		s._mat[c] = mat
+	return s
+
+func _len(way: PackedVector2Array) -> float:
+	var l := 0.0
+	for i in range(1, way.size()):
+		l += way[i - 1].distance_to(way[i])
+	return l
+
+func test_local_search_finds_the_same_ways_as_the_whole_map() -> void:
+	var w := WorldData.load_default()
+	var s := ChunkStore.new(w.grid)
+	for y in w.chunks.y:
+		for x in w.chunks.x:
+			s.load_now(Vector2i(x, y))
+	var whole := Pathing.new()
+	var f := FileAccess.open(WorldData.DIR + "walk_cells.bin", FileAccess.READ)
+	whole.build_cells(f.get_buffer(f.get_length()), w.width / Pathing.CELL, w.height / Pathing.CELL)
+	whole.apply_ground(GroundMat.load_default(w.width, w.height))
+	for d in [Vector2(60, -60), Vector2(-60, -60), Vector2(60, 60), Vector2(-50, -80), Vector2(80, -40)]:
+		var a := whole.find_path(w.start, w.start + d)
+		var b := Pathing.new().find_path_in(s, w.start, w.start + d)
+		assert_true(b.size() > 0, "%s gefunden" % d)
+		assert_true(_len(b) <= _len(a) * 1.1 + 1.0, "%s: %.0f statt %.0f" % [d, _len(b), _len(a)])
+
+func test_detour_outside_the_box_is_found_with_a_wider_margin() -> void:
+	var s := _fake_store([Vector2i(0, 0)])
+	for x in 72:                                     # a wall across; the gap (x >= 144 px) lies outside
+		s._cells[Vector2i(0, 0)][50 * ChunkStore.CELLS.x + x] = 0     # the 60-px box, inside the 120-px one
+	var way := Pathing.new().find_path_in(s, Vector2(40, 60), Vector2(40, 140))
+	assert_true(way.size() > 0 and way[way.size() - 1].distance_to(Vector2(40, 140)) < 3.0, "Umweg gefunden")
+
+func test_unloaded_cells_are_walls() -> void:
+	var s := _fake_store([Vector2i(0, 0)])
+	var way := Pathing.new().find_path_in(s, Vector2(40, 60), Vector2(270, 60))   # goal in chunk (1, 0)
+	assert_true(way.is_empty() or way[way.size() - 1].x < 180.0, "nicht ins Ungeladene")

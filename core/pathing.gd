@@ -32,7 +32,8 @@ func build(walk: PackedByteArray, width: int, height: int) -> void:
 
 
 func cell_of(p: Vector2) -> Vector2i:
-	return Vector2i(clampi(int(p.x) / CELL, 0, cols - 1), clampi(int(p.y) / CELL, 0, rows - 1))
+	var r := grid.region
+	return Vector2i(clampi(floori(p.x / CELL), r.position.x, r.end.x - 1), clampi(floori(p.y / CELL), r.position.y, r.end.y - 1))
 
 
 func is_free(c: Vector2i) -> bool:
@@ -173,3 +174,42 @@ func apply_ground(ground: GroundMat) -> void:
 			var m := ground.cells[cy * ground.w + cx]
 			if m == GroundMat.GRASS or m == GroundMat.SNOW:
 				grid.set_point_weight_scale(Vector2i(cx, cy), OFF_PATH)
+
+
+## Tap-to-walk on the streamed world: the grid covers only the box round start and goal (taps are
+## always on screen), built from the loaded chunks; unloaded ground counts as wall. If the way needs a
+## detour outside the box, it looks once more in a box twice as wide.
+func find_path_in(store: ChunkStore, a: Vector2, b: Vector2, margin: float = 60.0) -> PackedVector2Array:
+	for m in [margin, margin * 2.0]:
+		var lo := (a.min(b) - Vector2(m, m)) / CELL
+		var hi := (a.max(b) + Vector2(m, m)) / CELL
+		var r := Rect2i(Vector2i(floori(lo.x), floori(lo.y)), Vector2i.ZERO)
+		r.end = Vector2i(ceili(hi.x), ceili(hi.y))
+		_build_from(store, r)
+		var way := find_path(a, b)
+		if way.size() > 0 and way[way.size() - 1].distance_to(b) < CELL * 2.0:
+			return way
+		if m == margin * 2.0:
+			return way
+	return PackedVector2Array()
+
+
+func _build_from(store: ChunkStore, r: Rect2i) -> void:
+	grid = AStarGrid2D.new()
+	grid.region = r
+	grid.cell_size = Vector2(CELL, CELL)
+	grid.diagonal_mode = AStarGrid2D.DIAGONAL_MODE_ONLY_IF_NO_OBSTACLES
+	grid.default_compute_heuristic = AStarGrid2D.HEURISTIC_OCTILE
+	grid.default_estimate_heuristic = AStarGrid2D.HEURISTIC_OCTILE
+	grid.update()
+	cols = r.end.x
+	rows = r.end.y
+	for y in range(r.position.y, r.end.y):
+		for x in range(r.position.x, r.end.x):
+			var c := Vector2i(x, y)
+			if not store.cell_free(c):
+				grid.set_point_solid(c, true)
+			else:
+				var wgt := store.cell_weight(c)
+				if wgt != 1.0:
+					grid.set_point_weight_scale(c, wgt)

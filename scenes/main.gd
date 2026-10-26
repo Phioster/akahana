@@ -187,7 +187,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not pressed:
 		return
 	var target: Vector2 = get_canvas_transform().affine_inverse() * event.position
-	var way := pathing.find_path(player.position, target)
+	var way := pathing.find_path_in(store, player.position, target)
 	if way.size() > 0:
 		player.walk_to(way)
 		marker.show_at(way[way.size() - 1])
