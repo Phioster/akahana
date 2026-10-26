@@ -244,10 +244,11 @@ func _process(delta: float) -> void:
 			var off: float = c[k] - _cam_goal[k]
 			if absf(off) > CAM_CALM[k]:
 				_cam_goal[k] = c[k] - signf(off) * CAM_CALM[k]
-		_cam_goal = _cam_goal.round()                  # rest on a whole pixel: between two the post shader
+		if not player.is_walking():                    # rest on a whole pixel (between two the post shader
+			_cam_goal = _cam_goal.round()              # read on borders); walking, round goals wobbled the view
 		# ease out, but never creep: below a small speed it rolls straight onto the goal and stops there
 		# (the endless creep ended in a visible snap)
-		var left := _cam_at.distance_to(_cam_goal)            # read on borders, all smeared
+		var left := _cam_at.distance_to(_cam_goal)
 		var go := maxf(left * (1.0 - exp(-CAM_EASE * delta)), CAM_MIN_SPEED * delta)
 		_cam_at = _cam_at.move_toward(_cam_goal, go)
 	cam.position = _cam_at

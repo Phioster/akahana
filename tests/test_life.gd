@@ -590,3 +590,32 @@ func test_frame_log_notes_only_late_frames() -> void:
 	assert_eq(f.late.size(), 1)
 	assert_true(f.late[0].contains("50 ms") and f.late[0].contains("Kacheln 9"), f.late[0])
 	f.free()
+
+func test_the_view_moves_evenly_while_walking_straight() -> void:
+	# measured on the phone (0.4.1): steps went -0.28,-0.26,-0.24,-0.22 in fours - the goal was rounded
+	# to whole pixels while walking, jumped a pixel every fourth frame and the view wobbled after it
+	var tree := Engine.get_main_loop() as SceneTree
+	var m: Node2D = load("res://scenes/main.gd").new()
+	tree.root.add_child(m)
+	await tree.process_frame
+	if m.world == null:
+		m.queue_free()
+		return
+	m.player.position = Vector2(270, 800)               # mid-map: at the bottom edge the view is clamped
+	m._cam_at = Vector2.INF
+	for i in 30:
+		m._process(1.0 / 60.0)
+	m.player.walk_to(PackedVector2Array([m.player.position + Vector2(0, -300)]))
+	var prev: Vector2 = m._cam_at
+	var lo := INF
+	var hi := -INF
+	for i in 400:
+		m.player._process(1.0 / 60.0)
+		m._process(1.0 / 60.0)
+		var d: float = m._cam_at.y - prev.y
+		prev = m._cam_at
+		if i > 200 and m.player.is_walking():             # settled into the walk
+			lo = minf(lo, d)
+			hi = maxf(hi, d)
+	assert_true(hi - lo < 0.02, "Schritte schwanken %.3f..%.3f" % [lo, hi])
+	m.queue_free()
