@@ -65,22 +65,30 @@ class Fir:
 
 
 def forest_edge(x):
-    """Southern edge of the placeholder wood (canvas row), wandering."""
-    return CTX - 4 + 14 * np.sin(x / 37.0) + 8 * np.sin(x / 13.0 + 2)
+    """Southern edge of the placeholder wood (canvas row): long soft bows."""
+    return CTX - 14 + 22 * np.sin(x / 41.0 + 0.7) + 7 * np.sin(x / 17.0 + 2)
 
 
 def forest_west(y):
-    """Western edge of the wood beside the old map, not ruler straight."""
-    return OLD_W + 4 + 5 * np.sin(y / 17.0) + 3 * np.sin(y / 7.0 + 1)
+    """Western edge of the wood beside the old map, gently wavering."""
+    return OLD_W + 6 + 7 * np.sin(y / 23.0) + 3 * np.sin(y / 9.0 + 1)
+
+
+def in_forest(x, y):
+    """How far inside the wood (px, < 0 outside). The two edges meet in a wide round corner, not an angle."""
+    a = forest_edge(x) - y
+    b = x - forest_west(y)
+    k = 26.0
+    return -k * np.logaddexp(-a / k, -b / k)
 
 
 def forest_firs(rng):
     """East of the old map: a closed wood for now, its southern edge ragged, a few firs stepping out
     into the field (the eastern wood comes later)."""
     out = []
-    for row in range(-30, CTX + 12, 11):
-        for x in range(OLD_W - 8, W + 10, 9):
-            if row > forest_edge(x) or x < forest_west(row) - 4 or rng.random() < 0.08:
+    for n, row in enumerate(range(-30, CTX + 12, 10)):
+        for x in range(OLD_W - 8 + (n % 2) * 5, W + 10, 10):                  # staggered rows, no grid
+            if in_forest(x, row) < -2 + 4 * rng.random() or rng.random() < 0.06:
                 continue
             out.append(Fir(x + int(rng.integers(-3, 4)), row + int(rng.integers(-3, 4)), int(rng.integers(34, 46)),
                            int(rng.integers(0, 10 ** 6)), snow=0.08))
@@ -168,9 +176,9 @@ def render(kind, w, seed=7):
     for f_ in firs:
         blocked[max(0, f_.p.y - 6):max(0, f_.p.y + 2), max(0, f_.p.x - 8):max(0, f_.p.x + 9)] = True   # never a negative end
     xs_ = np.arange(W)[None, :]
-    inside = (rows < forest_edge(xs_) - 8) & (xs_ >= forest_west(rows))   # under the firs: no poppies
-    blocked |= inside
-    shade = ndi.gaussian_filter((rows < forest_edge(xs_) + 2).astype(float) * (xs_ >= forest_west(rows) - 4), 4)
+    depth = in_forest(xs_, rows)
+    blocked |= depth > 8                                         # under the firs: no poppies
+    shade = ndi.gaussian_filter((depth > -2).astype(float), 4)
     dark = G < shade * 1.4                                       # the wood floor, darker towards it
     ground[dark & (xs_ >= OLD_W - 10)] *= 0.62
 
@@ -206,7 +214,16 @@ def render(kind, w, seed=7):
     m = heads[..., 3] > 0
     img[m] = heads[m][:, :3]
 
-    draw_sprites(img, osprites, -(OLD_H - CTX))               # the camp and the old edge firs, unchanged
+    # the old map cut its edge firs off at its own border (x 540, y 1200); now the world goes on there,
+    # so those are drawn whole again, same foot and height
+    cut = [s_ for s_ in osprites if s_['name'].startswith('tanne') and
+           (s_['x'] + s_['w'] >= OLD_W or s_['y'] + s_['h'] >= OLD_H)]
+    for s_ in cut:
+        h = int(round((s_['h'] - 4) / 1.25))
+        fx = s_['x'] + int(h * 0.45) + 3 if s_['x'] > 0 else s_['x'] + s_['w'] - int(h * 0.62) - 3   # left side cut too
+        firs.append(Fir(fx, s_['foot'] - (OLD_H - CTX), max(h, 30),
+                        int(rng.integers(0, 10 ** 6))))
+    draw_sprites(img, [s_ for s_ in osprites if s_ not in cut], -(OLD_H - CTX))   # the camp, unchanged
     for t in sorted(things + firs, key=lambda t: t.box()[3] if hasattr(t, 'box') else t.p.y):
         if isinstance(t, Fir):
             t.draw(img)
