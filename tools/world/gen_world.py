@@ -157,6 +157,7 @@ for j in range(by0, by1 + 1):
         ground[j, BRX + 8:BRX + 11] = (ground[j, BRX + 8:BRX + 11] * 0.55).astype(np.uint8)
 
 stones = np.zeros((H, W), bool)
+stone_at = []
 SX_ST = 118                                               # stepping stones further west
 scol = np.where(water[:, SX_ST])[0]
 for t in np.linspace(0, 1, 4):
@@ -173,6 +174,14 @@ for t in np.linspace(0, 1, 4):
     ground[m & lit & (e < 0.3)] = WH
     ground[m & (yy - cy_ > ry * 0.5)] = DG
     stones |= e <= 1.15
+    stone_at.append((cx_, cy_))
+
+# the hops between the stones are walkable too (nothing drawn): each stone alone was an island
+ford = np.zeros((H, W), bool)
+for (ax, ay), (bx, by) in zip(stone_at, stone_at[1:]):
+    for t in np.linspace(0, 1, 24):
+        px, py = ax + (bx - ax) * t, ay + (by - ay) * t
+        ford |= (xx - px) ** 2 + (yy - py) ** 2 <= 2.6 ** 2
 
 # reeds on the banks
 for _ in range(700):
@@ -400,7 +409,7 @@ sprites.append(dict(name='baum', x=TX, y=TY, w=200, h=200, foot=TY + 170, frames
 
 # ------------------------------------------------------------------ walkable mask
 walk = ~(water | rocks | cliff)
-walk |= bridge | stones
+walk |= bridge | stones | ford
 trunk = np.zeros((H, W), bool)
 trunk[TY + 150:TY + 174, TX + 88:TX + 112] = True          # only the trunk blocks, you walk under the crown
 walk &= ~trunk
@@ -467,7 +476,7 @@ mat[snow] = SNOW
 rin = np.zeros((H, W), bool)
 rin[ruin.y0:ruin.y1, ruin.x0:ruin.x1] = True
 mat[court | rocks | rin] = STONE
-mat[stones | sbank] = WET                                             # stepping stones, wet bank
+mat[stones | ford | sbank] = WET                                             # stepping stones, wet bank
 mat[bridge] = WOOD
 mat[::CELL, ::CELL].tofile(os.path.join(OUT, 'ground_mat.bin'))       # top-left pixel of each cell is enough
 

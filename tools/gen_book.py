@@ -245,8 +245,15 @@ def deckel():
 
 
 def knopf():
-    """The same journal, small, as the button."""
-    return journal(w=17, h=14, dx=4, dy=6, small=True)
+    """The same journal, small, as the button. Enclosed gaps get their nearest neighbour's colour: so
+    small, the notch under the cover read as holes showing the game through the book."""
+    out = journal(w=17, h=14, dx=4, dy=6, small=True)
+    solid = out[..., 3] > 0
+    holes = ndi.binary_fill_holes(solid) & ~solid
+    if holes.any():
+        _, (iy, ix) = ndi.distance_transform_edt(~solid, return_indices=True)
+        out[holes] = out[iy[holes], ix[holes]]
+    return out
 
 
 def deckle_mask(h, w, amp=1.6):
