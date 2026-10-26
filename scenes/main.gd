@@ -62,14 +62,6 @@ func _ready() -> void:
 	marker = TapMarker.new()
 	add_child(marker)
 
-	var cells := FileAccess.open(WorldData.DIR + "walk_cells.bin", FileAccess.READ)
-	if cells != null:
-		pathing.build_cells(cells.get_buffer(cells.get_length()), world.width / Pathing.CELL, world.height / Pathing.CELL)
-	else:
-		pathing.build(world.walk, world.width, world.height)
-	var ground := GroundMat.load_default(world.width, world.height)
-	pathing.apply_ground(ground)
-
 	for w in world.wisps:                                 # wisps appear beyond the view's edge only
 		var at := Vector2(float(w["x"]), float(w["y"]))
 		_life.add(Rect2(at, Vector2.ZERO), 60.0, 160.0, _make_wisp.bind(at), func(n: Node): n.queue_free())
@@ -131,8 +123,10 @@ func _make_wisp(at: Vector2) -> Node:
 
 
 func _start_position() -> Vector2:
-	if save.has_position and world.is_walkable(save.position):
-		return save.position
+	if save.has_position:
+		store.load_now(world.grid.chunk_of(save.position))
+		if store.walkable(save.position):
+			return save.position
 	return world.start
 
 
@@ -161,7 +155,7 @@ func _on_camera_mode(on: bool) -> void:
 
 
 func _store() -> void:
-	if world != null and world.is_walkable(player.position):
+	if world != null and store.walkable(player.position):
 		save.set_position(player.position)
 	save.save_to()
 

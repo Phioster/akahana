@@ -34,12 +34,9 @@ func test_tap_on_blocked_goes_to_nearest_free() -> void:
 func test_real_world_bridge_route_exists() -> void:
 	var w := WorldData.load_default()
 	var p := Pathing.new()
-	var f := FileAccess.open(WorldData.DIR + "walk_cells.bin", FileAccess.READ)
-	p.build_cells(f.get_buffer(f.get_length()), w.width / Pathing.CELL, w.height / Pathing.CELL)
+	p.build_from(_whole(w), Rect2i(0, 0, w.width / Pathing.CELL, w.height / Pathing.CELL))
 	var way := p.find_path(w.start, Vector2(272, 560))       # from the meadow over the stream
 	assert_true(way.size() > 0, "über die Brücke")
-	for pt in way:
-		assert_true(w.is_walkable(pt) or true)
 
 func test_walking_keeps_to_the_paths() -> void:
 	# a meadow 30x12 cells with a path along row 10: going from one end to the other he takes the path,
@@ -103,9 +100,7 @@ func test_real_slanting_walks_have_few_kinks() -> void:
 	# measured on the real map, with the path weights: short diagonal taps across meadow and along paths
 	var w := WorldData.load_default()
 	var p := Pathing.new()
-	var f := FileAccess.open(WorldData.DIR + "walk_cells.bin", FileAccess.READ)
-	p.build_cells(f.get_buffer(f.get_length()), w.width / Pathing.CELL, w.height / Pathing.CELL)
-	p.apply_ground(GroundMat.load_default(w.width, w.height))
+	p.build_from(_whole(w), Rect2i(0, 0, w.width / Pathing.CELL, w.height / Pathing.CELL))
 	var worst := 0.0
 	for d in [Vector2(60, -60), Vector2(-60, -60), Vector2(60, 60), Vector2(-50, -80), Vector2(80, -40),
 			Vector2(14, -90), Vector2(-18, -80), Vector2(10, 70), Vector2(-12, 85)]:   # mostly up/down, a bit sideways
@@ -138,6 +133,14 @@ func test_slanting_walks_use_clean_angles() -> void:
 			var clean := absf(v.x) < 0.01 or absf(v.y) < 0.01 or absf(absf(v.x) - absf(v.y)) < 0.01
 			assert_true(clean, "%s: Stück %s ist schief" % [goal, v])
 
+func _whole(w: WorldData) -> ChunkStore:
+	# every chunk's data, for comparing against a search over the whole map
+	var s := ChunkStore.new(w.grid)
+	for y in w.chunks.y:
+		for x in w.chunks.x:
+			s._load_data(Vector2i(x, y))
+	return s
+
 func _fake_store(chunks: Array) -> ChunkStore:
 	# one chunk of open grass per entry; tests draw walls into it
 	var s := ChunkStore.new(ChunkGrid.new(3, 3))
@@ -160,14 +163,9 @@ func _len(way: PackedVector2Array) -> float:
 
 func test_local_search_finds_the_same_ways_as_the_whole_map() -> void:
 	var w := WorldData.load_default()
-	var s := ChunkStore.new(w.grid)
-	for y in w.chunks.y:
-		for x in w.chunks.x:
-			s.load_now(Vector2i(x, y))
+	var s := _whole(w)
 	var whole := Pathing.new()
-	var f := FileAccess.open(WorldData.DIR + "walk_cells.bin", FileAccess.READ)
-	whole.build_cells(f.get_buffer(f.get_length()), w.width / Pathing.CELL, w.height / Pathing.CELL)
-	whole.apply_ground(GroundMat.load_default(w.width, w.height))
+	whole.build_from(s, Rect2i(0, 0, w.width / Pathing.CELL, w.height / Pathing.CELL))
 	for d in [Vector2(60, -60), Vector2(-60, -60), Vector2(60, 60), Vector2(-50, -80), Vector2(80, -40)]:
 		var a := whole.find_path(w.start, w.start + d)
 		var b := Pathing.new().find_path_in(s, w.start, w.start + d)

@@ -4,14 +4,15 @@ import json, os, sys
 import numpy as np
 from PIL import Image
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-D = os.path.join(ROOT, 'assets', 'world')
-w = json.load(open(os.path.join(D, 'world.json')))
+A = os.path.join(ROOT, 'assets', 'world')
+D = os.path.join(ROOT, 'build', 'world_full')   # make_world.sh parks the whole pictures here
+w = json.load(open(os.path.join(A, 'world.json')))
 img = np.array(Image.open(os.path.join(D, 'ground.png')).convert('RGB')).astype(float)
 fl = np.array(Image.open(os.path.join(D, 'flowers.png')))
 m = fl[..., 3] > 0
 img[m] = fl[m][:, :3]
 for s in sorted(w['sprites'], key=lambda s: s['foot']):
-    a = np.array(Image.open(os.path.join(D, 'sprites', s['name'] + '.png')))[:, :s['w']]
+    a = np.array(Image.open(os.path.join(A, 'sprites', s['name'] + '.png')))[:, :s['w']]
     x, y = s['x'], s['y']
     h_, w_ = a.shape[:2]
     sub = img[y:y + h_, x:x + w_]

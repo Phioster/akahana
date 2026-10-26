@@ -24,25 +24,14 @@ func _store() -> ChunkStore:
 	var w := WorldData.load_default()
 	return ChunkStore.new(ChunkGrid.new(w.chunks.x, w.chunks.y))
 
-func test_store_answers_walkable_like_the_old_mask() -> void:
+func test_store_answers_walkable_for_loaded_ground() -> void:
+	# the cell data itself is proven equal to the generator's mask in tools/tests/test_chunks.py
 	var w := WorldData.load_default()
 	var s := ChunkStore.new(w.grid)
 	s.load_now(w.grid.chunk_of(w.start))
 	assert_true(s.walkable(w.start), "Start begehbar")
-	assert_eq(s.walkable(w.start), w.is_walkable(w.start))
 	s.load_now(Vector2i(0, 0))
 	assert_false(s.walkable(Vector2(3, 3)), "Weltrand zu")
-	var same := 0
-	for i in 400:
-		var p := Vector2(randf_range(0, 180), randf_range(0, 200))
-		var cell := Vector2i(p / 2.0)
-		var full := true                                   # the old 1-px mask, read as 2x2 cells
-		for dy in 2:
-			for dx in 2:
-				full = full and w.walk[(cell.y * 2 + dy) * w.width + cell.x * 2 + dx] != 0
-		if s.walkable(p) == full:
-			same += 1
-	assert_eq(same, 400, "gleich wie die alte Maske")
 
 func test_unloaded_ground_is_not_walkable() -> void:
 	var s := _store()

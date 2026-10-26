@@ -2,16 +2,18 @@ extends TestCase
 
 func test_world_loads_with_sprites_lights_and_mask() -> void:
 	var w := WorldData.load_default()
-	assert_true(w != null, "world.json + walk.bin")
+	assert_true(w != null, "world.json")
 	if w == null:
 		return
-	assert_eq(w.walk.size(), w.width * w.height)
+	assert_eq(w.chunks * ChunkGrid.SIZE, Vector2i(w.width, w.height))
 	assert_true(w.sprites.size() > 20, "Objekte")
 	assert_true(w.lights.size() >= 5, "Lichter")
 
 func test_start_point_is_walkable() -> void:
 	var w := WorldData.load_default()
-	assert_true(w.is_walkable(w.start), "Start %s" % w.start)
+	var s := ChunkStore.new(w.grid)
+	s.load_now(w.grid.chunk_of(w.start))
+	assert_true(s.walkable(w.start), "Start %s" % w.start)
 
 func test_every_sprite_file_exists_and_fits_its_frames() -> void:
 	var w := WorldData.load_default()
@@ -21,10 +23,3 @@ func test_every_sprite_file_exists_and_fits_its_frames() -> void:
 		assert_true(tex != null, path)
 		if tex != null:
 			assert_eq(tex.get_width(), int(s["w"]) * int(s["frames"]), "Breite " + path)
-
-func test_cells_file_matches_grid() -> void:
-	var w := WorldData.load_default()
-	var f := FileAccess.open(WorldData.DIR + "walk_cells.bin", FileAccess.READ)
-	assert_true(f != null)
-	if f != null:
-		assert_eq(int(f.get_length()), (w.width / Pathing.CELL) * (w.height / Pathing.CELL))

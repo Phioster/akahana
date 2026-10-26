@@ -524,3 +524,40 @@ func test_footsteps_ask_the_store_for_the_ground() -> void:
 	f.store = s
 	assert_eq(f.ground_at(Vector2(20, 20)), GroundMat.WOOD)
 	f.free()
+
+func test_walking_the_whole_map_keeps_memory_flat() -> void:
+	# chunks, objects and place sounds stay bounded by the view; what lies far behind is let go
+	var tree := Engine.get_main_loop() as SceneTree
+	var m: Node2D = load("res://scenes/main.gd").new()
+	tree.root.add_child(m)
+	await tree.process_frame
+	if m.world == null:
+		m.queue_free()
+		return
+	var size := Vector2(ChunkGrid.SIZE)
+	var worst := ""
+	for i in 27:
+		m.player.position = Vector2(60.0 if i % 2 == 0 else 480.0, 100.0 + i * 40.0)
+		m._cam_at = Vector2.INF
+		for k in 30:
+			m._process(1.0 / 60.0)
+		var top_left: Vector2 = m.get_viewport().get_canvas_transform().affine_inverse() * Vector2.ZERO
+		var view := Rect2(top_left, m.get_viewport().get_visible_rect().size)
+		var reach: int = m.store.grid.chunks_in(view.grow_individual(2 * size.x, 2 * size.y, 2 * size.x, 2 * size.y)).size()
+		var objs := 0
+		for s in m.world.sprites:
+			if Activator._gap(Rect2(float(s["x"]), float(s["y"]), float(s["w"]), float(s["h"])), view) <= 120.0:
+				objs += 1
+		var amb: Ambience = null
+		for n in m.get_children():
+			if n is Ambience:
+				amb = n
+		if m.store.loaded_count() > reach or m.view_node.chunk_nodes() > reach:
+			worst = "Kacheln %d/%d bei %s" % [m.store.loaded_count(), reach, view]
+		elif m.view_node.object_nodes() > objs:
+			worst = "Objekte %d statt höchstens %d" % [m.view_node.object_nodes(), objs]
+		elif amb.spot_nodes() > 8:
+			worst = "Ortsklänge %d" % amb.spot_nodes()
+	assert_eq(worst, "", worst)
+	assert_false(m.store.is_ready(Vector2i(0, 0)), "ganz oben vergessen, wenn er unten ist")
+	m.queue_free()

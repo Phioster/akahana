@@ -1,4 +1,4 @@
-## The generated world: sizes, sprites, lights and the walkable mask.
+## The generated world: sizes, sprites, lights and how it is cut into chunks (the ground itself streams).
 ## Everything comes from tools/world/gen_world.py; nothing here is hand-placed.
 class_name WorldData
 extends RefCounted
@@ -16,7 +16,6 @@ var brook: Array = []                # points along the stream, for its sound an
 var birds: Array = []                # open spots where small birds land
 var wisps: Array = []                # where the will-o'-the-wisps live
 var fire := {}
-var walk := PackedByteArray()        # one byte per art pixel, 1 = walkable (until the chunks take over)
 var chunks := Vector2i.ZERO          # how many chunks across and down
 var grid: ChunkGrid
 
@@ -45,17 +44,5 @@ static func load_default() -> WorldData:
 	var size: Array = j.get("chunk", [ChunkGrid.SIZE.x, ChunkGrid.SIZE.y])
 	if Vector2i(int(size[0]), int(size[1])) != ChunkGrid.SIZE:
 		push_error("world.json: Kachelgröße passt nicht zu ChunkGrid.SIZE")
-	var w := FileAccess.open(DIR + "walk.bin", FileAccess.READ)
-	if w == null:
-		push_error("walk.bin fehlt")
-		return null
-	d.walk = w.get_buffer(d.width * d.height)
 	return d
 
-
-func is_walkable(p: Vector2) -> bool:
-	var x := int(floor(p.x))
-	var y := int(floor(p.y))
-	if x < 0 or y < 0 or x >= width or y >= height:
-		return false
-	return walk[y * width + x] != 0

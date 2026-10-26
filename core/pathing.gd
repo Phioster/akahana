@@ -185,7 +185,7 @@ func find_path_in(store: ChunkStore, a: Vector2, b: Vector2, margin: float = 60.
 		var hi := (a.max(b) + Vector2(m, m)) / CELL
 		var r := Rect2i(Vector2i(floori(lo.x), floori(lo.y)), Vector2i.ZERO)
 		r.end = Vector2i(ceili(hi.x), ceili(hi.y))
-		_build_from(store, r)
+		build_from(store, r)
 		var way := find_path(a, b)
 		if way.size() > 0 and way[way.size() - 1].distance_to(b) < CELL * 2.0:
 			return way
@@ -194,7 +194,7 @@ func find_path_in(store: ChunkStore, a: Vector2, b: Vector2, margin: float = 60.
 	return PackedVector2Array()
 
 
-func _build_from(store: ChunkStore, r: Rect2i) -> void:
+func build_from(store: ChunkStore, r: Rect2i) -> void:
 	grid = AStarGrid2D.new()
 	grid.region = r
 	grid.cell_size = Vector2(CELL, CELL)

@@ -1,4 +1,5 @@
-## What the ground is made of, per 2-px cell (from gen_world.py's ground_mat.bin): picks the footstep sound.
+## What the ground is made of, per 2-px cell. In the game each chunk's _mat.bin holds these values
+## (ChunkStore.material_at); this small holder serves hand-made grids in tests.
 class_name GroundMat
 extends RefCounted
 
@@ -14,13 +15,6 @@ func _init(data: PackedByteArray = PackedByteArray(), cw: int = 0, ch: int = 0) 
 	cells = data
 	w = cw
 	h = ch
-
-
-static func load_default(world_w: int, world_h: int) -> GroundMat:
-	var f := FileAccess.open(WorldData.DIR + "ground_mat.bin", FileAccess.READ)
-	if f == null:
-		return GroundMat.new()
-	return GroundMat.new(f.get_buffer(f.get_length()), world_w / CELL, world_h / CELL)
 
 
 func at(p: Vector2) -> int:
