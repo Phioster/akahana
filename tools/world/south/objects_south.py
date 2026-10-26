@@ -620,7 +620,7 @@ class Kerzen:
     def lights(s):
         cx = sum(p[0] for p in s.pts) / len(s.pts)
         cy = sum(p[1] for p in s.pts) / len(s.pts)
-        return [{'x': cx + 0.5, 'y': cy - 2.5, 'r': 16.0, 'k': 0.55, 'kind': 'candle'}]
+        return [{'x': cx + 0.5, 'y': cy - 2.5, 'r': 12.0, 'k': 0.28, 'kind': 'kerze'}]   # a small glow, not a fire
 
     def draw(s, img, G):
         rng = np.random.default_rng(s.seed)

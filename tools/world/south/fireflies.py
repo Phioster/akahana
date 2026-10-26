@@ -28,7 +28,7 @@ class Swarm:
     def lights(s, t):
         """Every fly its own small light, moving and glowing with it (in the game: its own little glow
         list in the post shader, so the lamps keep their 16 slots)."""
-        return [{'x': x + 0.5, 'y': y + 0.5, 'r': 7.0, 'k': 0.22 * b, 'kind': 'firefly'}
+        return [{'x': x + 0.5, 'y': y + 0.5, 'r': 7.0, 'k': 0.27 * b, 'kind': 'firefly'}
                 for x, y, b in s.state(t) if b > 0.05]
 
     def draw(s, img, t):
