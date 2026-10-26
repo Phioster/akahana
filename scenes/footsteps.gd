@@ -3,7 +3,7 @@ class_name Footsteps
 extends Node
 
 var player: Player
-var ground: GroundMat
+var store: ChunkStore
 var _sets := {}
 var _last := -1
 var _out: AudioStreamPlayer
@@ -20,8 +20,12 @@ func _ready() -> void:
 const SET_DB := {"schritt_holz": 2.0}   # boards a touch louder: the bridge should be heard
 
 
+func ground_at(p: Vector2) -> int:
+	return store.material_at(p) if store != null else GroundMat.GRASS
+
+
 func _on_step() -> void:
-	var name := SoundBank.step_set(ground.at(player.position) if ground != null else GroundMat.GRASS, player.position.y)
+	var name := SoundBank.step_set(ground_at(player.position), player.position.y)
 	if not _sets.has(name):
 		_sets[name] = SoundBank.variants(name)
 	var v: Array = _sets[name]

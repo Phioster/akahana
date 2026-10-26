@@ -463,3 +463,64 @@ func test_the_view_settles_without_a_snap() -> void:
 		last = d
 	assert_true(worst_rise < 0.01, "Ruck beim Anhalten: +%.3f px" % worst_rise)
 	m.queue_free()
+
+func _birds_at(view: Rect2) -> Birds:
+	var tree := Engine.get_main_loop() as SceneTree
+	var b := Birds.new()
+	b.world = WorldData.load_default()
+	b.sorted = Node2D.new()
+	b.player = Node2D.new()
+	b.player.position = view.get_center()
+	tree.root.add_child(b.sorted)
+	tree.root.add_child(b.player)
+	tree.root.add_child(b)
+	b.update_area(view)
+	return b
+
+func test_birds_live_only_near_the_view() -> void:
+	var b := _birds_at(Rect2(-5000, -5000, 10, 10))
+	assert_eq(b.flock_nodes(), 0, "weit weg: keine Vögel")
+	var s: Dictionary = b.world.birds[0]
+	b.update_area(Rect2(float(s["x"]) - 90, float(s["y"]) - 200, 180, 400))
+	assert_true(b.flock_nodes() >= 1, "am Platz: Vögel da")
+	b.sorted.queue_free(); b.player.queue_free(); b.queue_free()
+
+func test_a_flock_dropped_in_flight_leaves_nothing_behind() -> void:
+	var s: Dictionary = WorldData.load_default().birds[0]
+	var b := _birds_at(Rect2(float(s["x"]) - 90, float(s["y"]) - 200, 180, 400))
+	for bird in b.sorted.get_children():
+		if bird is Bird:
+			bird.brain.state = BirdBrain.FLY
+	b.update_area(Rect2(-5000, -5000, 10, 10))
+	assert_eq(b.flock_nodes(), 0)
+	var left := 0
+	for n in b.sorted.get_children():
+		if n is Bird and not n.is_queued_for_deletion():
+			left += 1
+	assert_eq(left, 0, "keine Vögel übrig")
+	b.sorted.queue_free(); b.player.queue_free(); b.queue_free()
+
+func test_only_audible_spots_have_players() -> void:
+	var tree := Engine.get_main_loop() as SceneTree
+	var a := Ambience.new()
+	a.world = WorldData.load_default()
+	a.player = Node2D.new()
+	a.player.position = a.world.start
+	tree.root.add_child(a)
+	a._process(1.0 / 60.0)
+	var everywhere := a.world.brook.size() / 2 + a.world.lights.size() + 1
+	assert_true(a.spot_nodes() > 0, "am Feuer etwas zu hören")
+	assert_true(a.spot_nodes() < everywhere, "nicht alles: %d von %d" % [a.spot_nodes(), everywhere])
+	a.player.free(); a.queue_free()
+
+func test_footsteps_ask_the_store_for_the_ground() -> void:
+	var s := ChunkStore.new(ChunkGrid.new(1, 1))
+	var mat := PackedByteArray()
+	mat.resize(ChunkStore.CELLS.x * ChunkStore.CELLS.y)
+	mat.fill(GroundMat.WOOD)
+	s._mat[Vector2i(0, 0)] = mat
+	s._cells[Vector2i(0, 0)] = mat
+	var f := Footsteps.new()
+	f.store = s
+	assert_eq(f.ground_at(Vector2(20, 20)), GroundMat.WOOD)
+	f.free()

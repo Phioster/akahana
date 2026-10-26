@@ -18,6 +18,8 @@ var post: ShaderMaterial
 var store: ChunkStore
 var view_node: WorldView
 var marker: TapMarker
+var birds: Birds
+var _life := Activator.new()         # wisps: made near the view, dropped far from it
 var book: BookUI
 var save := SaveData.new()
 var trail := Trail.new()
@@ -68,13 +70,10 @@ func _ready() -> void:
 	var ground := GroundMat.load_default(world.width, world.height)
 	pathing.apply_ground(ground)
 
-	for w in world.wisps:
-		var wisp := Wisp.new()
-		wisp.anchor = Vector2(float(w["x"]), float(w["y"]))
-		wisp.position = wisp.anchor
-		wisp.player = player
-		add_child(wisp)
-	var birds := Birds.new()
+	for w in world.wisps:                                 # wisps appear beyond the view's edge only
+		var at := Vector2(float(w["x"]), float(w["y"]))
+		_life.add(Rect2(at, Vector2.ZERO), 60.0, 160.0, _make_wisp.bind(at), func(n: Node): n.queue_free())
+	birds = Birds.new()
 	birds.world = world
 	birds.player = player
 	birds.sorted = sorted
@@ -103,7 +102,7 @@ func _ready() -> void:
 
 	var steps := Footsteps.new()
 	steps.player = player
-	steps.ground = ground
+	steps.store = store
 	add_child(steps)
 	var amb := Ambience.new()
 	amb.world = world
@@ -120,6 +119,15 @@ func _ready() -> void:
 	book.volumes_changed.connect(_on_volumes)
 	book.camera_mode_changed.connect(_on_camera_mode)
 	book.show_start(save.has_position)
+
+
+func _make_wisp(at: Vector2) -> Node:
+	var wisp := Wisp.new()
+	wisp.anchor = at
+	wisp.position = at
+	wisp.player = player
+	add_child(wisp)
+	return wisp
 
 
 func _start_position() -> Vector2:
@@ -250,6 +258,8 @@ func _process(delta: float) -> void:
 	post.set_shader_parameter("view_world", view)
 	post.set_shader_parameter("cam_pos", top_left)
 	view_node.update(Rect2(top_left, view))
+	birds.update_area(Rect2(top_left, view))
+	_life.update(Rect2(top_left, view))
 	_feed_lights(Rect2(top_left, view))
 
 	_save_in -= delta

@@ -12,6 +12,7 @@ var _flocks: Array = []                     # {spot, birds: Array[Bird], back_in
 var _call: AudioStreamPlayer2D
 var _wings: AudioStreamPlayer2D
 var _call_in := 6.0
+var _area := Activator.new()                # a flock lands only once its spot comes near the view
 
 
 func _ready() -> void:
@@ -25,9 +26,33 @@ func _ready() -> void:
 		return
 	for b in world.birds:
 		var f := {"spot": Vector2(float(b["x"]), float(b["y"])), "snow": bool(b.get("snow", false)),
-				"birds": [], "back_in": 0.0}
-		_land(f)
+				"birds": [], "back_in": 0.0, "on": false}
 		_flocks.append(f)
+		_area.add(Rect2(f["spot"], Vector2.ZERO), 60.0, 160.0, _arrive.bind(f), _leave.bind(f))
+
+
+## Out of sight beyond the view's edge, so nobody sees them appear or vanish.
+func update_area(view: Rect2) -> void:
+	_area.update(view)
+
+
+func flock_nodes() -> int:
+	return _area.active_count()
+
+
+func _arrive(f: Dictionary) -> Node:
+	f["on"] = true
+	f["back_in"] = 0.0
+	_land(f)
+	return Node.new()                       # a token for the activator; the birds live in `sorted`
+
+
+func _leave(token: Node, f: Dictionary) -> void:
+	for b in f["birds"]:
+		b.queue_free()
+	f["birds"] = []
+	f["on"] = false
+	token.free()
 
 
 func _land(f: Dictionary) -> void:
@@ -69,6 +94,8 @@ func _process(delta: float) -> void:
 		return
 	var view := get_viewport().get_visible_rect().size
 	for f in _flocks:
+		if not f["on"]:
+			continue
 		var alive := false
 		for b in f["birds"]:
 			b.step(delta, player.position)

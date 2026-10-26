@@ -24,6 +24,7 @@ var _mountain_dir := 1.0
 var _one: AudioStreamPlayer2D
 var _bell_in := 0.0
 var _frog_in := 0.0
+var _spots := Activator.new()         # place sounds exist only within earshot
 
 
 func _ready() -> void:
@@ -61,6 +62,15 @@ func _flat(name: String, db: float) -> AudioStreamPlayer:
 
 
 func _spot(name: String, at: Vector2, db: float, reach: float) -> void:
+	_spots.add(Rect2(at, Vector2.ZERO), reach + 20.0, reach + 60.0, _make_spot.bind(name, at, db, reach),
+			func(n: Node): n.queue_free())
+
+
+func spot_nodes() -> int:
+	return _spots.active_count()
+
+
+func _make_spot(name: String, at: Vector2, db: float, reach: float) -> Node:
 	var p := AudioStreamPlayer2D.new()
 	p.stream = SoundBank.looped(name)
 	p.position = at
@@ -70,6 +80,7 @@ func _spot(name: String, at: Vector2, db: float, reach: float) -> void:
 	p.bus = AudioSetup.BACKDROP
 	add_child(p)
 	p.play(randf() * 8.0)
+	return p
 
 
 ## 0 on the meadow .. 1 under the summit, from the height on the map
@@ -80,6 +91,7 @@ static func altitude(y: float) -> float:
 func _process(delta: float) -> void:
 	if player == null:
 		return
+	_spots.update(Rect2(player.position, Vector2.ZERO))
 	var alt := altitude(player.position.y)
 	_meadow.volume_db = lerpf(-14.0, -40.0, clampf(alt * 2.0, 0.0, 1.0))
 	_wind.volume_db = lerpf(-18.0, -10.0, alt)
