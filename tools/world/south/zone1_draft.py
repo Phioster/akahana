@@ -231,6 +231,7 @@ def render(kind, w, seed=7, raw=False):
         keep &= ~np.asarray(onpath)
         sel = np.r_[False, keep][lab]
         heads[sel] = src[sel]
+    STASH.update(ground=ground.copy(), heads=heads)
     img = ground.copy()
     m = heads[..., 3] > 0
     img[m] = heads[m][:, :3]
@@ -254,6 +255,7 @@ def render(kind, w, seed=7, raw=False):
         else:
             t.draw(img, G)
 
+    STASH['firs'] = firs
     lights = [dict(l, y=l['y'] - (OLD_H - CTX)) for l in w['lights']]
     fake = dict(w, lights=lights, wisps=[])
     lit = [l for t in things if hasattr(t, 'lights') for l in t.lights()]
@@ -268,6 +270,7 @@ def render(kind, w, seed=7, raw=False):
 
 
 LIT = []                                     # the lights of torches and candles, for the animation
+STASH = {}                                   # ground, heads and firs of the last render, for the zone below
 # fireflies over the quiet spots: by the cherry tree, the fence, the log, a boulder, the scarecrow, the wall
 SWARMS = [Swarm(510, CTX + 478, 12, 1), Swarm(430, CTX + 455, 8, 2), Swarm(705, CTX + 160, 9, 3),
           Swarm(835, CTX + 500, 8, 4), Swarm(640, CTX + 320, 8, 5), Swarm(150, CTX + 285, 10, 6)]
