@@ -5,8 +5,13 @@ class_name Ambience
 extends Node2D
 
 const RUIN := Vector2(229, 352)
-const FIRE_DB := -3.0                # the campfire should be heard from the path, not only beside it
-const FIRE_REACH := 150.0
+# Levels are set as (how loud it should arrive up close) minus (how loud the recording is, measured with
+# ffmpeg volumedetect): music arrives at about -26 dB, steps at about -29.
+const FIRE_DB := 5.0                 # recording -32 -> arrives about -27, as present as the steps
+const FIRE_REACH := 180.0
+const BROOK_DB := {"bach_klein": -1.5, "bach_mittel": -1.0, "bach_gross": -7.0}   # recordings -27/-28/-22 -> -29
+const BROOK_REACH := 130.0
+const CANDLE_DB := -4.0              # recording -32 -> -36: you hear it when you stand at the lantern
 
 var world: WorldData
 var player: Node2D
@@ -31,12 +36,13 @@ func _ready() -> void:
 		var sizes := ["bach_klein", "bach_mittel", "bach_gross"]
 		for i in range(0, world.brook.size(), 2):
 			var b: Dictionary = world.brook[i]
-			_spot(sizes[(i / 2) % 3], Vector2(float(b["x"]), float(b["y"])), -8.0, 90.0)
+			var size: String = sizes[(i / 2) % 3]
+			_spot(size, Vector2(float(b["x"]), float(b["y"])), BROOK_DB[size], BROOK_REACH)
 		if not world.fire.is_empty():
 			_spot("feuer", Vector2(float(world.fire["x"]), float(world.fire["y"])), FIRE_DB, FIRE_REACH)
 		for l in world.lights:
 			if l["kind"] != "fire":
-				_spot("kerze", Vector2(float(l["x"]), float(l["y"])), -16.0, 36.0)
+				_spot("kerze", Vector2(float(l["x"]), float(l["y"])), CANDLE_DB, 50.0)
 	_one = AudioStreamPlayer2D.new()
 	_one.bus = AudioSetup.SOUNDS
 	add_child(_one)
@@ -60,7 +66,7 @@ func _spot(name: String, at: Vector2, db: float, reach: float) -> void:
 	p.position = at
 	p.volume_db = db
 	p.max_distance = reach
-	p.attenuation = 1.6
+	p.attenuation = 1.0                       # an even fall-off: loud near, still there further away
 	p.bus = AudioSetup.BACKDROP
 	add_child(p)
 	p.play(randf() * 8.0)
@@ -87,13 +93,13 @@ func _process(delta: float) -> void:
 	_bell_in -= delta
 	if _bell_in <= 0.0:
 		_bell_in = randf_range(150.0, 260.0)
-		_play_once("glocke", RUIN + Vector2(0, -40), -10.0, 700.0, 1.0)
+		_play_once("glocke", RUIN + Vector2(0, -40), -8.5, 700.0, 1.0)
 	_frog_in -= delta
 	if _frog_in <= 0.0:
 		_frog_in = randf_range(7.0, 18.0)
 		var near := _near_water(player.position, 120.0)
 		if near != Vector2.INF:
-			_play_once("frosch", near, -12.0, 120.0, randf_range(0.9, 1.08))
+			_play_once("frosch", near, -11.0, 120.0, randf_range(0.9, 1.08))
 
 
 func _near_water(at: Vector2, within: float) -> Vector2:

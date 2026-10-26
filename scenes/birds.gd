@@ -47,7 +47,7 @@ func _land(f: Dictionary) -> void:
 
 func _on_took_off(b: Bird) -> void:
 	_wings.stream = SoundBank.get_stream("fluegel_0")
-	_wings.volume_db = -15.0                  # the level Philip picked by ear; ducking makes room
+	_wings.volume_db = -2.0                   # recording -22.5 -> arrives about -24, just over the steps
 	Ducker.duck()
 	_wings.position = b.position
 	_wings.pitch_scale = randf_range(0.95, 1.1)
@@ -59,7 +59,7 @@ func _on_took_off(b: Bird) -> void:
 func _chirp(at: Vector2) -> void:
 	_call.stream = SoundBank.get_stream("vogel_%d" % (randi() % 3))
 	_call.position = at
-	_call.volume_db = -10.0
+	_call.volume_db = -1.0                    # recording -26 -> about -27
 	_call.pitch_scale = randf_range(0.95, 1.08)
 	_call.play()
 

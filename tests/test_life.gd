@@ -203,3 +203,11 @@ func test_the_wanderer_carries_the_ear() -> void:
 	assert_true(ear != null, "Hörer am Mönch")
 	assert_true(ear != null and ear.is_current(), "Hörer ist aktiv")
 	pl.queue_free()
+
+func test_place_sounds_arrive_near_the_music_level() -> void:
+	# up close a place sound should reach about the level of music and steps (-26..-30 dB), measured:
+	# recording loudness (volumedetect) plus the volume set in the game
+	var a := Ambience.new()
+	assert_between(-31.9 + a.FIRE_DB, -30.0, -24.0, "Feuer")
+	assert_between(-27.8 + a.BROOK_DB["bach_mittel"], -32.0, -26.0, "Bach")
+	a.free()

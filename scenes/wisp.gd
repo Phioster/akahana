@@ -19,11 +19,11 @@ func _ready() -> void:
 	add_to_group("dyn_light")
 	z_index = 15                                   # floats above the ground things
 	# it sounds like a tiny fire: a soft crackle, and far under it a shimmer
-	for pair in [["knistern", -20.0], ["schimmer", -28.0]]:
+	for pair in [["knistern", 10.0], ["schimmer", -20.0]]:      # recordings -42 / -20 -> about -32 / -40
 		var a := AudioStreamPlayer2D.new()
 		a.stream = SoundBank.looped(pair[0])
 		a.volume_db = pair[1]
-		a.max_distance = 48.0
+		a.max_distance = 70.0
 		a.bus = AudioSetup.SOUNDS
 		add_child(a)
 		a.play(randf() * 5.0)
@@ -34,7 +34,7 @@ func _process(delta: float) -> void:
 	step(delta, player.position if player != null else Vector2(-9999, -9999))
 	var v := visible_amount()
 	for i in _sounds.size():
-		_sounds[i].volume_db = (-20.0 if i == 0 else -28.0) + linear_to_db(maxf(v, 0.001))
+		_sounds[i].volume_db = (10.0 if i == 0 else -20.0) + linear_to_db(maxf(v, 0.001))
 	queue_redraw()
 
 
