@@ -93,7 +93,10 @@ flow *= np.clip(1 - 1.5 * alt, 0, 1) * np.clip((sd - swid) / 6, 0, 1)
 ground = ground_organic(H, W, fog, flow, rng)
 
 snow = (fbm(6, 8) + 2.2 * alt - 1.9 + 0.35 * (rng.random((H, W)) - .5)) > 0
-ground[snow] = np.where((((xx + yy) % 2) == 0)[snow][:, None], WH, L1)
+sg = ndi.gaussian_filter(np.random.default_rng(12).random((H, W)), 0.7)      # clumped grain, never a checkerboard
+sg = (sg - sg.min()) / (sg.max() - sg.min())
+ground[snow] = np.where((sg > 0.48)[snow][:, None], WH, L1)
+ground[snow & (sg < 0.18)] = MG
 
 # ------------------------------------------------------------------ paths
 prng = np.random.default_rng(91)
@@ -260,9 +263,9 @@ add('laterne_ost', lambda ox, oy: extras.WoodLantern(468 + ox, 852 + oy), (458, 
 
 ruin = Ruin(196, 330, 262, 372)
 class RuinPart:
-    def __init__(s, ox, oy, part):
+    def __init__(s, ox, oy, part, j0=None):
         s.r = Ruin(196 + ox, 330 + oy, 262 + ox, 372 + oy)
-        s.part = part
+        s.part, s.oy, s.j0 = part, oy, j0
     def draw(s, img, t, L):
         r = s.r
         x0, y0, x1, y1 = r.x0, r.y0, r.x1, r.y1
@@ -270,9 +273,9 @@ class RuinPart:
             wcx = (x0 + x1) // 2
             r.hwall(img, x0, x1, y0, 34, window=(wcx - 5, wcx + 5, y0 - 26, y0 - 6), gable=True)
         elif s.part == 'left':
-            r.vwall(img, x0, y0 + 1, y1, 16)
+            r.vwall(img, x0, y0 + 1, y1, 16, rows=range(s.j0 + s.oy, min(s.j0 + RSEG, 372) + s.oy))
         elif s.part == 'right':
-            r.vwall(img, x1 - 3, y0 + 1, y1 - 8, 13)
+            r.vwall(img, x1 - 3, y0 + 1, y1 - 8, 13, rows=range(s.j0 + s.oy, min(s.j0 + RSEG, 364) + s.oy))
         elif s.part == 'front':
             r.hwall(img, x0, x0 + 14, y1, 9)
             r.hwall(img, x1 - 12, x1, y1, 6)
@@ -283,8 +286,13 @@ class RuinPart:
                 for u in range(2):
                     put(img, i + u, j, r._stone(i + u, j, 0.62 - 0.05 * u, face=True))
 add('ruine_hinten', lambda ox, oy: RuinPart(ox, oy, 'back'), (190, 290, 268, 336), 330, 1)
-add('ruine_links', lambda ox, oy: RuinPart(ox, oy, 'left'), (190, 310, 204, 374), 372, 1)
-add('ruine_rechts', lambda ox, oy: RuinPart(ox, oy, 'right'), (254, 310, 268, 366), 364, 1)
+RSEG = 4                                                   # side walls run away from us: cut into short pieces,
+for j0 in range(331, 372, RSEG):                           # each sorted by its own foot, so you can stand beside them
+    add(f'ruine_links_{j0}', (lambda j0=j0: (lambda ox, oy: RuinPart(ox, oy, 'left', j0)))(),
+        (190, j0 - 22, 204, min(j0 + RSEG, 372) + 2), min(j0 + RSEG, 372) - 1, 1)
+for j0 in range(331, 364, RSEG):
+    add(f'ruine_rechts_{j0}', (lambda j0=j0: (lambda ox, oy: RuinPart(ox, oy, 'right', j0)))(),
+        (254, j0 - 20, 268, min(j0 + RSEG, 364) + 2), min(j0 + RSEG, 364) - 1, 1)
 add('ruine_vorne', lambda ox, oy: RuinPart(ox, oy, 'front'), (190, 352, 268, 376), 372, 1)
 class CottageW:
     def __init__(s, x, y): s.c = Cottage(x, y)
@@ -414,8 +422,8 @@ for ob in objects:
         walk[max(0, f - 6):f + 2, x0 + 3:x1 - 3] = False
 r_ = ruin                                                  # ruin walls; the gap in the front lets you in
 walk[r_.y0 - 4:r_.y0 + 1, r_.x0:r_.x1] = False
-walk[r_.y0:r_.y1, r_.x0:r_.x0 + 3] = False
-walk[r_.y0:r_.y1 - 8, r_.x1 - 3:r_.x1] = False
+walk[r_.y0:r_.y1, r_.x0 - 1:r_.x0 + 4] = False                    # a little thicker than drawn: no slipping through
+walk[r_.y0:r_.y1 - 8, r_.x1 - 4:r_.x1 + 1] = False
 walk[r_.y1 - 2:r_.y1 + 1, r_.x0:r_.x0 + 14] = False
 walk[r_.y1 - 2:r_.y1 + 1, r_.x1 - 12:r_.x1] = False
 walk[:, :10] = False

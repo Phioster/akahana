@@ -62,9 +62,10 @@ class Ruin:
                 put(img, i, j, s._stone(i, j, v, face=True))
             for k in range(2): put(img, i, yb + k, img[min(yb + k, img.shape[0] - 1), i] * 0 + hx('#2a2526') if k == 0 else hx('#4a4446'))
 
-    def vwall(s, img, x, y0, y1, hmax):
-        """A side wall running away from us: we see its top and its lit outer face (left wall) or shade."""
-        for j in range(y0, y1):
+    def vwall(s, img, x, y0, y1, hmax, rows=None):
+        """A side wall running away from us: we see its top and its lit outer face (left wall) or shade.
+        rows: only these base rows (the game cuts the wall into short pieces, each sorted by its own depth)."""
+        for j in (rows if rows is not None else range(y0, y1)):
             t = (j - y0) / max(y1 - y0, 1)
             h = int(round(hmax * (1 - 0.6 * t) * np.clip(0.7 + 0.3 * s.jag[(j * 5 + x) % 200], 0.3, 1.2)))
             for k in range(h):                                          # stacked: higher wall = taller stripe upward

@@ -108,12 +108,12 @@ func _process(delta: float) -> void:
 	for a in animated:
 		a[0].frame = int(_time * a[2]) % a[1]
 	var view := get_viewport().get_visible_rect().size
-	var c := player.position.round()
+	var c := player.position                    # no rounding: the camera glides in screen pixels
 	c.x = clampf(c.x, view.x * 0.5, world.width - view.x * 0.5)
 	c.y = clampf(c.y, view.y * 0.5, world.height - view.y * 0.5)
-	cam.position = c.round()
-	var top_left := (cam.position - view * 0.5).round()
-	post.set_shader_parameter("view_size", view)
+	cam.position = c
+	var top_left := cam.position - view * 0.5
+	post.set_shader_parameter("view_world", view)
 	post.set_shader_parameter("cam_pos", top_left)
 	_feed_lights(Rect2(top_left, view))
 

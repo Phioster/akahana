@@ -15,7 +15,7 @@ driver/enable_input=false
 
 window/size/viewport_width=180
 window/size/viewport_height=400
-window/stretch/mode="viewport"
+window/stretch/mode="canvas_items"
 window/stretch/aspect="keep_width"
 window/handheld/orientation=1
 
@@ -24,6 +24,8 @@ window/handheld/orientation=1
 pointing/emulate_touch_from_mouse=true
 
 [rendering]
+
+2d/snap/snap_2d_transforms_to_pixel=true
 
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"

@@ -7,8 +7,8 @@ render_mode unshaded;
 uniform sampler2D screen_tex : hint_screen_texture, filter_nearest;
 uniform sampler2D mist1 : repeat_enable, filter_linear;
 uniform sampler2D mist2 : repeat_enable, filter_linear;
-uniform vec2 view_size = vec2(180.0, 400.0);
-uniform vec2 cam_pos;                 // world position of the top-left screen pixel
+uniform vec2 view_world = vec2(180.0, 400.0);   // visible area in art pixels
+uniform vec2 cam_pos;                 // world position (art px, fractional) of the screen's top-left corner
 uniform int light_count = 0;
 uniform vec4 lights[16];              // x, y, radius, strength
 uniform vec4 light_info[16];          // kind, x seed, y seed, glowing pixel count
@@ -40,9 +40,12 @@ vec3 grade(vec3 c) {
 }
 
 void fragment() {
-	vec2 px = floor(SCREEN_UV * view_size);
-	vec2 world = cam_pos + px + 0.5;
-	vec3 src = texture(screen_tex, SCREEN_UV).rgb * 255.0;
+	// everything is worked out per ART pixel of the world, so the raster, mist and light sit on the
+	// ground and glide with it instead of crawling over it while the camera moves
+	vec2 px = floor(cam_pos + SCREEN_UV * view_world);
+	vec2 world = px + 0.5;
+	vec2 uv = (world - cam_pos) / view_world;              // centre of this art pixel on screen
+	vec3 src = texture(screen_tex, uv).rgb * 255.0;
 	bool em = src.r > 190.0 && src.g > 110.0 && src.b < 140.0 && src.r - src.b > 90.0;
 	vec3 a = grade(src);
 
@@ -69,9 +72,9 @@ void fragment() {
 	float f = 0.55 * (texture(mist1, m1).r - 0.5) * 6.0 + 0.45 * (texture(mist2, m2).r - 0.5) * 6.0;
 	float dens = clamp((f - 0.2) * 0.36, 0.0, 0.32);
 
-	vec2 t = 1.0 / view_size;                                      // softness only where the mist is thick
-	vec3 nb = texture(screen_tex, SCREEN_UV + vec2(t.x, 0.0)).rgb + texture(screen_tex, SCREEN_UV - vec2(t.x, 0.0)).rgb
-		+ texture(screen_tex, SCREEN_UV + vec2(0.0, t.y)).rgb + texture(screen_tex, SCREEN_UV - vec2(0.0, t.y)).rgb;
+	vec2 t = 1.0 / view_world;                                     // softness only where the mist is thick
+	vec3 nb = texture(screen_tex, uv + vec2(t.x, 0.0)).rgb + texture(screen_tex, uv - vec2(t.x, 0.0)).rgb
+		+ texture(screen_tex, uv + vec2(0.0, t.y)).rgb + texture(screen_tex, uv - vec2(0.0, t.y)).rgb;
 	vec3 soft = grade((nb * 0.25 * 0.55 + src / 255.0 * 0.45) * 255.0) * (1.0 + L * LCOL * 1.4);
 	a = mix(a, soft, clamp(dens * 2.2, 0.0, 1.0));
 	a = a * (1.0 - dens) + MIST * 0.8 * (1.0 + L * LCOL * 1.6) * dens;   // mist glows near the lights

@@ -52,7 +52,6 @@ func _process(delta: float) -> void:
 		col = int(_t * 1.5) % 2          # slow breathing
 	if sprite != null:
 		sprite.frame = dir * COLS + col
-		sprite.position = position.round() - position     # draw on whole art pixels
 
 
 func _face(v: Vector2) -> void:
