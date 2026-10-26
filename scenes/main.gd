@@ -4,7 +4,7 @@ extends Node2D
 
 const MAX_LIGHTS := 16
 const KINDS := {"fire": 0.0, "lantern": 1.0, "wood": 2.0, "candle": 3.0, "wisp": 4.0}
-const GLOW := {"fire": 40.0, "lantern": 6.0, "wood": 8.0, "candle": 4.0, "wisp": 8.0}   # glowing pixels, for bloom
+const GLOW := {"fire": 40.0, "lantern": 6.0, "wood": 8.0, "candle": 4.0, "wisp": 4.0}   # glowing pixels, for bloom
 const SAVE_EVERY := 5.0
 
 var world: WorldData

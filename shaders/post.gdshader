@@ -68,7 +68,7 @@ void fragment() {
 		float g = 0.0875 * exp(-r2 / 8.0) + 0.0221 * exp(-r2 / 72.0) + 0.00568 * exp(-r2 / 392.0);
 		if (info.x > 3.5) {
 			Lw += li;
-			bloomw += vec3(150.0, 240.0, 215.0) * info.w * g;
+			bloomw += vec3(240.0, 140.0, 60.0) * info.w * g;        // warm amber like its flame, not the old mint
 		} else {
 			L += li;
 			bloom += vec3(250.0, 190.0, 90.0) * info.w * fl * g;

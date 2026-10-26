@@ -304,3 +304,8 @@ func test_wisp_light_breathes_in_the_same_steps_as_the_flame() -> void:
 		radii[w.light_data()["r"]] = true
 	assert_true(radii.size() <= 3, "Lichtradius nimmt %d Werte an" % radii.size())
 	w.free()
+
+func test_wisp_glow_is_warm_like_its_flame() -> void:
+	# the bloom kept the old cold mint colour and covered the amber flame in a green-white blob
+	var code: String = (load("res://shaders/post.gdshader") as Shader).code
+	assert_false(code.contains("vec3(150.0, 240.0, 215.0)"), "kein Mint-Glühen mehr")
