@@ -105,11 +105,15 @@ static func breath(t: float) -> float:
 	return 0.5 + 0.5 * sin(t * TAU / BREATH)
 
 
+## Three clear sizes instead of a smooth swell: growing smoothly popped single pixels in and out at the
+## rim nearly every frame, which read as trembling. The flame and its light both use this.
+static func breath_step(t: float) -> float:
+	return roundf(breath(t) * 2.0) / 2.0
+
+
 ## The flame's pixels around its centre at time t; scale 0..1 shrinks it away (no transparency).
 static func flame_pixels(t: float, scale: float) -> Dictionary:
-	# three clear sizes instead of a smooth swell: growing smoothly popped single pixels in and out at the
-	# rim nearly every frame (about 20 a second), which read as trembling
-	var p := roundf(breath(t) * 2.0) / 2.0
+	var p := breath_step(t)
 	var r := (2.3 + 0.9 * p) * scale
 	var out := {}
 	if r < 0.9:
@@ -136,7 +140,8 @@ static func flame_pixels(t: float, scale: float) -> Dictionary:
 func light_data() -> Dictionary:
 	var v := visible_amount()
 	var c := position.round() + Vector2(0.5, 0.5)
-	return {"x": c.x, "y": c.y, "r": 30.0 + 8.0 * breath(_t), "k": (0.9 + 0.4 * breath(_t)) * v, "kind": "wisp"}
+	var p := breath_step(_t)                       # same steps as the flame: a smooth radius made the rim crawl
+	return {"x": c.x, "y": c.y, "r": 30.0 + 8.0 * p, "k": (0.9 + 0.4 * p) * v, "kind": "wisp"}
 
 
 func _draw() -> void:

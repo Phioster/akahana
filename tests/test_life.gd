@@ -294,3 +294,13 @@ func test_wisp_breathes_in_steps_not_in_a_tremble() -> void:
 			events += 1
 		prev = now
 	assert_true(events / 10.0 <= 7.0, "Formwechsel pro Sekunde: %.1f" % (events / 10.0))
+
+func test_wisp_light_breathes_in_the_same_steps_as_the_flame() -> void:
+	# a glow whose radius changes every frame makes its dithered rim crawl all around - that was the tremble
+	var w := Wisp.new()
+	var radii := {}
+	for i in 600:
+		w._t = i / 60.0
+		radii[w.light_data()["r"]] = true
+	assert_true(radii.size() <= 3, "Lichtradius nimmt %d Werte an" % radii.size())
+	w.free()
