@@ -66,6 +66,12 @@ def layout():
               'q1': [(255, 250), (330, 262), (420, 250), (520, 236), (614, 214)],
               'weide': [(268, 150), (200, 156), (130, 168), (62, 160)],
               'q3': [(250, 490), (330, 505), (400, 515), (476, 512)]}
+    for k, (frm, to) in {'q1': ('west', 'mitte'), 'weide': ('west', None), 'q3': ('west', 'mitte')}.items():
+        pts = trails[k]
+        for end, tr in ((0, frm), (-1, to)):
+            if tr:
+                c = curve(trails[tr], 600)
+                pts[end] = tuple(c[np.hypot(*(c - pts[end]).T).argmin()])
     return brooks, trails, CA, CB
 
 
@@ -129,8 +135,8 @@ def render(w, seed=21):
     things = [kind(x, Y(y), ang, wd) for kind, x, y, ang, wd in cr]
     QUELLE = o.Quelle(566, Y(128))
     things += [QUELLE, Holzlaterne(594, Y(112))]
-    wa, wb = on_bank(brooks['A'][0], 180, -22), on_bank(brooks['B'][0], 600, -20)
-    things += [o.Weide(int(wa[0]), Y(wa[1]), seed=4, size=1.0, lean=5), o.Weide(int(wb[0]), Y(wb[1]), seed=9, size=0.9, lean=-4)]
+    wa, wb = on_bank(brooks['A'][0], 180, -26), on_bank(brooks['B'][0], 600, -24)
+    things += [o.Weide(int(wa[0]), Y(wa[1]), seed=4, size=1.45, lean=5), o.Weide(int(wb[0]), Y(wb[1]), seed=9, size=1.3, lean=-4)]
     things += [Findling(400, Y(90), 7, 31), Findling(80, Y(460), 8, 32), Findling(860, Y(470), 6, 33),
                Findling(700, Y(580), 7, 34)]
 
@@ -188,9 +194,11 @@ def render(w, seed=21):
         shadow_of_low[k:] |= low[:-k]
     keep_off |= shadow_of_low & ~path
     dens = np.clip(0.78 + 0.32 * fbm(H, W, 16, 306), 0.38, 1)   # thinner patches here and there, not one even carpet
+    fade = np.clip((np.arange(H) - Y3) / 90.0, 0, 1)[:, None]    # closed like zone 2 at the seam, patchy further down
+    dens = 1 - (1 - dens) * fade
     blades = []
     for _ in range(int(W * (NEW + 8) / 8.5)):
-        x, y = rng.uniform(14, W - 14), rng.uniform(-2, NEW + 8)
+        x, y = rng.uniform(14, W - 14), rng.uniform(0, NEW + 8)
         yy = min(Y(y), H - 1)
         if keep_off[yy, int(x)] or rng.random() > dens[yy, int(x)]:
             continue

@@ -259,7 +259,7 @@ def render(w, seed=12, raw=False):
     # the tall-grass field
     blades = []
     for _ in range(int(W * (NEW + EXT) / 8.5)):
-        x, y = rng.uniform(14, W - 14), rng.uniform(-EXT, NEW + 8)
+        x, y = rng.uniform(14, W - 14), rng.uniform(-EXT, NEW)   # feet in this zone only: zone 3 grows its own
         yi = min(int(y), NEW - 1)
         if rng.random() > dens_all[yi + EXT, int(x)] or path[min(Y(int(y)), H - 1), int(x)]:
             continue

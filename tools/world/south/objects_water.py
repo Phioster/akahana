@@ -227,49 +227,84 @@ class Quelle:
 
 
 class Weide:
-    """A weeping willow leaning over the water: a short dark trunk, a dome of leaves and long strands
-    hanging down nearly to the ground (and over the water)."""
+    """A weeping willow leaning over the water: a round dome of leaf clusters, lit from the upper left with
+    bright rims like the cherry crowns, and a curtain of long strands falling from it nearly to the ground,
+    dark inside so the strands read."""
     def __init__(s, x, y, seed=4, size=1.0, lean=4):
         s.x, s.y, s.seed, s.size, s.lean = x, y, seed, size, lean
 
     def box(s):
         r = int(22 * s.size)
-        return (s.x - r - 4, s.y - int(44 * s.size), s.x + r + 8, s.y + 4)
+        return (s.x - r - 4, s.y - int(46 * s.size), s.x + r + 8, s.y + 4)
 
     def draw(s, img, G):
         rng = np.random.default_rng(s.seed)
         g = lambda i, j: G[j % G.shape[0], i % G.shape[1]]
-        R, top = 17 * s.size, s.y - int(36 * s.size)
-        cx, cy = s.x + s.lean, top + R * 0.7
-        for j in range(int(cy), s.y + 6):                       # its shade on the ground, lower right
+        HI = hx('#b2c486')                                       # the brightest leaf edges
+        R = 17 * s.size
+        top = s.y - int(44 * s.size)
+        cx, cy = s.x + s.lean, top + R * 0.85                    # middle of the dome's base
+        for j in range(int(cy), s.y + 6):                        # its shade on the ground, lower right
             for i in range(int(cx - R + 4), int(cx + R + 10)):
                 if ((i - cx - 6) / (R + 2)) ** 2 + ((j - s.y - 1) / 5) ** 2 < 1 and g(i, j) < 0.85:
                     put(img, i, j, img[j, i] * 0.7) if 0 <= j < img.shape[0] and 0 <= i < img.shape[1] else None
-        for h in range(int(28 * s.size)):                       # trunk, leaning towards the water
-            t = h / (28 * s.size)
+        hy, hry = (cy + s.y) / 2, (s.y - cy) / 2 + 2            # the hollow under the curtain: soft, round
+        for j in range(int(cy), s.y + 3):
+            for i in range(int(cx - R), int(cx + R) + 1):
+                e = ((i - cx) / (R * 0.85)) ** 2 + ((j - hy) / hry) ** 2
+                if e < 1 and g(i * 2, j) < 1.3 - e and 0 <= j < img.shape[0] and 0 <= i < img.shape[1]:
+                    img[j, i] = img[j, i] * (0.45 + 0.35 * e)
+        for h in range(int(30 * s.size)):                        # trunk, leaning towards the water
+            t = h / (30 * s.size)
             tx = s.x + s.lean * t * t
             for dx in range(-1, 2 + (h < 5)):
                 put(img, int(round(tx + dx)), s.y - h, q(BARK, 0.6 - 0.25 * dx, g(int(tx + dx), s.y - h)))
-        noise = rng.random((80, 80))
-        for j in range(int(cy - R * 0.6), int(cy + 1)):         # a low cap of leaves on top
-            for i in range(int(cx - R * 0.8), int(cx + R * 0.8 + 1)):
-                e = ((i - cx) / (R * 0.8)) ** 2 + ((j - cy) / (R * 0.6)) ** 2
-                if e <= 1 and noise[(j - top) % 80, (i - s.x) % 80] > 0.15 + 0.4 * e ** 2:
-                    lit = np.clip(0.85 - ((i - cx) * 0.5 + (j - cy) * 0.9) / R * 0.7, 0, 1)
-                    put(img, i, j, q(WILLOW, lit, g(i, j)))
-        for k in range(int(70 * s.size)):                       # long strands falling from the cap, dark gaps between
-            a = rng.uniform(-1, 1)
-            sx = cx + a * R
-            sy = cy - R * 0.6 * np.sqrt(max(0, 1 - a * a)) * rng.uniform(0.2, 0.9)
-            L = int(rng.uniform(16, 30) * s.size * (1 - 0.3 * abs(a)))
-            sway = rng.normal(1.0, 0.5) + a * 1.5                # strands at the rim swing outwards
-            dark = rng.random() < 0.35
+
+        def strand(sx, sy, L, out, lit0, step=0.9):
+            # a short arch out of the crown, then straight down: willow twigs hang, they do not stick out
             for h in range(L):
                 t = h / L
-                i, j = int(round(sx + sway * t * t * 3)), int(round(sy + h))
-                lit = (0.8 - 0.45 * t - 0.25 * (a > 0.2)) * (0.6 if dark else 1)
-                if rng.random() < 0.92:
-                    put(img, i, j, q(WILLOW, lit, g(i, j)))
+                i, j = int(round(sx + out * (1 - np.exp(-h / 2.5)) + 0.4 * np.sin(h * 0.25 + sx))), int(round(sy + h))
+                if rng.random() < step:
+                    lit = lit0 - 0.5 * t
+                    c = q(WILLOW, lit, g(i, j))
+                    if h < 3 and lit0 > 0.75 and g(i, j) < 0.4:
+                        c = WILLOW[4]
+                    put(img, i, j, c)
+        for k in range(int(40 * s.size)):                        # back strands, in shade
+            a = rng.uniform(-0.9, 0.9)
+            strand(cx + a * R * 0.85, cy - 2, int(rng.uniform(12, 26) * s.size), a * 1.2, 0.45, 0.8)
+
+        # the dome: overlapping leaf clusters, each lit at its upper left, dark clefts between
+        clusters = []
+        for k in range(int(34 * s.size)):
+            a = rng.uniform(-1, 1)
+            hgt = rng.uniform(0, 1) ** 0.7
+            x = cx + a * R * (1 - 0.35 * hgt)
+            y = cy - hgt * R * 0.95 * np.sqrt(max(0.05, 1 - a * a * 0.6))
+            clusters.append((y, x, rng.uniform(3.2, 5.0) * s.size ** 0.5))
+        for y, x, r in sorted(clusters):                         # back to front: lower ones over upper ones
+            for j in range(int(y - r - 1), int(y + r + 2)):
+                for i in range(int(x - r - 1), int(x + r + 2)):
+                    e = ((i - x) / r) ** 2 + ((j - y) / (r * 0.8)) ** 2
+                    if e > 1:
+                        continue
+                    dome = np.clip(0.95 - ((i - cx) * 0.35 + (j - (cy - R)) * 0.55) / R * 0.7, 0.15, 1)
+                    local = np.clip(0.75 - ((i - x) * 0.5 + (j - y) * 0.8) / r * 0.5, 0, 1)
+                    lit = 0.55 * dome + 0.45 * local
+                    if e > 0.72 and (i - x) + (j - y) > 0:
+                        lit *= 0.55                               # cleft on its shaded side
+                    c = q(WILLOW, lit, g(i, j))
+                    if e > 0.55 and (i - x) + (j - y) < -r * 0.6 and dome > 0.55 and g(i, j) < 0.55:
+                        c = HI                                    # a bright rim where the light catches it
+                    put(img, i, j, c)
+        for k in range(int(52 * s.size)):                        # front curtain: a bell, ragged at the hem
+            a = np.clip(rng.normal(0, 0.55), -1, 1)
+            sx = cx + a * R * 0.98
+            sy = cy - R * 0.35 * np.sqrt(max(0, 1 - a * a)) + rng.uniform(-1, 3)
+            L = int(rng.uniform(10, 30) * s.size * (1 - 0.35 * abs(a)))
+            lit0 = np.clip(0.9 - 0.35 * (a + 0.3), 0.35, 0.95) * (0.7 if rng.random() < 0.3 else 1)
+            strand(sx, sy, L, a * 2.0 + rng.normal(0, 0.3), lit0)
 
 
 class Schilf:
