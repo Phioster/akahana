@@ -228,3 +228,23 @@ func test_wisp_fades_by_shrinking_not_by_transparency() -> void:
 	assert_eq(Wisp.flame_pixels(1.0, 0.0).size(), 0, "ganz weg")
 	for c in Wisp.flame_pixels(1.0, 1.0).values():
 		assert_almost_eq(c.a, 1.0, 0.001, "deckend")
+
+func test_wisp_does_not_twitch_when_you_stand_at_the_edge() -> void:
+	# it was behind you (you stood between it and its home): "go home" led straight at you, "shy" pushed
+	# it back - one step each way, every frame
+	var w := Wisp.new()
+	w.anchor = Vector2(100, 100)
+	w.position = Vector2(100, 214)
+	var pl := Vector2(100, 175)                 # 75 px from home, the wisp 39 px behind you
+	var flips := 0
+	var last_dir := 0.0
+	for i in 600:
+		var before := w.position
+		w.step(1.0 / 60.0, pl)
+		var d := signf(w.position.y - before.y)
+		if d != 0.0:
+			if last_dir != 0.0 and d != last_dir:
+				flips += 1
+			last_dir = d
+	assert_true(flips < 4, "zuckt hin und her: %d Richtungswechsel" % flips)
+	w.free()

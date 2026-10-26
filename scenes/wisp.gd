@@ -82,7 +82,9 @@ func step(delta: float, pl: Vector2) -> void:
 			_alpha = maxf(0.0, _alpha - delta * 1.5)
 			if _alpha <= 0.0:
 				_hidden = true
-	elif pl.distance_to(anchor) > SHY + 40.0:
+	elif pl.distance_to(anchor) > SHY + 40.0 and dist > SHY + 20.0:
+		# home only when that does not lead toward you: between "shy" (40) and this (50) it just hovers,
+		# otherwise, standing between it and its home, it stepped away and back every frame
 		var drift := Vector2(sin(_t * 0.7) * 5.0, sin(_t * 1.1) * 3.0)
 		position = position.move_toward(anchor + drift, 6.0 * delta)
 
