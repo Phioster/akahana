@@ -87,7 +87,7 @@ func smooth(way: PackedVector2Array) -> PackedVector2Array:
 		var stairs := 0.0
 		for j in range(i + 1, way.size()):
 			stairs += _seg_cost(way[j - 1], way[j])
-			if j > i + 1 and _line_ok(way[i], way[j], stairs * 1.02):
+			if j > i + 1 and _line_ok(way[i], way[j], stairs * 1.15 + 6.0):   # small detours are not worth a kink
 				best = j
 		out.append(way[best])
 		i = best

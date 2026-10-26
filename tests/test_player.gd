@@ -17,3 +17,24 @@ func test_player_faces_its_walking_direction() -> void:
 	pl._face(Vector2(0, -5))
 	assert_eq(pl.dir, Player.Dir.UP)
 	pl.free()
+
+func test_corners_are_walked_round_not_snapped() -> void:
+	# at a waypoint he turned in one frame; the camera follows him, so every kink jolted the view
+	var pl := Player.new()
+	pl.position = Vector2(0, 0)
+	pl.walk_to(PackedVector2Array([Vector2(0, 30), Vector2(30, 30)]))
+	var last_dir := Vector2.ZERO
+	var worst := 0.0
+	var prev := pl.position
+	for i in 400:
+		pl._process(1.0 / 60.0)
+		var v := pl.position - prev
+		prev = pl.position
+		if v.length() > 0.0001:
+			var d := v.normalized()
+			if last_dir != Vector2.ZERO:
+				worst = maxf(worst, absf(rad_to_deg(last_dir.angle_to(d))))
+			last_dir = d
+	assert_true(absf(worst) < 20.0, "größter Richtungswechsel je Bild: %.0f°" % worst)
+	assert_true(pl.position.distance_to(Vector2(30, 30)) < 0.5, "kommt trotzdem an")
+	pl.free()

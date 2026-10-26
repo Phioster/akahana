@@ -107,7 +107,8 @@ func test_real_slanting_walks_have_few_kinks() -> void:
 	p.build_cells(f.get_buffer(f.get_length()), w.width / Pathing.CELL, w.height / Pathing.CELL)
 	p.apply_ground(GroundMat.load_default(w.width, w.height))
 	var worst := 0.0
-	for d in [Vector2(60, -60), Vector2(-60, -60), Vector2(60, 60), Vector2(-50, -80), Vector2(80, -40)]:
+	for d in [Vector2(60, -60), Vector2(-60, -60), Vector2(60, 60), Vector2(-50, -80), Vector2(80, -40),
+			Vector2(14, -90), Vector2(-18, -80), Vector2(10, 70), Vector2(-12, 85)]:   # mostly up/down, a bit sideways
 		var way := p.find_path(w.start, w.start + d)
 		var turns := 0
 		for i in range(2, way.size()):
@@ -115,4 +116,4 @@ func test_real_slanting_walks_have_few_kinks() -> void:
 				turns += 1
 		var per100 := turns * 100.0 / maxf(1.0, d.length())
 		worst = maxf(worst, per100)
-	assert_true(worst <= 8.0, "Knicke je 100 px: %.1f" % worst)   # was up to 24.6 before smoothing
+	assert_true(worst <= 5.0, "Knicke je 100 px: %.1f" % worst)   # was up to 24.6; the rest he walks round

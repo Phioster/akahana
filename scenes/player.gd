@@ -7,6 +7,7 @@ const SPEED := 15.0                  # art px per second = stride drawn in the w
 const COLS := 8                      # idle 0-1, walk 2-7 (six frames, two footfalls)
 const WALK := 6
 const CONTACT := [1, 4]              # walk frames where a foot lands
+const TURN := 9.0                    # how fast he swings into a new heading: corners become small curves
 enum Dir { DOWN, UP, LEFT, RIGHT }
 
 signal stepped                       # a foot touches the ground (twice per walk cycle)
@@ -16,6 +17,7 @@ var dir: int = Dir.DOWN
 var sprite: Sprite2D
 var _t := 0.0
 var _last_col := -1
+var _heading := Vector2.ZERO
 
 
 func _ready() -> void:
@@ -54,18 +56,28 @@ func is_walking() -> bool:
 func _process(delta: float) -> void:
 	_t += delta
 	var step := SPEED * delta
+	if path.is_empty():
+		_heading = Vector2.ZERO
 	while step > 0.0 and not path.is_empty():
 		var target := path[0]
 		var to := target - position
 		var d := to.length()
+		if path.size() > 1 and d < 3.0:               # nearly there: already head for the next point
+			path.remove_at(0)
+			continue
 		if d <= step:
 			position = target
 			path.remove_at(0)
 			step -= d
-		else:
-			_face(to)
-			position += to / d * step
-			step = 0.0
+			continue
+		var want := to / d
+		if _heading == Vector2.ZERO or _heading.dot(want) < -0.5:   # starting, or turning back: no curve
+			_heading = want
+		else:                                         # swing round into the new heading, no kink
+			_heading = _heading.lerp(want, 1.0 - exp(-TURN * delta)).normalized()
+		_face(_heading)
+		position += _heading * step
+		step = 0.0
 	var col := 0
 	if is_walking():
 		col = 2 + int(_t * STEPS_PER_SEC / 2.0 * WALK) % WALK   # one cycle = two footfalls
