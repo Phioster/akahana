@@ -20,7 +20,8 @@ from field6 import ground_organic, patches, CMAP, DG  # noqa: E402
 import extras  # noqa: E402
 from berg_objects import Pine  # noqa: E402
 import mood_map  # noqa: E402
-from objects_south import Wegstein, Mauer, Vogelscheuche  # noqa: E402
+from objects_south import (Wegstein, Mauer, Vogelscheuche, Findling, Steinhaufen, Baumstumpf, Stamm,  # noqa: E402
+                           Zaun, HohesGras, Voegel)
 import ground as south_ground  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(HERE, '..', '..', '..'))
@@ -168,6 +169,15 @@ def render(kind, w, seed=7):
 
     things = [Wegstein(306, CTX + 146, kind), Vogelscheuche(612, CTX + 330, kind),
               Mauer([(110, CTX + 300), (140, CTX + 296), (172, CTX + 304), (205, CTX + 318), (226, CTX + 336)])]
+    # small things to stop and look at, so almost every screen has one
+    things += [Findling(80, CTX + 120, 9, 11), Findling(830, CTX + 520, 7, 12), Steinhaufen(440, CTX + 300),
+               Baumstumpf(520, CTX + 110), Baumstumpf(130, CTX + 560, 4), Stamm(690, CTX + 168, 724, CTX + 182),
+               Zaun([(380, CTX + 460), (398, CTX + 466), (416, CTX + 471), (434, CTX + 478), (452, CTX + 484),
+                     (470, CTX + 490)]),
+               Voegel(200, CTX + 420), Voegel(640, CTX + 110), Voegel(840, CTX + 380)]
+    things += [HohesGras(x, CTX + y, int(rng.integers(8, 14)), int(rng.integers(0, 999))) for x, y in
+               [(150, 200), (250, 470), (560, 420), (760, 290), (860, 140), (60, 520), (680, 560), (470, 120),
+                (590, 250)]]
     firs = forest_firs(rng) + edge_firs(rng)
     blocked = path.copy()
     for t in things:

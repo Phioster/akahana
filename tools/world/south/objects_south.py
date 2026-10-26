@@ -247,3 +247,228 @@ class Vogelscheuche:
                     elif ch == 'b':
                         put(img, cx + i - 2, cy + j - 3, MG)
             put(img, cx, cy - 2, L1)                            # eye
+
+
+BARK = [hx(c) for c in ['#2a221e', '#3d322b', '#55473c', '#6e5e50']]
+CUT = [hx(c) for c in ['#6d5a45', '#8f7a60', '#ad987a', '#c4b195']]          # pale wood of a cut face
+GRASS2 = [hx(c) for c in ['#3d3424', '#5a4a30', '#7c6844', '#9c875b', '#b5a273']]
+BIRD = [hx(c) for c in ['#3a2f28', '#5c4a3c', '#8a7360']]
+
+
+def _cast(img, G, pix, dx=3, k=0.64):
+    """One cast shadow to the lower right of a set of pixels, each ground pixel darkened once."""
+    g = lambda i, j: G[j % G.shape[0], i % G.shape[1]]
+    shadow = {(i + d, j + 1) for (i, j) in pix for d in range(1, dx + 1)} - set(pix)
+    for (i, j) in shadow:
+        if g(i, j) < 0.88 and 0 <= j < img.shape[0] and 0 <= i < img.shape[1]:
+            img[j, i] = img[j, i] * k
+
+
+class Findling:
+    """A big erratic boulder lying in the field, rounded, mossy on its shaded side."""
+    def __init__(s, x, y, r=8, seed=3):
+        s.x, s.y, s.r, s.seed = x, y, r, seed
+
+    def box(s):
+        return (s.x - s.r - 2, s.y - s.r - 2, s.x + s.r + 5, s.y + 3)
+
+    def draw(s, img, G):
+        x, y, r = s.x, s.y, s.r
+        ph = np.random.default_rng(s.seed).uniform(0, 6.3, 3)
+        g = lambda i, j: G[j % G.shape[0], i % G.shape[1]]
+        pix = {}
+        for j in range(y - r - 1, y + 1):
+            for i in range(x - r - 2, x + r + 3):
+                a = np.arctan2(j - y, i - x)
+                rr = r * (1 + 0.15 * np.sin(2 * a + ph[0]) + 0.08 * np.sin(3 * a + ph[1]))
+                e = np.hypot(i - x, (j - y) * 1.05) / rr               # a dome standing up out of the grass
+                if e <= 1:
+                    pix[(i, j)] = ((i - x) / rr, (y - j) / (rr / 1.05))
+        _cast(img, G, list(pix), dx=4)
+        for (i, j), (u, t) in pix.items():
+            top = (i, j - 1) not in pix
+            v = 0.5 - 0.32 * u + 0.1 * t - 0.2 * (j >= y - 1)      # a darker mass than the speckled meadow
+            c = q(STONE, v, g(i, j))
+            if top and u < 0.35 and g(i, j + 3) < 0.6:
+                c = LITSTONE[5]                                   # light catching the crown
+            if u > 0.25 and t < 0.5 and g(i * 3, j * 5) < 0.4:
+                c = q(MOSS3, 0.55 - 0.3 * u, g(i, j))
+            if t > 0.7 and u < 0 and g(i * 7, j * 3) < 0.25:
+                c = q(MOSS3, 0.9, g(i, j))
+            img[j, i] = c
+        for k in (-r - 1, r + 1, r + 2):
+            put(img, x + k, y, DG)
+
+
+class Steinhaufen:
+    """A small heap of field stones picked off the meadow long ago."""
+    def __init__(s, x, y, seed=4):
+        s.x, s.y, s.seed = x, y, seed
+
+    def box(s):
+        return (s.x - 8, s.y - 8, s.x + 11, s.y + 3)
+
+    def draw(s, img, G):
+        rng = np.random.default_rng(s.seed)
+        stones = [(s.x + int(rng.integers(-6, 7)), s.y - int(rng.integers(0, 3)), int(rng.integers(2, 4)))
+                  for _ in range(6)]
+        stones += [(s.x + int(rng.integers(-3, 4)), s.y - 3 - int(rng.integers(0, 2)), 2) for _ in range(3)]
+        for (x, y, r) in sorted(stones, key=lambda t: t[1]):
+            Findling(x, y, r, int(rng.integers(0, 999))).draw(img, G)
+
+
+class Baumstumpf:
+    """An old stump in the meadow: furrowed bark, flared roots, a grey weathered cut face with rings,
+    moss creeping up its shaded side."""
+    def __init__(s, x, y, r=5):
+        s.x, s.y, s.r = x, y, r
+
+    def box(s):
+        return (s.x - s.r - 4, s.y - 10, s.x + s.r + 6, s.y + 3)
+
+    def draw(s, img, G):
+        x, y, r = s.x, s.y, s.r
+        g = lambda i, j: G[j % G.shape[0], i % G.shape[1]]
+        h = 5
+        side = {}
+        for j in range(y - h, y + 1):
+            flare = 1.5 * max(0, (j - (y - 2))) / 2
+            for i in range(int(x - r - flare), int(x + r + flare) + 1):
+                side[(i, j)] = (i - x) / (r + flare)
+        _cast(img, G, list(side), dx=4)
+        for (i, j), u in side.items():
+            fur = 0.12 if (i - x) % 2 == 0 else 0
+            c = q(BARK, 0.62 - 0.4 * u - fur, g(i, j))
+            if u > 0.2 and g(i * 5, j * 3) < 0.5:
+                c = q(MOSS3, 0.5 - 0.3 * u, g(i, j))
+            img[j, i] = c
+        top = y - h
+        for j in range(top - 3, top + 1):                     # the cut face: an ellipse seen from above
+            for i in range(x - r, x + r + 1):
+                e = ((i - x) / (r + 0.3)) ** 2 + ((j - top + 1.5) / 2.0) ** 2
+                if e <= 1:
+                    ring = int(np.sqrt(e) * 3) % 2
+                    v = 0.75 - 0.25 * (i - x) / r - 0.25 * ring
+                    put(img, i, j, q(CUT, v, g(i, j)))
+        put(img, x - 1, top - 1, CUT[0])                      # the heart
+        for (i, j) in [(x + r - 1, top - 4), (x + r, top - 4), (x + r, top - 5)]:   # a splinter left standing
+            put(img, i, j, BARK[2])
+
+
+class Stamm:
+    """A fallen trunk lying in the grass, bark lit on top, a pale cut end with rings, a broken branch."""
+    def __init__(s, x1, y1, x2, y2, r=3):
+        s.a, s.b, s.r = np.array([x1, y1], float), np.array([x2, y2], float), r
+
+    def box(s):
+        return (int(min(s.a[0], s.b[0])) - 5, int(min(s.a[1], s.b[1])) - 8,
+                int(max(s.a[0], s.b[0])) + 6, int(max(s.a[1], s.b[1])) + 4)
+
+    def draw(s, img, G):
+        g = lambda i, j: G[j % G.shape[0], i % G.shape[1]]
+        a, b, r = s.a, s.b, s.r
+        d = b - a
+        L = np.hypot(*d)
+        n = np.array([-d[1], d[0]]) / L
+        if n[1] > 0:
+            n = -n                                             # n points up the screen
+        pix = {}
+        x0, y0, x1, y1 = s.box()
+        for j in range(y0, y1):
+            for i in range(x0, x1):
+                p = np.array([i + 0.5, j + 0.5]) - a
+                t = p @ d / L ** 2
+                if not 0 <= t <= 1:
+                    continue
+                off = (p - t * d) @ n                          # across the trunk, + = upper side
+                if abs(off) <= r:
+                    pix[(i, j)] = (t, off / r)
+        _cast(img, G, list(pix), dx=3)
+        for (i, j), (t, v) in pix.items():
+            c = q(BARK, 0.5 + 0.35 * v + (0.08 if (i + j) % 3 == 0 else 0), g(i, j))
+            if v > 0.4 and g(i * 3, j * 7) < 0.3:
+                c = q(MOSS3, 0.7, g(i, j))
+            if t > 0.96:                                       # the cut end
+                c = q(CUT, 0.6 + 0.3 * v, g(i, j))
+            img[j, i] = c
+        mid = a + d * 0.35 + n * (r + 0.5)                     # a broken branch stub pointing up
+        for k in range(3):
+            put(img, int(mid[0]) + k // 2, int(mid[1]) - k, BARK[2 if k else 1])
+
+
+class Zaun:
+    """A few old fence posts, all that is left of a pasture: weathered, some leaning, one fallen over."""
+    def __init__(s, pts, seed=8):
+        s.pts, s.seed = pts, seed
+
+    def box(s):
+        xs = [p[0] for p in s.pts]
+        ys = [p[1] for p in s.pts]
+        return (min(xs) - 4, min(ys) - 10, max(xs) + 6, max(ys) + 3)
+
+    def draw(s, img, G):
+        rng = np.random.default_rng(s.seed)
+        g = lambda i, j: G[j % G.shape[0], i % G.shape[1]]
+        for k, (x, y) in enumerate(s.pts):
+            if k == len(s.pts) - 2:                            # this one lies in the grass
+                pix = [(x + i, y) for i in range(-3, 5)] + [(x + i, y - 1) for i in range(-3, 5)]
+                _cast(img, G, pix, dx=1)
+                for (i, j) in pix:
+                    put(img, i, j, q(WOOD, 0.75 if j < y else 0.35, g(i, j)))
+                continue
+            h = int(rng.integers(9, 13))
+            lean = rng.choice([0, 0, 1, -1])
+            pix = []
+            for d in range(h):
+                xx = x + (lean if d > h * 0.6 else 0)
+                pix += [(xx, y - d), (xx + 1, y - d)]
+            _cast(img, G, pix, dx=2)
+            for (i, j) in pix:
+                left = (i - 1, j) not in pix
+                top = (i, j - 1) not in pix
+                v = (0.9 if left else 0.4) + (0.1 if top else 0)
+                c = q(WOOD + [CUT[2], CUT[3]], v, g(i, j))
+                if j > y - 3 and g(i * 5, j) < 0.35:
+                    c = q(MOSS3, 0.5, g(i, j))
+                put(img, i, j, c)
+
+
+class HohesGras:
+    """A clump of tall grass gone to seed, taller than the poppies, leaning with the wind."""
+    def __init__(s, x, y, n=9, seed=5):
+        s.x, s.y, s.n, s.seed = x, y, n, seed
+
+    def box(s):
+        return (s.x - 6, s.y - 10, s.x + 9, s.y + 1)
+
+    def draw(s, img, G):
+        rng = np.random.default_rng(s.seed)
+        for _ in range(s.n):
+            bx = s.x + int(rng.integers(-4, 5))
+            h = int(rng.integers(5, 10))
+            lean = rng.normal(0.35, 0.25)
+            for k in range(h):
+                i = bx + int(round(lean * k * k / h))
+                c = GRASS2[min(4, 1 + k * 3 // h)]
+                put(img, i, s.y - k, c)
+            if rng.random() < 0.6:                             # a seed head
+                i = bx + int(round(lean * h))
+                put(img, i, s.y - h, GRASS2[4])
+                put(img, i + 1, s.y - h + 1, GRASS2[3])
+
+
+class Voegel:
+    """Draft only: where a few sparrows sit (in the game they are the living birds, hopping, flying off)."""
+    def __init__(s, x, y, seed=6):
+        s.x, s.y, s.seed = x, y, seed
+
+    def box(s):
+        return (s.x - 10, s.y - 4, s.x + 11, s.y + 3)
+
+    def draw(s, img, G):
+        rng = np.random.default_rng(s.seed)
+        for _ in range(3):
+            x, y = s.x + int(rng.integers(-9, 10)), s.y + int(rng.integers(-3, 3))
+            for (i, j, c) in [(0, 0, 1), (1, 0, 1), (2, 0, 0), (1, -1, 2), (0, -1, 1), (-1, 0, 0)]:
+                put(img, x + i, y + j, BIRD[c])
+            put(img, x + 1, y + 1, img[y + 1, x + 1] * 0.7)
