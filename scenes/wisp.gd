@@ -7,7 +7,7 @@ const WHOOSH_DB := -14.0             # recording -20 -> about -34, under the cra
 const SHY := 30.0                    # closer than this and it drifts off
 const HOME := 60.0                   # never further from its spot; fades out instead
 const BREATH := 2.4                  # seconds per breath: the whole flame grows and sinks back
-const FLICKER := 8.0                 # flame frames per second
+const FLICKER := 5.0                 # flame frames per second: calm, faster read as trembling
 const EMBER := Color8(150, 52, 30)
 const ORANGE := Color8(226, 110, 40)
 const AMBER := Color8(255, 176, 70)
@@ -15,12 +15,12 @@ const CORE := Color8(255, 236, 170)
 const RED := Color8(205, 62, 36)
 # One shape: the ball runs out upward into a flame. Per column (x = -3..3) how far it is stretched up,
 # drawn by hand for each flicker frame; the colour goes by distance from the centre, so the tip is red.
-const STRETCH := [[0.0, 0.6, 1.4, 2.2, 1.2, 0.4, 0.0],
-		[0.2, 1.0, 1.8, 1.6, 1.0, 0.5, 0.0],
-		[0.0, 0.5, 1.2, 2.6, 1.6, 0.8, 0.2],
-		[0.3, 1.2, 1.0, 2.0, 1.4, 0.3, 0.0],
-		[0.0, 0.8, 1.8, 2.3, 0.9, 0.6, 0.1],
-		[0.1, 0.5, 1.5, 1.8, 1.8, 0.9, 0.0]]
+const STRETCH := [[0.0, 0.6, 1.3, 1.6, 1.2, 0.5, 0.0],   # neighbouring frames differ little: the tip
+		[0.1, 0.7, 1.4, 1.5, 1.1, 0.5, 0.0],               # moves, the body stays put
+		[0.0, 0.6, 1.2, 1.7, 1.3, 0.6, 0.1],
+		[0.1, 0.8, 1.2, 1.6, 1.3, 0.5, 0.0],
+		[0.0, 0.7, 1.4, 1.7, 1.1, 0.5, 0.0],
+		[0.0, 0.5, 1.3, 1.5, 1.4, 0.7, 0.0]]
 const SPARK := [0, 0, 1, 0, -1, 0]   # a loose spark above the flame in these frames (column), 0 = none
 
 var anchor := Vector2.ZERO
@@ -31,6 +31,7 @@ var _alpha := 1.0
 var _hidden := false                 # faded out, waiting until the coast is clear
 var _whoosh: AudioStreamPlayer2D
 var _last_breath := -1
+var _vel := Vector2.ZERO
 
 
 func _ready() -> void:
@@ -74,10 +75,12 @@ func step(delta: float, pl: Vector2) -> void:
 		if pl.distance_to(anchor) > SHY + 40.0:
 			_hidden = false
 			position = anchor
+			_vel = Vector2.ZERO
 		return
 	_alpha = minf(1.0, _alpha + delta * 0.5)
+	var want := Vector2.ZERO
 	if dist < SHY + 10.0:
-		position += away.normalized() * 14.0 * delta if dist > 0.01 else Vector2(14.0 * delta, 0)
+		want = away.normalized() * 14.0 if dist > 0.01 else Vector2(14.0, 0)
 		if position.distance_to(anchor) > HOME:
 			_alpha = maxf(0.0, _alpha - delta * 1.5)
 			if _alpha <= 0.0:
@@ -86,7 +89,10 @@ func step(delta: float, pl: Vector2) -> void:
 		# home only when that does not lead toward you: between "shy" (40) and this (50) it just hovers,
 		# otherwise, standing between it and its home, it stepped away and back every frame
 		var drift := Vector2(sin(_t * 0.7) * 5.0, sin(_t * 1.1) * 3.0)
-		position = position.move_toward(anchor + drift, 6.0 * delta)
+		var to := anchor + drift - position
+		want = to.limit_length(6.0) if to.length() > 0.3 else Vector2.ZERO
+	_vel = _vel.lerp(want, 1.0 - exp(-3.0 * delta))   # glide into each new heading, no sudden turns
+	position += _vel * delta
 
 
 func visible_amount() -> float:
@@ -101,7 +107,9 @@ static func breath(t: float) -> float:
 
 ## The flame's pixels around its centre at time t; scale 0..1 shrinks it away (no transparency).
 static func flame_pixels(t: float, scale: float) -> Dictionary:
-	var p := breath(t)
+	# three clear sizes instead of a smooth swell: growing smoothly popped single pixels in and out at the
+	# rim nearly every frame (about 20 a second), which read as trembling
+	var p := roundf(breath(t) * 2.0) / 2.0
 	var r := (2.3 + 0.9 * p) * scale
 	var out := {}
 	if r < 0.9:
@@ -123,10 +131,12 @@ static func flame_pixels(t: float, scale: float) -> Dictionary:
 	return out
 
 
-## For the atmosphere shader: a warm light that breathes with the flame.
+## For the atmosphere shader: a warm light that breathes with the flame. It sits in the middle of the
+## drawn core pixel - at the exact sub-pixel spot it slid against the pixel-stepped flame and jittered.
 func light_data() -> Dictionary:
 	var v := visible_amount()
-	return {"x": position.x, "y": position.y, "r": 24.0 + 6.0 * breath(_t), "k": (0.45 + 0.3 * breath(_t)) * v, "kind": "wisp"}
+	var c := position.round() + Vector2(0.5, 0.5)
+	return {"x": c.x, "y": c.y, "r": 30.0 + 8.0 * breath(_t), "k": (0.9 + 0.4 * breath(_t)) * v, "kind": "wisp"}
 
 
 func _draw() -> void:

@@ -208,7 +208,7 @@ func test_place_sounds_arrive_near_the_music_level() -> void:
 	# up close a place sound should reach about the level of music and steps (-26..-30 dB), measured:
 	# recording loudness (volumedetect) plus the volume set in the game
 	var a := Ambience.new()
-	assert_between(-27.9 + a.FIRE_DB, -30.0, -24.0, "Feuer")   # level of the audible part, rumble removed
+	assert_between(-29.3 + a.FIRE_DB, -36.0, -30.0, "Feuer")   # crackle under the steps, not over them
 	assert_between(-27.8 + a.BROOK_DB["bach_mittel"], -32.0, -26.0, "Bach")
 	a.free()
 
@@ -248,3 +248,49 @@ func test_wisp_does_not_twitch_when_you_stand_at_the_edge() -> void:
 			last_dir = d
 	assert_true(flips < 4, "zuckt hin und her: %d Richtungswechsel" % flips)
 	w.free()
+
+func test_wisp_glides_while_you_walk_around_it() -> void:
+	# walking around near it, it jittered: its drawn pixel stepped one way and straight back again
+	var w := Wisp.new()
+	w.anchor = Vector2(200, 200)
+	w.position = Vector2(200, 200)
+	var reversals := 0
+	var last := Vector2i(w.position.round())
+	var last_step := Vector2i.ZERO
+	for i in 900:                                   # 15 s of strolling in a loose circle around it
+		var a := i / 60.0 * 0.6
+		var pl := Vector2(200, 200) + Vector2(cos(a), sin(a)) * (38.0 + 6.0 * sin(i / 60.0 * 2.3))
+		w.step(1.0 / 60.0, pl)
+		var now := Vector2i(w.position.round())
+		var s := now - last
+		if s != Vector2i.ZERO:
+			if (s.x != 0 and s.x == -last_step.x) or (s.y != 0 and s.y == -last_step.y):
+				reversals += 1
+			last_step = s
+			last = now
+	assert_true(reversals < 15, "zittert: %d Pixel-Rückschritte" % reversals)
+	w.free()
+
+func test_wisp_light_sits_on_the_drawn_flame() -> void:
+	# the flame is drawn on whole pixels; a glow at the exact sub-pixel spot slid against it -> jitter
+	var w := Wisp.new()
+	w.position = Vector2(120.4, 80.6)
+	var d := w.light_data()
+	assert_almost_eq(d["x"], 120.5, 0.001, "Licht x mitten im Kernpixel")
+	assert_almost_eq(d["y"], 81.5, 0.001, "Licht y mitten im Kernpixel")
+	w.free()
+
+func test_wisp_flicker_is_calm() -> void:
+	assert_true(Wisp.FLICKER <= 6.0, "nicht zu schnell")
+
+func test_wisp_breathes_in_steps_not_in_a_tremble() -> void:
+	# trembling is the shape changing nearly every frame (a pixel popping in or out at the rim); counted at
+	# 30 frames a second over 10 s: in how many frames does the drawn shape change at all
+	var events := 0
+	var prev := Wisp.flame_pixels(0.0, 1.0)
+	for i in range(1, 300):
+		var now := Wisp.flame_pixels(i / 30.0, 1.0)
+		if now.keys() != prev.keys():
+			events += 1
+		prev = now
+	assert_true(events / 10.0 <= 7.0, "Formwechsel pro Sekunde: %.1f" % (events / 10.0))

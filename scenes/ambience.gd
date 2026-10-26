@@ -7,7 +7,7 @@ extends Node2D
 const RUIN := Vector2(229, 352)
 # Levels are set as (how loud it should arrive up close) minus (how loud the recording is, measured with
 # ffmpeg volumedetect): music arrives at about -26 dB, steps at about -29.
-const FIRE_DB := 1.0                 # recording (rumble removed) -28 -> arrives about -27, like the steps
+const FIRE_DB := -4.0                # recording (rumble off, hiss tamed) -29 -> about -33, under the steps
 const FIRE_REACH := 180.0
 const BROOK_DB := {"bach_klein": -1.5, "bach_mittel": -1.0, "bach_gross": -7.0}   # recordings -27/-28/-22 -> -29
 const BROOK_REACH := 130.0

@@ -41,11 +41,14 @@ def save(name, x, rms=0.1, soft=False):
                    input=x.astype(np.float32).tobytes(), check=True)
 
 
-def loop(src, name, ss, length, rms, fade=2.0, highpass=0.0):
+def loop(src, name, ss, length, rms, fade=2.0, highpass=0.0, lowpass=0.0):
     x = load(src, ss, length + fade)
     if highpass:                                         # drop rumble phones and earbuds cannot play, so the
         from scipy import signal                         # level is set by what is actually heard
         x = signal.sosfiltfilt(signal.butter(4, highpass, 'high', fs=SR, output='sos'), x)
+    if lowpass:                                          # tame the hiss and sharp spikes on top
+        from scipy import signal
+        x = signal.sosfiltfilt(signal.butter(2, lowpass, 'low', fs=SR, output='sos'), x)
     n, f = int(length * SR), int(fade * SR)
     if len(x) < n + f:                                   # short recording: use what is there
         n = len(x) - f
@@ -101,7 +104,7 @@ if __name__ == '__main__':
     loop(f'{FS}/692538.ogg', 'bach_klein', 2, 30, 0.1)
     loop(f'{FS}/615249.ogg', 'bach_mittel', 5, 30, 0.1)
     loop(f'{FS}/826443.ogg', 'bach_gross', 5, 30, 0.1)
-    loop(f'{FS}/320231.ogg', 'feuer', 2, 24, 0.05, highpass=180.0)   # nearly all its energy was rumble
+    loop(f'{FS}/320231.ogg', 'feuer', 2, 24, 0.035, highpass=150.0, lowpass=3200.0)   # rumble off, hiss tamed
     loop(f'{FS}/680476.ogg', 'kerze', 5, 20, 0.1)
     loop(f'{FS}/181563.ogg', 'knistern', 2, 24, 0.1)
     w = load(f'{FS}/249809.ogg')                         # torch swing: one soft whoosh per breath of the wisp
