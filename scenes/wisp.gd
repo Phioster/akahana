@@ -32,6 +32,8 @@ var _hidden := false                 # faded out, waiting until the coast is cle
 var _whoosh: AudioStreamPlayer2D
 var _last_breath := -1
 var _vel := Vector2.ZERO
+var _pos := Vector2.ZERO              # the true, smooth position; the node shows it rounded
+var _pos_set := false
 
 
 func _ready() -> void:
@@ -69,19 +71,23 @@ func _process(delta: float) -> void:
 
 func step(delta: float, pl: Vector2) -> void:
 	_t += delta
-	var away := position - pl
+	if not _pos_set or position != _pos.round():   # placed from outside (main, tests): start there
+		_pos = position
+		_pos_set = true
+	var away := _pos - pl
 	var dist := away.length()
 	if _hidden:
 		if pl.distance_to(anchor) > SHY + 40.0:
 			_hidden = false
-			position = anchor
+			_pos = anchor
+			position = _pos.round()
 			_vel = Vector2.ZERO
 		return
 	_alpha = minf(1.0, _alpha + delta * 0.5)
 	var want := Vector2.ZERO
 	if dist < SHY + 10.0:
 		want = away.normalized() * 14.0 if dist > 0.01 else Vector2(14.0, 0)
-		if position.distance_to(anchor) > HOME:
+		if _pos.distance_to(anchor) > HOME:
 			_alpha = maxf(0.0, _alpha - delta * 1.5)
 			if _alpha <= 0.0:
 				_hidden = true
@@ -89,10 +95,13 @@ func step(delta: float, pl: Vector2) -> void:
 		# home only when that does not lead toward you: between "shy" (40) and this (50) it just hovers,
 		# otherwise, standing between it and its home, it stepped away and back every frame
 		var drift := Vector2(sin(_t * 0.25) * 1.5, sin(_t * 0.4) * 1.0)   # a slow, small sway: it rests in the air
-		var to := anchor + drift - position
+		var to := anchor + drift - _pos
 		want = to.limit_length(6.0) if to.length() > 0.6 else Vector2.ZERO
 	_vel = _vel.lerp(want, 1.0 - exp(-3.0 * delta))   # glide into each new heading, no sudden turns
-	position += _vel * delta
+	_pos += _vel * delta
+	# the node itself stands on whole world pixels like the ground: with pixel snapping on, a fractional
+	# node was rounded against the scrolling camera and hopped a pixel in the walking direction
+	position = _pos.round()
 
 
 func visible_amount() -> float:
@@ -145,7 +154,6 @@ func light_data() -> Dictionary:
 
 
 func _draw() -> void:
-	var o := position.round() - position          # draw on whole art pixels
-	var px := flame_pixels(_t, visible_amount())
+	var px := flame_pixels(_t, visible_amount())       # the node is already on a whole pixel
 	for q in px:
-		draw_rect(Rect2(o + Vector2(q), Vector2.ONE), px[q])
+		draw_rect(Rect2(Vector2(q), Vector2.ONE), px[q])

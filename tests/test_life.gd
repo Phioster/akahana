@@ -347,3 +347,17 @@ func test_post_shader_knows_where_the_camera_really_is() -> void:
 		worst = maxf(worst, real.distance_to(told))
 	assert_true(worst < 0.01, "Shader liegt %.2f Pixel neben der echten Kamera" % worst)
 	m.queue_free()
+
+func test_wisp_stands_on_whole_world_pixels_like_the_ground() -> void:
+	# with "snap 2D transforms to pixel" on, a node at a fractional spot is rounded against the scrolling
+	# camera, the ground (on whole pixels) is not - so the wisp hopped a pixel in the walking direction
+	var w := Wisp.new()
+	w.anchor = Vector2(100.3, 100.7)
+	w.position = Vector2(100.3, 100.7)
+	var pl := Vector2(100, 128)
+	for i in 240:
+		w.step(1.0 / 60.0, pl)
+		assert_true(w.position == w.position.round(), "Bild %d: %s" % [i, w.position])
+		if w.position != w.position.round():
+			break
+	w.free()
