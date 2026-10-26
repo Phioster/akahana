@@ -221,7 +221,10 @@ def render(kind, w, seed=7):
     for s_ in cut:
         h = int(round((s_['h'] - 4) / 1.25))
         fx = s_['x'] + int(h * 0.45) + 3 if s_['x'] > 0 else s_['x'] + s_['w'] - int(h * 0.62) - 3   # left side cut too
-        firs.append(Fir(fx, s_['foot'] - (OLD_H - CTX), max(h, 30),
+        fy = s_['foot'] - (OLD_H - CTX)
+        if s_['x'] > 0 and fy > forest_edge(fx) - 30 and in_forest(fx, fy) < -3:
+            continue                    # the old right edge ran on below the wood: now it would poke out of the curve
+        firs.append(Fir(fx, fy, max(h, 30),
                         int(rng.integers(0, 10 ** 6))))
     draw_sprites(img, [s_ for s_ in osprites if s_ not in cut], -(OLD_H - CTX))   # the camp, unchanged
     for t in sorted(things + firs, key=lambda t: t.box()[3] if hasattr(t, 'box') else t.p.y):
