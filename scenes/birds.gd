@@ -47,7 +47,8 @@ func _land(f: Dictionary) -> void:
 
 func _on_took_off(b: Bird) -> void:
 	_wings.stream = SoundBank.get_stream("fluegel_0")
-	_wings.volume_db = -15.0                  # a soft flutter, well under the calls
+	_wings.volume_db = -9.0                   # with the ducking the flutter stands out without being loud
+	Ducker.duck()
 	_wings.position = b.position
 	_wings.pitch_scale = randf_range(0.95, 1.1)
 	_wings.play()

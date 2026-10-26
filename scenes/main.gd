@@ -113,6 +113,7 @@ func _ready() -> void:
 	amb.world = world
 	amb.player = player
 	add_child(amb)
+	add_child(Ducker.new())
 	add_child(Music.new())
 
 	book = BookUI.new()

@@ -162,3 +162,30 @@ func test_book_text_stays_on_the_page() -> void:
 				var w: float = c.size.x if c.autowrap_mode != TextServer.AUTOWRAP_OFF else c.get_minimum_size().x
 				assert_true(c.position.x + w <= page_w + 0.5, "Seite %d: '%s' endet bei %.0f > %.0f" % [i, c.text, c.position.x + w, page_w])
 	b.queue_free()
+
+func test_ducking_lowers_music_and_backdrop_then_brings_them_back() -> void:
+	# a bird taking off or the book: music and the ambient bed step back, then return softly
+	AudioSetup.ensure_buses()
+	var d := Ducker.new()
+	(Engine.get_main_loop() as SceneTree).root.add_child(d)
+	var music := AudioServer.get_bus_index(AudioSetup.MUSIC_TRACK)
+	var bed := AudioServer.get_bus_index(AudioSetup.BACKDROP)
+	assert_true(music >= 0 and bed >= 0, "Busse da")
+	Ducker.duck()
+	for i in 30:
+		d._process(0.01)
+	assert_true(AudioServer.get_bus_volume_db(music) < -4.0, "Musik abgesenkt")
+	assert_true(AudioServer.get_bus_volume_db(bed) < -4.0, "Kulisse abgesenkt")
+	for i in 400:
+		d._process(0.01)
+	assert_almost_eq(AudioServer.get_bus_volume_db(music), 0.0, 0.05, "Musik wieder da")
+	assert_almost_eq(AudioServer.get_bus_volume_db(bed), 0.0, 0.05, "Kulisse wieder da")
+	# the sliders still reach them: both routes end in the slider buses
+	assert_eq(AudioServer.get_bus_send(music), AudioSetup.MUSIC)
+	assert_eq(AudioServer.get_bus_send(bed), AudioSetup.SOUNDS)
+	d.queue_free()
+
+func test_campfire_can_be_heard_from_the_path() -> void:
+	var a := Ambience.new()
+	assert_true(a.FIRE_DB >= -2.0 and a.FIRE_REACH >= 150.0, "Feuer laut genug und weit genug")
+	a.free()

@@ -238,7 +238,7 @@ func _show_main() -> void:
 	poppy.position = Vector2(1, y - 26 + 7)
 	poppy.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_content.add_child(poppy)
-	var tag := _label("ein Spaziergang im Mohn", 16, FAINT)
+	var tag := _label("ein Spaziergang\nim Mohn", 16, FAINT)
 	tag.autowrap_mode = TextServer.AUTOWRAP_WORD          # too wide for one line in the hand
 	tag.size = Vector2(_text_right(), 0)
 	tag.position = Vector2(0, 160)
@@ -274,6 +274,7 @@ func show_start(save_exists: bool) -> void:
 
 func open_in_game() -> void:
 	_in_game = true
+	Ducker.duck()
 	_play("seite_%d" % (randi() % 3))
 	mode = Mode.MAIN
 	_apply_mode()
@@ -281,6 +282,7 @@ func open_in_game() -> void:
 
 
 func close() -> void:
+	Ducker.duck()
 	_play("buch_zu_0")
 	mode = Mode.CLOSED
 	_apply_mode()
@@ -325,6 +327,7 @@ func _camera_on() -> void:
 
 func _start(fresh: bool) -> void:
 	_in_game = true
+	Ducker.duck()
 	_play("buch_zu_0")
 	mode = Mode.CLOSED
 	_apply_mode()
@@ -359,6 +362,7 @@ func _turn_to(m: int) -> void:
 
 func _on_dim_input(e: InputEvent) -> void:
 	if mode == Mode.START and e is InputEventMouseButton and not e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
+		Ducker.duck()
 		_play("seite_%d" % (randi() % 3))
 		mode = Mode.MAIN
 		_apply_mode()

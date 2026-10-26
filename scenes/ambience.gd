@@ -5,6 +5,8 @@ class_name Ambience
 extends Node2D
 
 const RUIN := Vector2(229, 352)
+const FIRE_DB := 2.0                 # the campfire should be heard from the path, not only beside it
+const FIRE_REACH := 170.0
 
 var world: WorldData
 var player: Node2D
@@ -31,7 +33,7 @@ func _ready() -> void:
 			var b: Dictionary = world.brook[i]
 			_spot(sizes[(i / 2) % 3], Vector2(float(b["x"]), float(b["y"])), -8.0, 90.0)
 		if not world.fire.is_empty():
-			_spot("feuer", Vector2(float(world.fire["x"]), float(world.fire["y"])), -6.0, 110.0)
+			_spot("feuer", Vector2(float(world.fire["x"]), float(world.fire["y"])), FIRE_DB, FIRE_REACH)
 		for l in world.lights:
 			if l["kind"] != "fire":
 				_spot("kerze", Vector2(float(l["x"]), float(l["y"])), -16.0, 36.0)
@@ -46,7 +48,7 @@ func _flat(name: String, db: float) -> AudioStreamPlayer:
 	var p := AudioStreamPlayer.new()
 	p.stream = SoundBank.looped(name)
 	p.volume_db = db
-	p.bus = AudioSetup.SOUNDS
+	p.bus = AudioSetup.BACKDROP
 	add_child(p)
 	p.play(randf() * 10.0)
 	return p
@@ -59,7 +61,7 @@ func _spot(name: String, at: Vector2, db: float, reach: float) -> void:
 	p.volume_db = db
 	p.max_distance = reach
 	p.attenuation = 1.6
-	p.bus = AudioSetup.SOUNDS
+	p.bus = AudioSetup.BACKDROP
 	add_child(p)
 	p.play(randf() * 8.0)
 
