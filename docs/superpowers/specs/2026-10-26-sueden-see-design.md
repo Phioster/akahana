@@ -68,6 +68,24 @@ moosige Felsen; Spritzer beim Waten; Wasser lebendig, aber ruhig.
 - Die Kachel-Technik aus 0.4.0 trägt das; der Aktivierer prüft heute alle Einträge pro Bild – bei der
   größeren Welt nach Kacheln bündeln (aufgeschobener Punkt aus dem Kachel-Review).
 
+## Nach dem Builder-Check entschieden
+
+Von Philip (2026-10-26):
+- **Das Wasser bewegt sich und fließt.** Bäche und Wasserläufe fließen sichtbar in ihre Richtung, der See
+  kräuselt sich ruhig. Dafür bekommt jede Kachel eine Wasserkarte (wo Wasser ist, wohin es fließt) und das
+  Wasser einen eigenen Shader. Der alte Bach fließt dann ebenfalls. Gilt auch für `mood_map.py` (Standbild).
+- **Waten nur am flachen Seerand.** Die kleinen Wasserläufe quert man nur über Brücken, Bretter und
+  Trittsteine; die Wege dazwischen werden so gelegt, dass es keine Sackgassen gibt.
+
+Meine Festlegungen (von Philip bestätigt):
+- Ab Reihe 6 ist **alles 5 Kacheln breit**, auch Mohn-Verlängerung und Übergang. Der Waldsaum steht nur
+  neben der alten Karte (Spalten 3–4, Reihen 0–5).
+- Der Waldsaum ist ein **Platzhalter**: dichter, geschlossener Baumrand; der große Bach verschwindet darin
+  wie heute am Rand, Fels und Schnee laufen oben in die Bäume aus. Endgültig wird es mit dem Ostwald.
+- **Abnahme Zone für Zone, Auslieferung auf einmal**, wenn alle vier Zonen abgenommen sind.
+- **Pixelgleich gilt für das Bild** der alten Welt. Daten an der Naht dürfen angepasst werden (unteren Rand
+  öffnen, Rand-Tannen und Einträge in world.json zusammenführen).
+
 ## Dem Bauenden überlassen
 
 - Genaue Lage der Wasserläufe, Brücken, Stellen; Form des Sees – solange es kein Labyrinth wird und die
