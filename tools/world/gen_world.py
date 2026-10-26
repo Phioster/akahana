@@ -458,8 +458,35 @@ walk.astype(np.uint8).tofile(os.path.join(OUT, 'walk.bin'))           # what the
 CELL = 2                                                                   # same as Pathing.CELL in the game
 walk.reshape(H // CELL, CELL, W // CELL, CELL).all(axis=(1, 3)).astype(np.uint8).tofile(os.path.join(OUT, 'walk_cells.bin'))
 start = dict(x=S(63, 270)[0], y=S(63, 270)[1])              # on the path between camp and tree
+
+# ------------------------------------------------------------------ what the ground is made of (footsteps), 2-px cells
+GRASS, EARTH, STONE, WOOD, SNOW, WET = 0, 1, 2, 3, 4, 5
+mat = np.zeros((H, W), np.uint8)
+mat[path_mask | camp | sbank] = EARTH
+mat[snow] = SNOW
+rin = np.zeros((H, W), bool)
+rin[ruin.y0:ruin.y1, ruin.x0:ruin.x1] = True
+mat[court | rocks | rin] = STONE
+mat[stones | sbank] = WET                                             # stepping stones, wet bank
+mat[bridge] = WOOD
+mat[::CELL, ::CELL].tofile(os.path.join(OUT, 'ground_mat.bin'))       # top-left pixel of each cell is enough
+
+# places the sound and the small life live
+brook = [dict(x=float(spx[k]), y=float(spy[k])) for k in range(0, 1400, 70) if 0 <= spx[k] < W]
+srng = np.random.default_rng(5)
+open_ = ndi.binary_erosion(walk & ~path_mask & ~water, iterations=8) & (yy > 120)
+birds = []
+for _ in range(4000):
+    x_, y_ = int(srng.integers(20, W - 20)), int(srng.integers(60, H - 20))
+    if len(birds) < 14 and open_[y_, x_] and all(np.hypot(x_ - b['x'], y_ - b['y']) > 110 for b in birds):
+        birds.append(dict(x=x_, y=y_, snow=bool(snow[y_, x_])))
+def on_stream(x_):
+    k = int(np.argmin(np.abs(spx - x_)))
+    return dict(x=float(x_), y=float(spy[k]))
+wisps = [on_stream(80), dict(x=229.0, y=352.0), dict(x=496.0, y=820.0), on_stream(430)]
 with open(os.path.join(OUT, 'world.json'), 'w') as f:
     json.dump(dict(width=W, height=H, frames=FRAMES, fps=FPS, start=start, sprites=sprites,
+                   brook=brook, birds=birds, wisps=wisps, fire=dict(x=float(fsx), y=float(fsy)),
                    lights=[{k: (float(v) if not isinstance(v, str) else v) for k, v in l.items()} for l in lights]),
               f, indent=1)
 print('ok', len(sprites), 'sprites')

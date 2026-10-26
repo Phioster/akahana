@@ -15,13 +15,15 @@ uniform vec4 light_info[16];          // kind, x seed, y seed, glowing pixel cou
 
 const float LOOP = 8.0;               // the wallpaper loops every 8 s; flicker uses the same phase
 const vec3 LCOL = vec3(1.0, 0.62, 0.30);
+const vec3 WCOL = vec3(0.55, 0.95, 0.85);    // the will-o'-the-wisp: a cold, pale green light
 const vec3 MIST = vec3(214.0, 214.0, 212.0);
 
 float flick(float kind, float ph, vec2 s) {
 	if (kind < 0.5) return 0.80 + 0.12 * sin(ph * 11.0) + 0.08 * sin(ph * 23.0 + 1.3);                 // fire
 	if (kind < 1.5) return 0.9 + 0.06 * sin(ph * 13.0 + sin(ph * 7.0));                                 // stone lantern
 	if (kind < 2.5) return 0.75 + 0.25 * (0.5 + 0.35 * sin(ph * 11.0 + s.x) + 0.15 * sin(ph * 31.0 + s.y)); // wood lantern
-	return 0.8 + 0.2 * sin(ph * 13.0 + sin(ph * 7.0));                                                  // candles
+	if (kind < 3.5) return 0.8 + 0.2 * sin(ph * 13.0 + sin(ph * 7.0));                                // candles
+	return 1.0;                                                                                       // wisp: its own node pulses
 }
 
 float bayer4(vec2 p) {
@@ -51,7 +53,9 @@ void fragment() {
 
 	float ph = 6.2831853 * TIME / LOOP;
 	float L = 0.0;
+	float Lw = 0.0;
 	vec3 bloom = vec3(0.0);
+	vec3 bloomw = vec3(0.0);
 	for (int i = 0; i < 16; i++) {
 		if (i >= light_count) break;
 		vec4 l = lights[i];
@@ -59,13 +63,19 @@ void fragment() {
 		float fl = flick(info.x, ph, info.yz);
 		vec2 dv = world - l.xy;
 		float d = length(dv * vec2(1.0, 1.35)) / l.z;          // ground seen at an angle: pool wider than tall
-		L += l.w * fl / (1.0 + 4.0 * d * d) * sqrt(clamp(1.0 - d, 0.0, 1.0));
+		float li = l.w * fl / (1.0 + 4.0 * d * d) * sqrt(clamp(1.0 - d, 0.0, 1.0));
 		float r2 = dot(dv, dv);                                // bloom = blurred glowing pixels, as three gaussians
 		float g = 0.0875 * exp(-r2 / 8.0) + 0.0221 * exp(-r2 / 72.0) + 0.00568 * exp(-r2 / 392.0);
-		bloom += vec3(250.0, 190.0, 90.0) * info.w * fl * g;
+		if (info.x > 3.5) {
+			Lw += li;
+			bloomw += vec3(150.0, 240.0, 215.0) * info.w * g;
+		} else {
+			L += li;
+			bloom += vec3(250.0, 190.0, 90.0) * info.w * fl * g;
+		}
 	}
 	bloom *= vec3(1.0, 0.80, 0.55);
-	a *= 1.0 + L * LCOL * 1.4;
+	a *= 1.0 + L * LCOL * 1.4 + Lw * WCOL * 1.2;
 
 	vec2 m1 = (world - vec2(3.5 * TIME, 0.0)) / vec2(256.0);      // mist drifts right, two layers at two speeds
 	vec2 m2 = (world - vec2(6.0 * TIME, 0.0)) / vec2(256.0);
@@ -79,10 +89,10 @@ void fragment() {
 	a = mix(a, soft, clamp(dens * 2.2, 0.0, 1.0));
 	a = a * (1.0 - dens) + MIST * 0.8 * (1.0 + L * LCOL * 1.6) * dens;   // mist glows near the lights
 
-	a += bloom;
+	a += bloom + bloomw;
 	if (em) a = max(a, src * 1.05);
 
-	float eff = em ? 0.0 : clamp(dens * 7.0 + L * 2.5 + (bloom.r + bloom.g + bloom.b) / 90.0, 0.0, 1.0);
+	float eff = em ? 0.0 : clamp(dens * 7.0 + (L + Lw) * 2.5 + (bloom.r + bloom.g + bloom.b + bloomw.g) / 90.0, 0.0, 1.0);
 	float bay = bayer4(px);
 	if (eff > bay * 0.8 + 0.1) {                                   // raster only on mist and light
 		float l2 = (a.r + a.g + a.b) / 3.0 + 0.001;

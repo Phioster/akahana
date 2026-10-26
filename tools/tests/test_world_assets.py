@@ -37,6 +37,24 @@ class WorldAssets(unittest.TestCase):
         expect = self.walk.reshape(h, 2, w, 2).all(axis=(1, 3)).astype(np.uint8).ravel()
         self.assertTrue((cells == expect).all())
 
+    def test_ground_materials_cover_the_world_in_cells(self):
+        mat = np.fromfile(os.path.join(D, 'ground_mat.bin'), np.uint8)
+        self.assertEqual(mat.size, (self.w['height'] // 2) * (self.w['width'] // 2))
+        self.assertTrue(set(np.unique(mat)) <= {0, 1, 2, 3, 4, 5})
+        self.assertIn(5, mat, 'Trittsteine und Ufer sind nass')
+        self.assertIn(3, mat, 'die Bruecke ist aus Holz')
+        self.assertIn(4, mat, 'oben liegt Schnee')
+
+    def test_birds_land_on_walkable_open_ground(self):
+        self.assertGreaterEqual(len(self.w['birds']), 6)
+        for b in self.w['birds']:
+            self.assertEqual(self.walk[b['y'], b['x']], 1, b)
+
+    def test_brook_and_wisps_lie_inside_the_world(self):
+        self.assertGreaterEqual(len(self.w['brook']), 10)
+        for p in self.w['brook'] + self.w['wisps']:
+            self.assertTrue(0 <= p['x'] < self.w['width'] and 0 <= p['y'] < self.w['height'], p)
+
 
 if __name__ == '__main__':
     unittest.main()

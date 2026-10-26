@@ -2,14 +2,20 @@
 class_name Player
 extends Node2D
 
-const SPEED := 24.0                  # art px per second, a calm stroll
-const COLS := 6                      # idle 0-1, walk 2-5
+const STEPS_PER_SEC := 2.3           # footfalls per second: a calm stroll
+const SPEED := 18.5                  # art px per second = stride drawn in the walk frames (~8 px) x pace
+const COLS := 8                      # idle 0-1, walk 2-7 (six frames, two footfalls)
+const WALK := 6
+const CONTACT := [1, 4]              # walk frames where a foot lands
 enum Dir { DOWN, UP, LEFT, RIGHT }
+
+signal stepped                       # a foot touches the ground (twice per walk cycle)
 
 var path := PackedVector2Array()
 var dir: int = Dir.DOWN
 var sprite: Sprite2D
 var _t := 0.0
+var _last_col := -1
 
 
 func _ready() -> void:
@@ -18,9 +24,19 @@ func _ready() -> void:
 	sprite.hframes = COLS
 	sprite.vframes = 4
 	sprite.centered = false
-	sprite.offset = Vector2(-6, -15)    # feet at the node's position
+	sprite.offset = Vector2(-12, -27)   # feet at the node's position
 	add_child(sprite)
+	queue_redraw()
 
+
+## A soft shadow on the ground under the feet: it is what makes him stand ON the meadow.
+func _draw() -> void:
+	var dark := Color(0.08, 0.06, 0.07)
+	for y in range(-1, 2):
+		var half := 5 - absi(y) * 2
+		for x in range(-half, half + 1):
+			var edge := absf(float(x)) / (half + 1)
+			draw_rect(Rect2(x, y, 1, 1), Color(dark, 0.42 * (1.0 - 0.6 * edge)))
 
 func walk_to(points: PackedVector2Array) -> void:
 	path = points
@@ -47,9 +63,12 @@ func _process(delta: float) -> void:
 			step = 0.0
 	var col := 0
 	if is_walking():
-		col = 2 + int(_t * 8.0) % 4
+		col = 2 + int(_t * STEPS_PER_SEC / 2.0 * WALK) % WALK   # one cycle = two footfalls
 	else:
 		col = int(_t * 1.5) % 2          # slow breathing
+	if col != _last_col and col - 2 in CONTACT:
+		stepped.emit()
+	_last_col = col
 	if sprite != null:
 		sprite.frame = dir * COLS + col
 

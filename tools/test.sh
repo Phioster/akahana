@@ -36,12 +36,30 @@ if ! grep -qE "^[0-9]+ Tests, 0 fehlgeschlagen$" "$OUT"; then
 fi
 echo "Godot-Suite gruen, keine Laufzeitfehler."
 
+# Probelauf: das ganze Spiel 300 Bilder lang ohne Bildschirm. Fängt, was die Tests nicht sehen:
+# Shader, die erst beim Zeichnen übersetzt werden, und Fehler im Zusammenspiel der Szenen.
+echo
+echo "Probelauf des Spiels..."
+SMOKE="$(mktemp)"
+trap 'rm -f "$OUT" "$SMOKE"' EXIT
+if [ -x "$(dirname "$0")/godot.sh" ] && [ -d /data/data/com.termux ]; then
+	timeout 180 bash "$(dirname "$0")/godot.sh" --quit-after 300 > "$SMOKE" 2>&1
+else
+	timeout 180 "${GODOT:-godot}" --headless --quit-after 300 > "$SMOKE" 2>&1
+fi
+if grep -qE "SHADER ERROR|SCRIPT ERROR|Shader compilation failed|Parse Error" "$SMOKE"; then
+	echo "FEHLGESCHLAGEN: Fehler im Probelauf:"
+	grep -E -A2 "SHADER ERROR|SCRIPT ERROR|Shader compilation failed|Parse Error" "$SMOKE" | head -30
+	exit 1
+fi
+echo "Probelauf sauber."
+
 # Python-Tests
 echo
 echo "Python-Tests..."
 PYOUT="$(mktemp)"
 # Beide Dateien in EINEN trap: ein zweites trap ... EXIT ersetzt das erste.
-trap 'rm -f "$OUT" "$PYOUT"' EXIT
+trap 'rm -f "$OUT" "$PYOUT" "$SMOKE"' EXIT
 python3 -m unittest discover -s tools/tests -t . 2>&1 | tee "$PYOUT"
 if grep -qE "^(FAILED|ERROR)" "$PYOUT"; then
 	echo

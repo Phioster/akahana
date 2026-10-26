@@ -1,23 +1,34 @@
-## Background music: one calm loop, started once, quietly.
+## The music: one calm piece, then a long pause where only nature is heard, then again.
 class_name Music
-extends RefCounted
+extends Node
 
 const PATH := "res://assets/audio/musik.ogg"
+const PAUSE_MIN := 45.0
+const PAUSE_MAX := 90.0
+
+var _p: AudioStreamPlayer
+var _wait := 0.0
 
 
-static func start(parent: Node) -> AudioStreamPlayer:
+func _ready() -> void:
 	var stream: AudioStream = null
 	if ResourceLoader.exists(PATH):
 		stream = load(PATH)
 	else:
 		stream = AudioStreamOggVorbis.load_from_file(ProjectSettings.globalize_path(PATH))
-	if stream == null:
-		return null
 	if stream is AudioStreamOggVorbis:
-		stream.loop = true
-	var p := AudioStreamPlayer.new()
-	p.stream = stream
-	p.volume_db = -6.0
-	parent.add_child(p)
-	p.play()
-	return p
+		stream.loop = false
+	_p = AudioStreamPlayer.new()
+	_p.stream = stream
+	_p.volume_db = -6.0
+	_p.bus = AudioSetup.MUSIC
+	add_child(_p)
+	_p.finished.connect(func(): _wait = randf_range(PAUSE_MIN, PAUSE_MAX))
+	_p.play()
+
+
+func _process(delta: float) -> void:
+	if _wait > 0.0:
+		_wait -= delta
+		if _wait <= 0.0:
+			_p.play()

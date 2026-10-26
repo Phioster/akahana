@@ -12,6 +12,10 @@ var fps := 8.0
 var start := Vector2.ZERO
 var sprites: Array = []
 var lights: Array = []
+var brook: Array = []                # points along the stream, for its sound and the frogs
+var birds: Array = []                # open spots where small birds land
+var wisps: Array = []                # where the will-o'-the-wisps live
+var fire := {}
 var walk := PackedByteArray()        # one byte per art pixel, 1 = walkable
 
 
@@ -29,6 +33,10 @@ static func load_default() -> WorldData:
 	d.start = Vector2(float(j["start"]["x"]), float(j["start"]["y"]))
 	d.sprites = j["sprites"]
 	d.lights = j["lights"]
+	d.brook = j.get("brook", [])
+	d.birds = j.get("birds", [])
+	d.wisps = j.get("wisps", [])
+	d.fire = j.get("fire", {})
 	var w := FileAccess.open(DIR + "walk.bin", FileAccess.READ)
 	if w == null:
 		push_error("walk.bin fehlt")
