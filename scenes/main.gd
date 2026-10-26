@@ -137,6 +137,7 @@ func _on_start_walking(fresh: bool) -> void:
 		_cam_at = Vector2.INF
 		save.forget_position()
 		player.path = PackedVector2Array()
+		view_node.load_around(world.start)              # the ground must be there before the jump shows it
 		player.position = world.start
 		_store()
 

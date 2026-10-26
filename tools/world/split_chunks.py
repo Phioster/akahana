@@ -3,7 +3,8 @@
 
 Per chunk (cx, cy): c_<cx>_<cy>_ground.png (the chunk), c_<cx>_<cy>_flowers.png (the chunk plus an
 apron of the neighbours' pixels, so the poppy shader can shift blossoms across the edge without a
-seam), c_<cx>_<cy>_cells.bin and _mat.bin (walkable and ground material per 2-px cell).
+seam), c_<cx>_<cy>_cells.bin and _mat.bin (walkable and ground material per 2-px cell), _walls.bin and
+_paths.bin (int32 cell indices of the walls and of the cheap ground, for the per-tap path grid).
 """
 import json
 import os
@@ -13,6 +14,7 @@ import numpy as np
 from PIL import Image
 
 CELL = 2
+GRASS, SNOW = 0, 4                   # GroundMat values that cost extra to walk on
 
 
 def split(src_dir, out_dir, chunk=(180, 200), apron=8):
@@ -36,6 +38,10 @@ def split(src_dir, out_dir, chunk=(180, 200), apron=8):
             sl = (slice(y0 // CELL, (y0 + ch) // CELL), slice(x0 // CELL, (x0 + cw) // CELL))
             np.ascontiguousarray(cells[sl]).tofile(name + 'cells.bin')
             np.ascontiguousarray(mat[sl]).tofile(name + 'mat.bin')
+            # per tap the game only touches walls and paths (grass and snow are the bulk default)
+            c, m = cells[sl].ravel(), mat[sl].ravel()
+            np.flatnonzero(c == 0).astype('<i4').tofile(name + 'walls.bin')
+            np.flatnonzero((c != 0) & (m != GRASS) & (m != SNOW)).astype('<i4').tofile(name + 'paths.bin')
     return {'chunk': [cw, ch], 'chunks': [cols, rows], 'apron': apron}
 
 

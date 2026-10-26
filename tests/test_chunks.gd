@@ -131,3 +131,16 @@ func test_flower_shader_reads_world_coordinates() -> void:
 	var code: String = (load("res://shaders/flowers.gdshader") as Shader).code
 	assert_true(code.contains("uniform vec2 origin"))
 	assert_true(code.contains("origin + floor(UV * tex_size)"))
+
+func test_ground_arriving_before_its_flowers_is_not_lost() -> void:
+	# review: poll took the ground, then dropped it while the flowers were still loading - a hole for good
+	var s := _store()
+	var c := Vector2i(1, 2)
+	var g := s._base(c) + "ground.png"
+	var f := s._base(c) + "flowers.png"
+	s._pending[c] = true
+	s._images[g] = Image.create(180, 200, false, Image.FORMAT_RGB8)
+	s.poll()
+	s._images[f] = Image.create(196, 216, false, Image.FORMAT_RGBA8)
+	s.poll()
+	assert_true(s.is_ready(c), "Kachel fertig, als beide Bilder da waren")

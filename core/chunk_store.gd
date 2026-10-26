@@ -10,6 +10,8 @@ var grid: ChunkGrid
 var dir := ""
 var _cells := {}                     # Vector2i -> PackedByteArray
 var _mat := {}
+var walls := {}                      # Vector2i -> PackedInt32Array of wall cell indices (for Pathing)
+var paths := {}                      # ... and of the cheap ground
 var _tex := {}                       # Vector2i -> [ground, flowers] once ready
 var _pending := {}                   # Vector2i -> {path: loader} for pictures still loading
 var _mutex := Mutex.new()
@@ -30,6 +32,8 @@ func want(keep: Array[Vector2i]) -> void:
 		if not keep.has(c):
 			_cells.erase(c)
 			_mat.erase(c)
+			walls.erase(c)
+			paths.erase(c)
 			_tex.erase(c)
 			_pending.erase(c)
 	for c in keep:
@@ -42,16 +46,13 @@ func want(keep: Array[Vector2i]) -> void:
 func poll() -> Array[Vector2i]:
 	var done: Array[Vector2i] = []
 	for c in _pending.keys():
-		var texs: Array = []
-		for path in [_base(c) + "ground.png", _base(c) + "flowers.png"]:
-			var t := _take(path)
-			if t == null:
-				break
-			texs.append(t)
-		if texs.size() == 2:
-			_tex[c] = texs
-			_pending.erase(c)
-			done.append(c)
+		var g := _base(c) + "ground.png"
+		var f := _base(c) + "flowers.png"
+		if not (_arrived(g) and _arrived(f)):          # take both or neither: a taken one cannot be had again
+			continue
+		_tex[c] = [_take(g), _take(f)]
+		_pending.erase(c)
+		done.append(c)
 	return done
 
 
@@ -117,6 +118,9 @@ func _load_data(c: Vector2i) -> void:
 	for pair in [[_cells, "cells.bin"], [_mat, "mat.bin"]]:
 		var f := FileAccess.open(_base(c) + pair[1], FileAccess.READ)
 		pair[0][c] = f.get_buffer(f.get_length()) if f != null else PackedByteArray()
+	for pair in [[walls, "walls.bin"], [paths, "paths.bin"]]:
+		var f := FileAccess.open(_base(c) + pair[1], FileAccess.READ)
+		pair[0][c] = f.get_buffer(f.get_length()).to_int32_array() if f != null else PackedInt32Array()
 
 
 ## Exported game: Godot's threaded loader. Dev device (no import cache): an Image on a worker thread.
@@ -132,6 +136,30 @@ func _start_pictures(c: Vector2i) -> void:
 				_mutex.lock()
 				_images[path] = img
 				_mutex.unlock())
+
+
+func _arrived(path: String) -> bool:
+	if ResourceLoader.exists(path):
+		return ResourceLoader.load_threaded_get_status(path) == ResourceLoader.THREAD_LOAD_LOADED
+	_mutex.lock()
+	var there := _images.has(path)
+	_mutex.unlock()
+	return there
+
+
+## Rebuilds a chunk's wall and path lists from its cells (hand-made grids in tests; old chunk files).
+func reindex(c: Vector2i) -> void:
+	var w := PackedInt32Array()
+	var p := PackedInt32Array()
+	var cells: PackedByteArray = _cells[c]
+	var mat: PackedByteArray = _mat[c]
+	for i in cells.size():
+		if cells[i] == 0:
+			w.append(i)
+		elif mat[i] != GroundMat.GRASS and mat[i] != GroundMat.SNOW:
+			p.append(i)
+	walls[c] = w
+	paths[c] = p
 
 
 func _take(path: String) -> Texture2D:

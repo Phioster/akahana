@@ -561,3 +561,22 @@ func test_walking_the_whole_map_keeps_memory_flat() -> void:
 	assert_eq(worst, "", worst)
 	assert_false(m.store.is_ready(Vector2i(0, 0)), "ganz oben vergessen, wenn er unten ist")
 	m.queue_free()
+
+func test_a_new_walk_finds_its_ground_at_once() -> void:
+	# review: "new walk" jumped to the start while its chunks were long forgotten - empty ground until they came
+	var tree := Engine.get_main_loop() as SceneTree
+	var m: Node2D = load("res://scenes/main.gd").new()
+	tree.root.add_child(m)
+	await tree.process_frame
+	if m.world == null:
+		m.queue_free()
+		return
+	m.player.position = Vector2(270, 100)
+	m._cam_at = Vector2.INF
+	for k in 30:
+		m._process(1.0 / 60.0)
+	var c: Vector2i = m.world.grid.chunk_of(m.world.start)
+	assert_false(m.store.is_ready(c), "Start vergessen, solange er oben ist")
+	m._on_start_walking(true)
+	assert_true(m.store.is_ready(c), "Start-Kachel sofort da")
+	m.queue_free()

@@ -5,6 +5,7 @@ extends RefCounted
 const CELL := 2
 const OFF_PATH := 3.0                # grass and snow cost this much more than paths, bridges, stones
 
+var builds := 0                      # grids built by find_path_in: one per tap, two only for a detour
 var grid := AStarGrid2D.new()
 var cols := 0
 var rows := 0
@@ -187,14 +188,13 @@ func find_path_in(store: ChunkStore, a: Vector2, b: Vector2, margin: float = 60.
 		r.end = Vector2i(ceili(hi.x), ceili(hi.y))
 		build_from(store, r)
 		var way := find_path(a, b)
-		if way.size() > 0 and way[way.size() - 1].distance_to(b) < CELL * 2.0:
-			return way
-		if m == margin * 2.0:
+		if way.size() > 0:                                 # a goal on a wall still ends beside it: no retry
 			return way
 	return PackedVector2Array()
 
 
 func build_from(store: ChunkStore, r: Rect2i) -> void:
+	builds += 1
 	grid = AStarGrid2D.new()
 	grid.region = r
 	grid.cell_size = Vector2(CELL, CELL)
@@ -204,12 +204,22 @@ func build_from(store: ChunkStore, r: Rect2i) -> void:
 	grid.update()
 	cols = r.end.x
 	rows = r.end.y
-	for y in range(r.position.y, r.end.y):
-		for x in range(r.position.x, r.end.x):
-			var c := Vector2i(x, y)
-			if not store.cell_free(c):
-				grid.set_point_solid(c, true)
-			else:
-				var wgt := store.cell_weight(c)
-				if wgt != 1.0:
-					grid.set_point_weight_scale(c, wgt)
+	# a tap must not stall the picture: native fills do the bulk (all closed, loaded chunks open, all
+	# meadow-priced); per cell only the walls and paths listed by split_chunks.py are set
+	grid.fill_solid_region(r, true)
+	grid.fill_weight_scale_region(r, OFF_PATH)
+	var cw := ChunkStore.CELLS.x
+	for c in store.grid.chunks_in(Rect2(Vector2(r.position * CELL), Vector2(r.size * CELL))):
+		if not store._cells.has(c):
+			continue
+		var base := c * ChunkStore.CELLS
+		var part := r.intersection(Rect2i(base, ChunkStore.CELLS))
+		grid.fill_solid_region(part, false)
+		for i in store.walls.get(c, PackedInt32Array()):
+			var at := base + Vector2i(i % cw, i / cw)
+			if part.has_point(at):
+				grid.set_point_solid(at, true)
+		for i in store.paths.get(c, PackedInt32Array()):
+			var at := base + Vector2i(i % cw, i / cw)
+			if part.has_point(at):
+				grid.set_point_weight_scale(at, 1.0)

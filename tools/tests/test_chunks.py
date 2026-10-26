@@ -51,3 +51,13 @@ class Chunks(unittest.TestCase):
         self.assertTrue((f00[8:208, 8:188] == self.flowers[0:200, 0:180]).all())       # inner part unchanged
         self.assertTrue((f00[0:8, :, 3] == 0).all())                                    # outside the world: empty
         self.assertTrue((f00[8:208, 0:8, 3] == 0).all())
+
+    def test_wall_and_path_lists_name_exactly_those_cells(self):
+        # the game sets only these cells per tap; the rest comes from two native fills
+        for cy in range(2):
+            for cx in range(2):
+                cells, mat = self._bin(cx, cy, 'cells').ravel(), self._bin(cx, cy, 'mat').ravel()
+                walls = np.fromfile(os.path.join(self.out, f'c_{cx}_{cy}_walls.bin'), '<i4')
+                paths = np.fromfile(os.path.join(self.out, f'c_{cx}_{cy}_paths.bin'), '<i4')
+                self.assertTrue((walls == np.flatnonzero(cells == 0)).all())
+                self.assertTrue((paths == np.flatnonzero((cells != 0) & (mat != 0) & (mat != 4))).all())

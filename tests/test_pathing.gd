@@ -153,6 +153,7 @@ func _fake_store(chunks: Array) -> ChunkStore:
 		mat.fill(GroundMat.GRASS)
 		s._cells[c] = cells
 		s._mat[c] = mat
+		s.reindex(c)
 	return s
 
 func _len(way: PackedVector2Array) -> float:
@@ -176,6 +177,7 @@ func test_detour_outside_the_box_is_found_with_a_wider_margin() -> void:
 	var s := _fake_store([Vector2i(0, 0)])
 	for x in 72:                                     # a wall across; the gap (x >= 144 px) lies outside
 		s._cells[Vector2i(0, 0)][50 * ChunkStore.CELLS.x + x] = 0     # the 60-px box, inside the 120-px one
+	s.reindex(Vector2i(0, 0))
 	var way := Pathing.new().find_path_in(s, Vector2(40, 60), Vector2(40, 140))
 	assert_true(way.size() > 0 and way[way.size() - 1].distance_to(Vector2(40, 140)) < 3.0, "Umweg gefunden")
 
@@ -183,3 +185,15 @@ func test_unloaded_cells_are_walls() -> void:
 	var s := _fake_store([Vector2i(0, 0)])
 	var way := Pathing.new().find_path_in(s, Vector2(40, 60), Vector2(270, 60))   # goal in chunk (1, 0)
 	assert_true(way.is_empty() or way[way.size() - 1].x < 180.0, "nicht ins Ungeladene")
+
+func test_a_tap_on_a_wall_builds_the_grid_once() -> void:
+	# review: a goal on a wall moved to the nearest free cell and so always paid for the wide second search
+	var s := _fake_store([Vector2i(0, 0)])
+	for y in range(60, 70):
+		for x in range(40, 50):
+			s._cells[Vector2i(0, 0)][y * ChunkStore.CELLS.x + x] = 0
+	s.reindex(Vector2i(0, 0))
+	var p := Pathing.new()
+	var way := p.find_path_in(s, Vector2(40, 40), Vector2(90, 130))      # inside the block
+	assert_true(way.size() > 0, "Weg bis an den Rand des Blocks")
+	assert_eq(p.builds, 1, "nur einmal gebaut")
