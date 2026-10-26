@@ -5,9 +5,10 @@ extends RefCounted
 const SIZE := 14
 const EVERY := 0.12                  # seconds between remembered points
 const LIFE := 1.6                    # until the lane has closed again
+const LEAD := 6.0                    # px ahead of the feet: the poppies give way before he arrives
 
 var points: Array = []               # [Vector2 pos, Vector2 dir, float age]
-var _since := 0.0
+var _since := EVERY                  # the first step parts them at once
 
 
 func update(delta: float, pos: Vector2, dir: Vector2, walking: bool) -> void:
@@ -17,7 +18,8 @@ func update(delta: float, pos: Vector2, dir: Vector2, walking: bool) -> void:
 	_since += delta
 	if walking and _since >= EVERY and dir.length() > 0.01:
 		_since = 0.0
-		points.push_front([pos, dir.normalized(), 0.0])
+		var d := dir.normalized()
+		points.push_front([pos + d * LEAD, d, 0.0])
 		if points.size() > SIZE:
 			points.resize(SIZE)
 

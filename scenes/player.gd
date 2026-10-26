@@ -2,8 +2,8 @@
 class_name Player
 extends Node2D
 
-const STEPS_PER_SEC := 2.3           # footfalls per second: a calm stroll
-const SPEED := 18.5                  # art px per second = stride drawn in the walk frames (~8 px) x pace
+const STEPS_PER_SEC := 3.0           # footfalls per second: small legs, a calm stroll
+const SPEED := 15.0                  # art px per second = stride drawn in the walk frames (5 px) x pace
 const COLS := 8                      # idle 0-1, walk 2-7 (six frames, two footfalls)
 const WALK := 6
 const CONTACT := [1, 4]              # walk frames where a foot lands
@@ -24,7 +24,7 @@ func _ready() -> void:
 	sprite.hframes = COLS
 	sprite.vframes = 4
 	sprite.centered = false
-	sprite.offset = Vector2(-12, -27)   # feet at the node's position
+	sprite.offset = Vector2(-6, -15)    # feet at the node's position
 	add_child(sprite)
 	queue_redraw()
 

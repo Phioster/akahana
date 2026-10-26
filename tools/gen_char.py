@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
-"""The wanderer, a small monk: habit with a rope belt, staff slung across the back, pointed hood.
-4 directions x (2 idle + 4 walk) frames, 14x20 cells, feet at (7, 19).
+"""The wanderer: a tiny monk, drawn pixel by pixel in the world's palette.
 
-Rows: down, up, left, right.  Cols: idle0, idle1, walk0..walk3.
-Lit from the upper left like the whole world; no outlines - the dark habit reads against the pale ground.
-Usage: gen_char.py [kapuze] [out.png]   (default -> assets/char/wanderer.png)
+Small on purpose (about 13 px tall in a 12x16 cell, feet at (6, 15)): the world is the main thing.
+Pointed hood, a face, sleeves, rope belt, a habit down to the ankles with two flat feet stepping under
+the swinging hem, and the staff slung across the back. Rows: down, up, left, right. Cols: idle0, idle1, walk0..walk5.
+Walk: two footfalls per cycle, on walk frames 1 and 4 (scenes/player.gd CONTACT): the feet move apart
+and the hem swings wide; between the steps one foot is lifted and the body rises a pixel.
+Out: assets/char/wanderer.png
 """
+import math
 import os
 import sys
 
@@ -13,149 +16,163 @@ import numpy as np
 from PIL import Image
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+CW, CH = 12, 16
+STRIDE = 5                                    # px between the feet at full stride (FEET_SIDE contact)
 
-
-def hx(c):
-    return tuple(int(c[i:i + 2], 16) for i in (1, 3, 5)) + (255,)
-
-
-PAL = {
-    # dark habit with a light rim on the lit (upper left) edges: the silhouette must read on snow AND poppies
-    'L': hx('#9c8068'),                                               # rim light
-    'H': hx('#4a372c'), 'h': hx('#34261f'), 'd': hx('#1a1210'),       # hood: lit, mid, inner shadow
-    'f': hx('#e8cba6'), 'g': hx('#b8916f'), 'e': hx('#1e1614'),       # face, face shade, eye
-    'C': hx('#4a372c'), 'c': hx('#33261f'), 'k': hx('#1f1713'),       # habit: lit, mid, shade
-    'y': hx('#dcbd84'), 'Y': hx('#a8895a'),                           # rope belt, its hanging end
-    'p': hx('#d23c30'),                                               # a poppy pinned on
-    'T': hx('#3c2c22'), 't': hx('#281d17'), 'w': hx('#8a6c50'), 'W': hx('#5a4434'),   # hat crown / brim
-    's': hx('#c49a64'), 'S': hx('#8a6a44'),                           # staff, light wood
-    'b': hx('#160f0d'), 'B': hx('#2a201c'),                           # sandals / feet
+PAL = {                                       # the world's muted warm-greys (cottage, bench, shrine)
+    'L': (112, 100, 94),                      # light on the upper-left edges
+    'H': (72, 62, 60), 'h': (54, 46, 46), 'd': (38, 34, 36),      # hood: lit, mid, inner shadow
+    'f': (196, 168, 146), 'g': (150, 124, 108), 'e': (40, 32, 32),  # face, face shade, eye
+    'C': (72, 62, 60), 'c': (54, 46, 46), 'k': (38, 34, 36),      # habit: lit, mid, shade
+    'y': (176, 160, 128), 'Y': (128, 114, 92),                    # rope belt, its hanging end
+    'l': (46, 40, 40), 'b': (30, 26, 28),                         # legs, feet
+    's': (156, 126, 94), 'S': (112, 90, 68),                      # staff
 }
 
-# 12 wide, 14 high; '.' is empty. Pointed hood, straight habit: a shape you know at a glance.
-HOOD = {
-    'down': [".....LH.....",
-             "....LHHh....",
-             "...LHHhhd...",
-             "..LHdddddd..",
-             "..Hdffffdd..",
-             "..Hdfefedd..",
-             "..hddffddd..",
-             ".LCCcccpckk.",
-             ".LCcccccckk.",
-             ".Cyyyyyyykk.",
-             "..CcccYcck..",
-             "..Ccccccck..",
-             "..Ccccccck..",
-             "..LCccccck.."],
-    'up': [".....LH.....",
-           "....LHHh....",
-           "...LHHhhd...",
-           "..LHHhhhhd..",
-           "..HHhhhhhd..",
-           "..HHhhhhhd..",
-           "..hhhhhhdd..",
-           ".LCCcccckkk.",
-           ".LCcccccckk.",
-           ".Cyyyyyyykk.",
-           "..Ccccccck..",
-           "..Ccccccck..",
-           "..Ccccccck..",
-           "..LCccccck.."],
-    'right': ["..LH........",
-              "...LHh......",
-              "...LHHhh....",
-              "...HHhhdd...",
-              "...HHhdfff..",
-              "...Hhhdfef..",
-              "...hhhddg...",
-              "...LCCcckp..",
-              "...LCcccck..",
-              "...Cyyyyyk..",
-              "...CcccYk...",
-              "...Ccccck...",
-              "...Ccccck...",
-              "...LCcccck.."],
+UPPER = {                                     # 7 wide, rows 0..9 = cell rows 3..12
+    'down': ["...L...",
+             "..LHh..",
+             ".LHhhd.",
+             ".Hfefd.",
+             ".hdgdd.",
+             "LCCcckk",
+             "CCyyyYk",
+             ".Cccck.",
+             ".Cccck.",
+             ".Ccccc."],
+    'up': ["...L...",
+           "..LHh..",
+           ".LHhhd.",
+           ".HHhhd.",
+           ".hhhhd.",
+           "LCCcckk",
+           "CCyyyyk",
+           ".Cccck.",
+           ".Cccck.",
+           ".Ccccc."],
+    'right': [".L.....",
+              "..LHh..",
+              "..HHhd.",
+              "..Hhfe.",
+              "..hhgf.",
+              "..LCck.",
+              "..CyyY.",
+              "..Ccck.",
+              "..Ccck.",
+              "..Ccck."],                # front edge straight down: no belly, no hollow back
 }
-HAT = HOOD                                                # the hat variant was dropped (2026-10-26)
-CW, CH = 14, 20                                           # cell; feet at (7, 19)
 
 
-def body(rows, flip=False):
-    a = np.zeros((len(rows), len(rows[0]), 4), np.uint8)
+def put(c, x, y, key):
+    if 0 <= x < CW and 0 <= y < CH:
+        c[y, x] = (*PAL[key], 255)
+
+
+def phase(i):
+    """Walk frame i -> leg swing s in -1..1 (contact at frames 1 and 4) and its direction."""
+    a = (i + 0.5) / 6 * 2 * math.pi
+    return math.sin(a), math.cos(a)
+
+
+def staff(c, direction, lift):
+    if direction == 'down':
+        line = [(9 - (y - 1) * 6 // 11, y) for y in range(1, 13)]
+    elif direction == 'up':
+        line = [(2 + (y - 1) * 6 // 11, y) for y in range(1, 13)]
+    elif direction == 'right':
+        line = [(3, y) for y in range(1, 12)]                 # hugging the back
+    else:
+        line = [(7, y) for y in range(1, 12)]
+    for k, (x, y) in enumerate(line):
+        put(c, x, y - lift, 's' if k < 5 else 'S')
+
+
+# Below the habit only the feet show: two flat patches that move under the hem. Rows 13-15 of the cell,
+# cols 2..8. 'C'/'c'/'k' the hem, 'b' the near foot, 'B' the far one (a touch darker).
+FEET_SIDE = {                                  # facing right, cols 1..8; mirrored for left
+    'stand': ["...Ccck.", "...Ccck.", "....bb.."],
+    'pass': ["...Ccck.", "...Ccck.", "....bb.."],     # one foot under him, the other lifted out of sight
+    'contact': ["...Ccck.", "..Ccccck", ".BB...bb"],  # stride: the hem opens at the bottom only
+    'down': ["...Ccck.", "..Ccccc.", "..BB.bb."],     # feet come together again
+}
+FEET_FRONT = {
+    'stand': [".Cccck.", ".Ccccc.", ".bb.bb."],
+    'left_up': [".Cccck.", ".Ccccc.", "....bb."],
+    'right_up': [".Cccck.", ".Ccccc.", ".bb...."],
+    'both': [".Cccck.", "Cccccck", ".bb.bb."],
+}
+SIDE_CYCLE = ['pass', 'contact', 'down', 'pass', 'contact', 'down']     # contact on frames 1 and 4
+FRONT_CYCLE = ['left_up', 'both', 'both', 'right_up', 'both', 'both']
+PAL['B'] = (22, 20, 22)
+
+
+def feet(c, rows, direction, swap, lift_body):
     for j, row in enumerate(rows):
         for i, ch in enumerate(row):
-            if ch in PAL:
-                a[j, i] = PAL[ch]
-    return a[:, ::-1] if flip else a
+            if ch == '.':
+                continue
+            if swap and ch in 'bB':
+                ch = 'B' if ch == 'b' else 'b'
+            if direction in ('left', 'right'):
+                x = 1 + i if direction == 'right' else 9 - i
+            else:
+                x = 2 + i
+            y = 13 + j                                        # hem and feet stay on the ground
+            put(c, x, y, ch)
 
 
-def staff(c, direction, bob):
-    """Slung diagonally across the back, long enough to show at both ends: the knob above one shoulder,
-    the foot beside the habit on the other side. Behind the body from the front, over it from behind."""
-    if direction in ('down', 'up'):
-        x0, x1 = (12, 2) if direction == 'down' else (1, 11)
-    else:
-        x0, x1 = (2, 5) if direction == 'right' else (11, 8)
-    y0, y1 = 1, 17
-    n = max(abs(x1 - x0), y1 - y0)
-    for i in range(n + 1):
-        y = round(y0 + (y1 - y0) * i / n) + bob
-        x = round(x0 + (x1 - x0) * i / n)
-        if 0 <= y < CH and 0 <= x < CW:
-            c[y, x] = PAL['s'] if i < n // 2 else PAL['S']
-    if 0 <= y0 - 1 + bob < CH:                            # the knob
-        c[y0 - 1 + bob, x0] = PAL['S']
-
-
-def cell(direction, col, look):
+def cell(direction, col):
     c = np.zeros((CH, CW, 4), np.uint8)
     walking = col >= 2
-    step = (col - 2) % 4 if walking else 0
-    bob = 1 if walking and step in (1, 3) else 0          # the body dips on each footfall
+    s, cs = phase(col - 2) if walking else (0.0, 0.0)
+    lift = 1 if walking and abs(s) < 0.6 else 0         # between the steps the body rises a pixel
     breath = 1 if (not walking and col == 1) else 0
-    # shadow under the feet: solid dark pixels (half transparency turns into a checkerboard when dithered)
-    for i in range(5, 10):
-        c[19, i] = (34, 28, 30, 255)
-    # feet below the habit, alternating when walking
-    if direction in ('down', 'up'):
-        lf = 18 if step != 1 else 17
-        rf = 18 if step != 3 else 17
-        c[lf, 5:7] = PAL['b']
-        c[rf, 8:10] = PAL['b']
-    else:
-        front = 1 if direction == 'right' else -1
-        spread = {0: 0, 1: 1, 2: 0, 3: -1}[step] if walking else 0
-        c[18, 6 + spread * front] = PAL['b']
-        c[18, 8 - spread * front] = PAL['b']
-    rows = (HOOD if look == 'kapuze' else HAT)[{'left': 'right'}.get(direction, direction)]
-    b = body(rows, flip=(direction == 'left'))
+    side = direction in ('left', 'right')
+    facing = 1 if direction == 'right' else -1
     if direction != 'up':
-        staff(c, direction, bob)                          # behind the body
-    y0 = 4 + bob
-    if breath:                                            # breathing: shoulders sink a pixel
-        b = np.concatenate([b[:7], b[8:], b[-1:]], axis=0)
-    x0 = 1
-    m = b[..., 3] > 0
-    sub = c[y0:y0 + b.shape[0], x0:x0 + b.shape[1]]
-    hh = min(sub.shape[0], b.shape[0])
-    sub[:hh][m[:hh]] = b[:hh][m[:hh]]
+        staff(c, direction, lift)                       # behind the body
+    i = col - 2
+    if side:
+        feet(c, FEET_SIDE[SIDE_CYCLE[i] if walking else 'stand'], direction, walking and i >= 3, lift)
+    else:
+        feet(c, FEET_FRONT[FRONT_CYCLE[i] if walking else 'stand'], direction, False, lift)
+    rows = UPPER['right' if side else direction]
+    if breath:
+        rows = rows[:5] + rows[6:] + rows[-1:]
+    for j, row in enumerate(rows):
+        for i, ch in enumerate(row):
+            if ch == '.':
+                continue
+            x = 2 + i if direction != 'left' else 2 + (6 - i)
+            put(c, x, 3 + j - lift, ch)
+    if lift:                                            # body up a pixel: the habit grows, no gap opens
+        last = rows[-1]
+        for i, ch in enumerate(last):
+            if ch != '.':
+                x = 2 + i if direction != 'left' else 2 + (6 - i)
+                put(c, x, 12, ch)
+    if walking:                                         # sleeves swing against the legs
+        if side:
+            pass                                        # from the side a sleeve bump reads as a belly
+        elif s > 0.35:
+            put(c, 1, 9 - lift, 'c')
+        elif s < -0.35:
+            put(c, 9, 9 - lift, 'k')
     if direction == 'up':
-        staff(c, direction, bob)                          # seen from behind it lies over the back
+        staff(c, direction, lift)                       # seen from behind it lies over the back
     return c
 
 
-def sheet(look):
-    s = np.zeros((CH * 4, CW * 6, 4), np.uint8)
+def sheet():
+    out = np.zeros((CH * 4, CW * 8, 4), np.uint8)
     for r, d in enumerate(('down', 'up', 'left', 'right')):
-        for col in range(6):
-            s[r * CH:(r + 1) * CH, col * CW:(col + 1) * CW] = cell(d, col, look)
-    return s
+        for col in range(8):
+            out[r * CH:(r + 1) * CH, col * CW:(col + 1) * CW] = cell(d, col)
+    return out
 
 
 if __name__ == '__main__':
-    look = sys.argv[1] if len(sys.argv) > 1 else 'kapuze'
-    out = sys.argv[2] if len(sys.argv) > 2 else os.path.join(ROOT, 'assets', 'char', 'wanderer.png')
+    out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, 'assets', 'char', 'wanderer.png')
     os.makedirs(os.path.dirname(out), exist_ok=True)
-    Image.fromarray(sheet(look)).save(out)
-    print('ok', look)
+    Image.fromarray(sheet()).save(out)
+    print('ok', out)

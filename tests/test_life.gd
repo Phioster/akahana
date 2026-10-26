@@ -15,12 +15,12 @@ func test_player_steps_twice_per_walk_cycle() -> void:
 	pl.stepped.connect(func(): steps[0] += 1)
 	pl.position = Vector2.ZERO
 	pl.walk_to(PackedVector2Array([Vector2(240, 0)]))
-	for i in 200:                        # 2 s of strolling: a little over 2 footfalls a second
+	for i in 200:                        # 2 s of strolling: 3 footfalls a second
 		pl._process(0.01)
-	assert_between(steps[0], 4, 5)
-	# how far one footfall carries him must match the stride drawn in the walk frames (about 8 px,
-	# measured from the PixelLab frames) - otherwise the planted foot slides and he seems to float
-	assert_between(Player.SPEED / Player.STEPS_PER_SEC, 7.5, 8.5)
+	assert_between(steps[0], 5, 7)
+	# how far one footfall carries him must match the stride drawn in the walk frames (feet 5 px apart,
+	# tools/gen_char.py STRIDE) - otherwise the planted foot slides and he seems to float
+	assert_between(Player.SPEED / Player.STEPS_PER_SEC, 4.5, 5.5)
 	pl.free()
 
 func test_standing_player_makes_no_steps() -> void:
@@ -103,3 +103,11 @@ func test_trail_remembers_steps_and_lets_them_close() -> void:
 	for i in 20:
 		t.update(0.13, Vector2.ZERO, Vector2.ZERO, false)
 	assert_eq(t.points.size(), 0, "die Gasse hat sich geschlossen")
+
+func test_trail_parts_the_poppies_ahead_of_the_feet() -> void:
+	# the flowers should give way before he reaches them, not when he is already past
+	var t := Trail.new()
+	t.update(0.13, Vector2(100, 50), Vector2.RIGHT, true)
+	var newest: Vector2 = t.points[0][0]
+	assert_true(newest.x >= 100.0 + Trail.LEAD - 0.01, "frischester Punkt liegt vor den Füßen")
+	assert_true(Trail.LEAD >= 4.0, "mindestens ein Schritt Vorlauf")
