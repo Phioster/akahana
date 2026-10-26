@@ -2,9 +2,9 @@
 class_name Trail
 extends RefCounted
 
-const SIZE := 14
-const EVERY := 0.12                  # seconds between remembered points
-const LIFE := 1.6                    # until the lane has closed again
+const SIZE := 24                     # = TRAIL in shaders/flowers.gdshader
+const EVERY := 0.13                  # seconds between remembered points
+const LIFE := 3.1                    # until the last flowers of the wake have swung back
 const LEAD := 3.0                    # px ahead of the feet: they give way at his front edge, not before
 
 var points: Array = []               # [Vector2 pos, Vector2 dir, float age]
@@ -24,10 +24,9 @@ func update(delta: float, pos: Vector2, dir: Vector2, walking: bool) -> void:
 			points.resize(SIZE)
 
 
-## Smoothstep strength: full right after the step, closing softly.
+## 1 right after the step, 0 when swung back; linear, the shader shapes the V and the easing.
 static func strength(age: float) -> float:
-	var t := clampf(1.0 - age / LIFE, 0.0, 1.0)
-	return t * t * (3.0 - 2.0 * t)
+	return clampf(1.0 - age / LIFE, 0.0, 1.0)
 
 
 func uniforms() -> Array:

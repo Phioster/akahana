@@ -100,9 +100,16 @@ func test_trail_remembers_steps_and_lets_them_close() -> void:
 	var u: Array = t.uniforms()
 	assert_eq(u[0].size(), Trail.SIZE)
 	assert_true(u[1][0] > 0.9, "frischester Schritt ist voll stark")
-	for i in 20:
+	for i in 30:
 		t.update(0.13, Vector2.ZERO, Vector2.ZERO, false)
 	assert_eq(t.points.size(), 0, "die Gasse hat sich geschlossen")
+
+func test_trail_wake_is_long_and_fits_the_shader() -> void:
+	# a long V behind him: the flowers swing back over about 3 s, and the shader takes every point
+	assert_between(Trail.LIFE, 2.5, 4.0)
+	assert_true(Trail.SIZE * Trail.EVERY >= Trail.LIFE, "genug Punkte für den ganzen Schweif")
+	var code: String = (load("res://shaders/flowers.gdshader") as Shader).code
+	assert_true(code.contains("const int TRAIL = %d;" % Trail.SIZE), "Shader kennt alle Punkte")
 
 func test_trail_parts_the_poppies_ahead_of_the_feet() -> void:
 	# the flowers should give way before he reaches them, not when he is already past
