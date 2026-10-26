@@ -580,3 +580,13 @@ func test_a_new_walk_finds_its_ground_at_once() -> void:
 	m._on_start_walking(true)
 	assert_true(m.store.is_ready(c), "Start-Kachel sofort da")
 	m.queue_free()
+
+func test_frame_log_notes_only_late_frames() -> void:
+	var f := FrameLog.new()
+	f.note(1.0 / 60.0, "x")
+	f.note(0.05, "Kacheln 9")
+	f.note(1.0 / 60.0, "x")
+	assert_eq(f.frames, 3)
+	assert_eq(f.late.size(), 1)
+	assert_true(f.late[0].contains("50 ms") and f.late[0].contains("Kacheln 9"), f.late[0])
+	f.free()

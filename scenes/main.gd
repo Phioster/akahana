@@ -19,6 +19,8 @@ var store: ChunkStore
 var view_node: WorldView
 var marker: TapMarker
 var birds: Birds
+var _flog := FrameLog.new()
+var _cam_last := Vector2.ZERO
 var _life := Activator.new()         # wisps: made near the view, dropped far from it
 var book: BookUI
 var save := SaveData.new()
@@ -101,6 +103,7 @@ func _ready() -> void:
 	amb.player = player
 	add_child(amb)
 	add_child(Ducker.new())
+	add_child(_flog)
 	add_child(Music.new())
 
 	book = BookUI.new()
@@ -253,6 +256,11 @@ func _process(delta: float) -> void:
 	post.set_shader_parameter("view_world", view)
 	post.set_shader_parameter("cam_pos", top_left)
 	view_node.update(Rect2(top_left, view))
+	_flog.note(delta, "Kacheln %d, Objekte %d, bei %s, %s" % [view_node.chunk_nodes(), view_node.object_nodes(),
+			player.position.round(), "läuft" if player.is_walking() else "steht"])
+	if player.is_walking():
+		_flog.step(delta, (top_left - _cam_last) * get_canvas_transform().get_scale())
+	_cam_last = top_left
 	birds.update_area(Rect2(top_left, view))
 	_life.update(Rect2(top_left, view))
 	_feed_lights(Rect2(top_left, view))
