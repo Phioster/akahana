@@ -309,3 +309,20 @@ func test_wisp_glow_is_warm_like_its_flame() -> void:
 	# the bloom kept the old cold mint colour and covered the amber flame in a green-white blob
 	var code: String = (load("res://shaders/post.gdshader") as Shader).code
 	assert_false(code.contains("vec3(150.0, 240.0, 215.0)"), "kein Mint-Glühen mehr")
+
+func test_wisp_hovers_almost_still_when_left_alone() -> void:
+	# you stand still nearby: it should rest in the air, moving a pixel only now and then
+	var w := Wisp.new()
+	w.anchor = Vector2(100, 100)
+	w.position = Vector2(100, 100)
+	var pl := Vector2(100, 190)
+	var moves := 0
+	var last := Vector2i(w.position.round())
+	for i in 1800:                                  # 30 s
+		w.step(1.0 / 60.0, pl)
+		var now := Vector2i(w.position.round())
+		if now != last:
+			moves += 1
+			last = now
+	assert_true(moves <= 30, "Pixelsprünge in 30 s: %d" % moves)
+	w.free()
