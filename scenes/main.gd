@@ -7,6 +7,7 @@ const KINDS := {"fire": 0.0, "lantern": 1.0, "wood": 2.0, "candle": 3.0, "wisp":
 const GLOW := {"fire": 40.0, "lantern": 6.0, "wood": 8.0, "candle": 4.0, "wisp": 4.0}   # glowing pixels, for bloom
 const SAVE_EVERY := 5.0
 const CAM_EASE := 5.0                # how quickly the view catches up: starting and stopping glide
+const CAM_MIN_SPEED := 4.0           # art px/s: the slowest it glides before arriving
 const CAM_CALM := Vector2(10, 14)    # a box round the middle: small steps inside it leave the world still
 
 var world: WorldData
@@ -259,9 +260,11 @@ func _process(delta: float) -> void:
 			if absf(off) > CAM_CALM[k]:
 				_cam_goal[k] = c[k] - signf(off) * CAM_CALM[k]
 		_cam_goal = _cam_goal.round()                  # rest on a whole pixel: between two the post shader
-		_cam_at = _cam_at.lerp(_cam_goal, 1.0 - exp(-CAM_EASE * delta))   # read on borders, all smeared
-		if _cam_at.distance_to(_cam_goal) < 0.05:
-			_cam_at = _cam_goal
+		# ease out, but never creep: below a small speed it rolls straight onto the goal and stops there
+		# (the endless creep ended in a visible snap)
+		var left := _cam_at.distance_to(_cam_goal)            # read on borders, all smeared
+		var go := maxf(left * (1.0 - exp(-CAM_EASE * delta)), CAM_MIN_SPEED * delta)
+		_cam_at = _cam_at.move_toward(_cam_goal, go)
 	cam.position = _cam_at
 	cam.force_update_scroll()                          # apply now: the shader must snap to THIS frame's view
 	var top_left := get_viewport().get_canvas_transform().affine_inverse() * Vector2.ZERO

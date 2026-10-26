@@ -57,3 +57,16 @@ func test_a_tiny_diagonal_piece_does_not_jolt_him() -> void:
 	assert_true(worst < 20.0, "Ruck: %.0f°" % worst)
 	assert_true(pl.position.distance_to(Vector2(2, 70)) < 0.5, "kommt an")
 	pl.free()
+
+func test_stopping_has_no_last_jump() -> void:
+	# coming in on a curve he ended a pixel or two beside the goal and was set onto it in one frame
+	var pl := Player.new()
+	pl.walk_to(PackedVector2Array([Vector2(0, 30), Vector2(30, 30)]))
+	var prev := pl.position
+	var worst := 0.0
+	for i in 400:
+		pl._process(1.0 / 60.0)
+		worst = maxf(worst, pl.position.distance_to(prev))
+		prev = pl.position
+	assert_true(worst <= Player.SPEED / 60.0 + 0.01, "größter Satz in einem Bild: %.2f px" % worst)
+	pl.free()

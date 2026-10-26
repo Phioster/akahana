@@ -437,3 +437,29 @@ func test_the_view_comes_to_rest_on_a_whole_pixel() -> void:
 	var tl: Vector2 = m.post.get_shader_parameter("cam_pos")
 	assert_true(tl == tl.round(), "Shader-Ecke %s" % tl)
 	m.queue_free()
+
+func test_the_view_settles_without_a_snap() -> void:
+	# it crept on by hundredths of a pixel, then jumped the rest at once - seen as a jolt when stopping
+	var tree := Engine.get_main_loop() as SceneTree
+	var m: Node2D = load("res://scenes/main.gd").new()
+	tree.root.add_child(m)
+	await tree.process_frame
+	if m.world == null:
+		m.queue_free()
+		return
+	for i in 30:
+		m._process(1.0 / 60.0)
+	m.player.walk_to(PackedVector2Array([m.player.position + Vector2(-40, 0)]))
+	var prev: Vector2 = m.cam.position
+	var last := 0.0
+	var worst_rise := 0.0
+	for i in 300:
+		m.player._process(1.0 / 60.0)
+		m._process(1.0 / 60.0)
+		var d: float = m.cam.position.distance_to(prev)
+		prev = m.cam.position
+		if not m.player.is_walking() and d > last + 0.001:     # while settling it may only slow down
+			worst_rise = maxf(worst_rise, d - last)
+		last = d
+	assert_true(worst_rise < 0.01, "Ruck beim Anhalten: +%.3f px" % worst_rise)
+	m.queue_free()
