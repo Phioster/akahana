@@ -388,11 +388,33 @@ func test_camera_eases_after_the_wanderer() -> void:
 		return
 	m._process(1.0 / 60.0)
 	var before: Vector2 = m.cam.position
-	m.player.position += Vector2(-12, -12)
+	m.player.position += Vector2(-30, 0)
 	m._process(1.0 / 60.0)
 	var moved: float = (m.cam.position - before).length()
 	assert_true(moved > 0.0 and moved < 4.0, "erstes Bild nur ein Stück: %.2f" % moved)
 	for i in 90:
 		m._process(1.0 / 60.0)
-	assert_almost_eq(m.cam.position.x, before.x - 12.0, 0.6, "holt auf")   # y may sit at the world edge
+	assert_almost_eq(m.cam.position.x, before.x - 30.0 + 10.0, 0.6, "holt auf bis zum Rand der Ruhezone")
+	m.queue_free()
+
+func test_small_side_steps_leave_the_view_still() -> void:
+	# a pixel or two of correction sideways must not shift the whole world; a real walk still scrolls
+	var tree := Engine.get_main_loop() as SceneTree
+	var m: Node2D = load("res://scenes/main.gd").new()
+	tree.root.add_child(m)
+	await tree.process_frame
+	if m.world == null:
+		m.queue_free()
+		return
+	for i in 60:
+		m._process(1.0 / 60.0)
+	var before: Vector2 = m.cam.position
+	m.player.position += Vector2(2, 0)
+	for i in 60:
+		m._process(1.0 / 60.0)
+	assert_almost_eq(m.cam.position.x, before.x, 0.01, "steht still")
+	m.player.position += Vector2(30, 0)
+	for i in 120:
+		m._process(1.0 / 60.0)
+	assert_true(m.cam.position.x > before.x + 15.0, "folgt bei echtem Laufen")
 	m.queue_free()

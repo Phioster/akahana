@@ -7,6 +7,7 @@ const KINDS := {"fire": 0.0, "lantern": 1.0, "wood": 2.0, "candle": 3.0, "wisp":
 const GLOW := {"fire": 40.0, "lantern": 6.0, "wood": 8.0, "candle": 4.0, "wisp": 4.0}   # glowing pixels, for bloom
 const SAVE_EVERY := 5.0
 const CAM_EASE := 5.0                # how quickly the view catches up: starting and stopping glide
+const CAM_CALM := Vector2(10, 14)    # a box round the middle: small steps inside it leave the world still
 
 var world: WorldData
 var pathing := Pathing.new()
@@ -28,6 +29,7 @@ var _cam_offset := Vector2.ZERO
 var _last_tap := -10.0
 var _drag_from := Vector2.INF
 var _cam_at := Vector2.INF           # where the view is; INF = jump straight there (start, teleport)
+var _cam_goal := Vector2.ZERO        # where it is gliding to
 
 
 func _ready() -> void:
@@ -249,8 +251,14 @@ func _process(delta: float) -> void:
 		_cam_offset = c - player.position                 # stop the offset growing past the world edge
 	if _cam_at == Vector2.INF or _camera_mode:          # in camera mode your finger moves it directly
 		_cam_at = c
+		_cam_goal = c
 	else:
-		_cam_at = _cam_at.lerp(c, 1.0 - exp(-CAM_EASE * delta))
+		# the view only moves on once he leaves the calm box, and then just enough to keep him at its edge
+		for k in 2:
+			var off: float = c[k] - _cam_goal[k]
+			if absf(off) > CAM_CALM[k]:
+				_cam_goal[k] = c[k] - signf(off) * CAM_CALM[k]
+		_cam_at = _cam_at.lerp(_cam_goal, 1.0 - exp(-CAM_EASE * delta))
 	cam.position = _cam_at
 	cam.force_update_scroll()                          # apply now: the shader must snap to THIS frame's view
 	var top_left := get_viewport().get_canvas_transform().affine_inverse() * Vector2.ZERO
