@@ -235,7 +235,7 @@ class Weide:
         s.x, s.y, s.seed, s.size, s.lean = x, y, seed, size, lean
 
     def box(s):
-        a, b = 24 * s.size, 22 * s.size
+        a, b = 19 * s.size, 25 * s.size
         return (int(s.x - a - 4), int(s.y - 6 * s.size - 2 * b - 2), int(s.x + a + 10), s.y + 4)
 
     def draw(s, img, G):
@@ -244,7 +244,7 @@ class Weide:
         g = lambda i, j: G[j % G.shape[0], i % G.shape[1]]
         HI = hx('#b2c486')
         sz = s.size
-        a, b = 24 * sz, 22 * sz                                     # the crown's outline: a broad dome
+        a, b = 19 * sz, 25 * sz                                     # the crown's outline: taller than wide
         ex, ey = s.x + s.lean, s.y - 6 * sz - b                      # its middle
         hem = lambda x: ey + b * np.sqrt(max(0.0, 1 - ((x - ex) / a) ** 2))
         for j in range(s.y - 4, s.y + 6):                          # its shade on the ground, lower right
@@ -253,7 +253,7 @@ class Weide:
                     put(img, i, j, img[j, i] * 0.68) if 0 <= j < img.shape[0] and 0 <= i < img.shape[1] else None
         for j in range(int(ey), s.y + 2):                          # inside the curtain it is dark
             for i in range(int(ex - a), int(ex + a) + 1):
-                if j < hem(i) + 2 and ((i - ex) / a) ** 2 < 0.85 and g(i * 2, j) < 0.8 and 0 <= j < img.shape[0] and 0 <= i < img.shape[1]:
+                if j < hem(i) + 2 and ((i - ex) / a) ** 2 < 0.85 and i < ex + 0.25 * a and g(i * 2, j) < 0.8 and 0 <= j < img.shape[0] and 0 <= i < img.shape[1]:
                     img[j, i] = img[j, i] * 0.5
 
         clumps = []                                                 # (x, y), denser towards the outline
@@ -263,6 +263,8 @@ class Weide:
             if r2 > 1 + 0.15 * rng.random() or rng.random() > 0.35 + 0.65 * min(r2, 1):   # a lobed, uneven outline
                 continue
             clumps.append((ex + u * a * 0.9, ey + v * b * 0.95))
+        for k in range(int(7 * sz)):                                 # the middle filled too, in front of the trunk
+            clumps.append((ex + rng.uniform(-0.3, 0.3) * a, ey + rng.uniform(-0.6, 0.35) * b))
         top = np.array([s.x + s.lean * 0.6, s.y - 18 * sz])
         strokes = []
         for k, p in enumerate(T.bezier(np.array([s.x, s.y], float), np.array([s.x - s.lean * 0.8, s.y - 9 * sz]), top,
@@ -288,7 +290,8 @@ class Weide:
             r = rng.uniform(2.6, 3.8) * sz ** 0.5
             high = np.clip((ey + b - cy) / (2 * b), 0, 1)            # 1 at the crown top
             dim = 0.6 if back else 1.0
-            for k in range(int(8 * sz)):                             # twigs: straight down to the hem
+            right = (cx - ex) / a                                    # the right side hangs thinner: light comes through
+            for k in range(int(8 * sz * (1 - 0.7 * np.clip(right * 1.5, 0, 1)))):   # twigs: straight down to the hem
                 u = rng.uniform(-1, 1)
                 sx, sy = cx + u * r, cy + rng.uniform(0, r * 0.5)
                 L = int(max(4, hem(sx) - sy + rng.uniform(-11, 4) * sz))     # a ragged hem
@@ -296,7 +299,7 @@ class Weide:
                 for h in range(L):
                     t = h / L
                     i = int(round(sx + u * 1.2 * (1 - np.exp(-h / 2.5)) + 0.4 * np.sin(h * 0.25 + sx)))
-                    if rng.random() < 0.9:
+                    if rng.random() < 0.9 - 0.45 * np.clip((i - ex) / a, 0, 1):
                         put(img, i, int(round(sy + h)), q(WILLOW, lit0 - 0.45 * t, g(i, int(sy + h))))
             for j in range(int(cy - r - 1), int(cy + r + 1)):        # the clump: rounded top, lit upper left
                 for i in range(int(cx - r - 1), int(cx + r + 2)):
@@ -311,7 +314,7 @@ class Weide:
                         c = HI
                     put(img, i, j, c)
 
-        back = [rng.random() < 0.2 for _ in clumps]
+        back = [rng.random() < 0.2 for _ in clumps[:len(clumps) - int(7 * sz)]] + [False] * int(7 * sz)
         for (cx, cy), bk in sorted(zip(clumps, back), key=lambda c: c[0][1]):
             if bk:
                 clump(cx, cy, True)
