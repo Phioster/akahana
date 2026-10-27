@@ -110,6 +110,7 @@ def render(w, seed=21, raw=False):
     flow = np.clip(0.22 + 0.10 * fbm(NEW, W, 10, 305), 0, 1)
     tone = south_ground.continued_tone(south_ground.tone_of(g2), south_ground.fresh_tone(NEW, W, fog, flow, rng))
     ground = south_ground.ground_from_tone(tone, fog, flow, rng)
+    STASH.update(ground=ground.copy())                         # untinted: zone 4 grows its ground out of this
     ground *= (1 - np.array([0.12, 0.0, 0.14])) * 0.62           # the grass field's floor, as zone 2 ends
 
     brooks, trails, CA, CB = layout()
@@ -245,6 +246,7 @@ class Holzlaterne:
         extras.WoodLantern(s.x - x0, s.y - y0).draw(img[y0:y1, x0:x1], 0.0, 8.0)
 
 
+STASH = {}
 # fireflies over the water and the quiet spots
 SWARMS = [Swarm(110, Y3 + 200, 9, 21), Swarm(470, Y3 + 140, 8, 22), Swarm(330, Y3 + 420, 10, 23),
           Swarm(820, Y3 + 230, 8, 24), Swarm(620, Y3 + 400, 9, 25), Swarm(150, Y3 + 520, 8, 26)]

@@ -21,6 +21,7 @@ import mood_map  # noqa: E402
 import zone1_draft as z1  # noqa: E402
 import zone2_draft as z2  # noqa: E402
 import zone3_draft as z3  # noqa: E402
+import zone4_draft as z4  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(HERE, '..', '..', '..'))
 EMPTY = np.array([29.0, 28.0, 32.0])         # the page background: nothing drawn there yet
@@ -28,7 +29,7 @@ EMPTY = np.array([29.0, 28.0, 32.0])         # the page background: nothing draw
 
 def main(out, scale=2):
     w = json.load(open(os.path.join(ROOT, 'assets', 'world', 'world.json')))
-    south, lights, swarms, band = z3.render(w, raw=True)
+    south, lights, swarms, band, edge_fog, calm = z4.render(w, raw=True)
     top = z1.OLD_H - z1.CTX                    # the south canvas starts at this old-world row
     old = mood_map.composite(w)
     H = top + south.shape[0]
@@ -44,10 +45,15 @@ def main(out, scale=2):
         sw.append(s2)
     wb = np.zeros((H, z1.W))
     wb[top:] = band
+    cm = np.zeros((H, z1.W))
+    cm[top:] = calm
+    ef = np.zeros(H)
+    ef[top:] = edge_fog
     a = mood_map.mood(img, dict(w, lights=lit + [l for s_ in sw for l in s_.lights(2.0)]), 2.0,
-                      grass_mist=z2.GRASS_MIST, water_band=wb).astype(float)
+                      grass_mist=z2.GRASS_MIST, water_band=wb, calm=cm).astype(float)
     for s_ in sw:
         s_.draw(a, 2.0)
+    a = a * (1 - ef[:, None, None]) + z4.MIST * ef[:, None, None]   # the world fades into mist in the south
     a[:top, z1.OLD_W:] = EMPTY                 # keep the empty strip plain, no mist over nothing
     im = Image.fromarray(np.clip(a, 0, 255).astype(np.uint8))
     im.save(out.replace('.png', '_1x.png'))

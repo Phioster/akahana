@@ -66,7 +66,7 @@ def bilinear(tex, u, v):
             + t(y0 + 1, x0) * (1 - fx) * fy + t(y0 + 1, x0 + 1) * fx * fy)
 
 
-def mood(src, w, t, grass_mist=1.0, water_band=None):
+def mood(src, w, t, grass_mist=1.0, water_band=None, calm=None):
     H, W = src.shape[:2]
     yy, xx = np.mgrid[0:H, 0:W]
     wx, wy = xx + 0.5, yy + 0.5
@@ -83,18 +83,23 @@ def mood(src, w, t, grass_mist=1.0, water_band=None):
     for l in lights:
         k = KIND.get(l['kind'], 3)
         f = flick(k, ph, (l['x'], l['y']))
-        dx, dy = wx - l['x'], wy - l['y']
+        R = int(max(l['r'] + 2, 72))                         # nothing of a light reaches further (bloom tail < 1e-7)
+        y0, y1 = max(0, int(l['y']) - R), min(H, int(l['y']) + R)
+        x0, x1 = max(0, int(l['x']) - R), min(W, int(l['x']) + R)
+        if y0 >= y1 or x0 >= x1:
+            continue
+        dx, dy = wx[y0:y1, x0:x1] - l['x'], wy[y0:y1, x0:x1] - l['y']
         d = np.hypot(dx, dy * 1.35) / l['r']
         li = l['k'] * f / (1 + 4 * d * d) * np.sqrt(np.clip(1 - d, 0, 1))
         r2 = dx * dx + dy * dy
         g = 0.0875 * np.exp(-r2 / 8) + 0.0221 * np.exp(-r2 / 72) + 0.00568 * np.exp(-r2 / 392)
         glow = GLOW.get(l['kind'], 4.0)
         if k == 4:
-            Lw += li
-            bloomw += np.array([240.0, 140.0, 60.0]) * glow * g[..., None]
+            Lw[y0:y1, x0:x1] += li
+            bloomw[y0:y1, x0:x1] += np.array([240.0, 140.0, 60.0]) * glow * g[..., None]
         else:
-            L += li
-            bloom += np.array([250.0, 190.0, 90.0]) * glow * f * g[..., None]
+            L[y0:y1, x0:x1] += li
+            bloom[y0:y1, x0:x1] += np.array([250.0, 190.0, 90.0]) * glow * f * g[..., None]
     bloom *= np.array([1.0, 0.80, 0.55])
     a *= 1 + L[..., None] * LCOL * 1.4 + Lw[..., None] * WCOL * 1.2
 
@@ -108,6 +113,8 @@ def mood(src, w, t, grass_mist=1.0, water_band=None):
         dens = dens * (1 - (1 - grass_mist) * green[..., None])
     if water_band is not None:                                # over the brooks: a flat, thin band following the water
         dens = dens * (1 - 0.5 * water_band[..., None]) + 0.06 * water_band[..., None]
+    if calm is not None:                                      # over the wide lake: thin and even, no grey clouds
+        dens = dens * (1 - 0.65 * calm[..., None])
 
     p = np.pad(src, ((1, 1), (1, 1), (0, 0)), mode='edge')         # softness only where the mist is thick
     nb = p[1:-1, 2:] + p[1:-1, :-2] + p[2:, 1:-1] + p[:-2, 1:-1]

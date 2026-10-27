@@ -11,9 +11,16 @@ def path_mask(H,W,pts,rng,bulges=()):
     tck,_=splprep(np.array(pts,float).T,s=0,k=3)
     u=np.linspace(0,1,600); px,py=splev(u,tck)
     yy,xx=np.mgrid[0:H,0:W]
-    d=np.full((H,W),99.0); along=np.zeros((H,W))
-    for k in range(0,600,3):
-        dd=np.hypot(xx-px[k],yy-py[k]); m=dd<d; d[m]=dd[m]; along[m]=u[k]
+    length=np.hypot(np.diff(px),np.diff(py)).sum()
+    if length/200<=3.5:                                       # short paths: 200 samples ~3 px apart, as always
+        d=np.full((H,W),99.0); along=np.zeros((H,W))
+        for k in range(0,600,3):
+            dd=np.hypot(xx-px[k],yy-py[k]); m=dd<d; d[m]=dd[m]; along[m]=u[k]
+    else:                                                     # long ones (through several zones): samples 1.5 px apart,
+        from scipy.spatial import cKDTree                     # else they fall apart into round slabs
+        n=int(length/1.5); u=np.linspace(0,1,n); px,py=splev(u,tck)
+        dd,i=cKDTree(np.stack([px,py],1)).query(np.stack([xx.ravel(),yy.ravel()],1),distance_upper_bound=40)
+        d=np.where(np.isinf(dd),99.0,dd).reshape(H,W); along=u[np.minimum(i,n-1)].reshape(H,W)
     n=ndi.gaussian_filter(rng.normal(0,1,(H,W)),1.5); n/=n.std()
     width=2.0+1.0*np.sin(along*13)+0.4*np.sin(along*31)+0.45*n   # narrow in places, wider where people step aside
     for (at,amt,spread) in bulges:                           # wider where people cut the corner

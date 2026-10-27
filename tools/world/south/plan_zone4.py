@@ -12,55 +12,9 @@ from scipy import ndimage as ndi
 from scipy.interpolate import splprep, splev
 
 W, H, S = 900, 800, 2
-rng = np.random.default_rng(17)
+from zone4_layout import masks, TRAILS, curve
+globals().update(masks())
 yy, xx = np.mgrid[0:H, 0:W]
-
-
-def curve(pts, n=400):
-    p = np.array(pts, float).T
-    tck, _ = splprep(p, s=0, k=min(3, p.shape[1] - 1))
-    return np.array(splev(np.linspace(0, 1, n), tck)).T
-
-
-# the lake as a field: inside where the wobbled distance from the centre is below 1
-cx, cy, rx, ry = 458, 360, 340, 250
-ang = np.arctan2((yy - cy) / ry, (xx - cx) / rx)
-rad = np.hypot((xx - cx) / rx, (yy - cy) / ry)
-wob = np.zeros_like(ang)
-for k in range(2, 9):                                           # waves round the shore, smaller ones shorter
-    wob += rng.uniform(0.02, 0.09) / (k ** 0.35) * np.sin(k * ang + rng.uniform(0, 6.3))
-for (a0, depth, width) in [(2.5, 0.18, 0.22), (-0.6, 0.14, 0.3), (1.2, -0.12, 0.25), (-2.2, 0.1, 0.18)]:
-    d = np.angle(np.exp(1j * (ang - a0)))
-    wob -= depth * np.exp(-(d / width) ** 2)                    # deep bays (+) and spits (-)
-fine = ndi.gaussian_filter(rng.normal(0, 1, (H, W)), 9)
-fine /= fine.std()
-lake = rad < 1 + wob + 0.025 * fine
-back = ((xx - 140) / 55) ** 2 + ((yy - 610) / 32) ** 2 < 1 + 0.15 * fine   # a backwater to the south-west
-lake |= back | ((np.abs(yy - 560 - 0.25 * (xx - 160)) < 7) & (xx > 140) & (xx < 230))   # joined by a channel
-lake = ndi.binary_opening(lake, iterations=2)
-belt_w = 7 + 14 * np.clip(0.5 + 0.5 * ndi.gaussian_filter(rng.normal(0, 1, (H, W)), 20) * 3, 0, 1)
-dist_out = ndi.distance_transform_edt(~lake)
-dist_in = ndi.distance_transform_edt(lake)
-reeds = (dist_out > 0) & (dist_out < belt_w)
-island = ((xx - 470) / 34) ** 2 + ((yy - 380) / 22) ** 2 < 1 + 0.2 * fine
-reed_isles = np.zeros_like(lake)
-for (x0, y0, r0) in [(250, 300, 14), (650, 470, 11), (700, 250, 9), (330, 470, 10), (580, 200, 8)]:
-    reed_isles |= ((xx - x0) / r0) ** 2 + ((yy - y0) / (r0 * 0.7)) ** 2 < 1 + 0.3 * fine
-shallow = lake & (dist_in < 12)
-puddles = np.zeros_like(lake)                                    # small pools scattered round the lake
-tries = 0
-while puddles.max() == 0 or (tries < 400 and ndi.label(puddles)[1] < 14):
-    tries += 1
-    x0, y0 = int(rng.integers(60, W - 60)), int(rng.integers(40, 690))
-    near = dist_out[y0, x0]
-    if not (22 < near < 90) or rng.random() > 1.2 - near / 90:
-        continue
-    r0 = rng.uniform(4, 11)
-    blob = ((xx - x0) / r0) ** 2 + ((yy - y0) / (r0 * rng.uniform(0.5, 0.8))) ** 2 < 1 + 0.4 * fine
-    if (ndi.binary_dilation(puddles, iterations=10) & blob).any():
-        continue
-    puddles |= blob
-
 img = np.zeros((H, W, 3), np.uint8)
 img[:] = (92, 112, 78)
 img[reeds] = (70, 92, 60)
@@ -88,15 +42,7 @@ def M(x, y, r, c, n):
 
 for (x0, x1) in [(410, 418), (520, 505)]:                      # the brooks from zone 3 flow in
     P(curve([(x0, -5), ((x0 + x1) / 2 + 6, 50), (x1, 140)], 60), 9, (96, 128, 150))
-trails = {'west': [(330, -5), (230, 40), (110, 90), (48, 200), (36, 360), (58, 520), (120, 690), (260, 735),
-                   (450, 748)],
-          'ost': [(730, -5), (800, 60), (858, 170), (866, 340), (850, 520), (790, 680), (640, 738), (450, 748)],
-          'mitte': [(468, -5), (472, 50), (470, 92)],
-          'zur_bank': [(120, 690), (190, 655)], 'zur_huette': [(850, 520), (800, 515)]}
-trails['west'][-3:] = [(120, 660), (250, 690), (450, 700)]       # the round path keeps above the reeds
-trails['ost'][-3:] = [(790, 640), (640, 690), (450, 700)]
-wc = curve(trails['west'], 300)                                 # the bench path starts on the round path itself
-trails['zur_bank'][0] = tuple(wc[np.hypot(*(wc - trails['zur_bank'][1]).T).argmin()])
+trails = TRAILS
 for k, pts in trails.items():
     P(curve(pts, 300) if len(pts) > 2 else np.array(pts, float), 4, (205, 190, 160))
 for (x, y) in [(330, 240), (352, 262), (600, 430), (585, 455), (410, 520), (620, 190), (180, 400), (760, 380)]:
