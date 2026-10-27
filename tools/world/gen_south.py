@@ -156,7 +156,7 @@ def fix_old_blocks(walk, sprites):
                 walk[f - 3:f + 2, cx - 2:cx + 4] = False
         elif nm == 'zelt':                                     # the canvas, not the shadow beside it
             walk[f - 6:f + 3, x0 + 3:x1 - 3] = True
-            walk[1090:1101, 238:268] = False
+            walk[1092:1101, 248:268] = False
         elif nm == 'baum':                                     # the big cherry: gen_world's square sat right of and
             tx, ty = s['x'], s['y']                            # above the trunk's foot; now the foot as drawn
             walk[ty + 150:ty + 174, tx + 88:tx + 112] = True
