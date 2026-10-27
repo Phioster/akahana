@@ -141,6 +141,12 @@ class Steinlaterne:
         x0, y0, x1, y1 = s.box()
         Lantern3(s.x - x0, s.y - y0, None).draw(img[y0:y1, x0:x1], 0.0, 8.0)
 
+    frames = 64                                                # in the game: a strip like gen_world's lanterns
+
+    def draw_frame(s, img, k):
+        x0, y0, x1, y1 = s.box()
+        Lantern3(s.x - x0, s.y - y0, None).draw(img[y0:y1, x0:x1], k, s.frames)
+
 
 def render(w, seed=12, raw=False):
     base = z1.render('a', w, raw=True)[0]                      # zone 1 in full, its layers in z1.STASH

@@ -115,7 +115,23 @@ def _wrap(cls, kind):
         for j, i in zip(*np.nonzero(shade)):
             c.shadow[(y0 + j, x0 + i)] = p[j, i, 0] / 255.0
         foot = t.p.y if isinstance(t, z1.Fir) else (getattr(t, 'order', None) or t.box()[3])
-        c.sprites[id(t)] = dict(thing=t, rgba=rgba, x=x0, y=y0, foot=int(round(foot)))
+        frames = 1
+        if hasattr(t, 'draw_frame'):                           # lanterns: a strip of frames, as gen_world cuts them
+            frames = t.frames
+            base = c.ground[y0:y1, x0:x1]
+            strip = []
+            for k in range(frames):
+                im = c.scratch                                 # only the box is drawn into and read back
+                im[y0:y1, x0:x1] = base
+                t.draw_frame(im, k)
+                f = im[y0:y1, x0:x1]
+                a = np.zeros((y1 - y0, x1 - x0, 4), np.uint8)
+                a[..., :3] = np.clip(f, 0, 255).astype(np.uint8)
+                a[..., 3] = np.any(np.abs(f - base) > 0.5, axis=2) * 255
+                strip.append(a)
+            rgba = np.concatenate(strip, axis=1)
+        c.sprites[id(t)] = dict(thing=t, rgba=rgba, x=x0, y=y0, foot=int(round(foot)), frames=frames,
+                                w=x1 - x0, h=y1 - y0)
         return out
 
     draw._orig = orig

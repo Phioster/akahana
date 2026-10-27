@@ -26,7 +26,7 @@ def recompose(c):
     m = c.sway[..., 3] > 0
     out[m] = c.sway[m][:, :3]
     for s in sorted(c.sprites, key=lambda s: s['foot']):
-        a = s['rgba']
+        a = s['rgba'][:, :s['w']]                              # first frame of a strip
         h, w = a.shape[:2]
         reg = out[s['y']:s['y'] + h, s['x']:s['x'] + w]
         k = a[..., 3] > 0
@@ -55,8 +55,9 @@ class TestLayers(unittest.TestCase):
     def test_ground_is_the_draft_where_nothing_stands_or_sways(self):
         free = self.c.sway[..., 3] == 0
         for s in self.c.sprites:
-            h, w = s['rgba'].shape[:2]
-            free[s['y']:s['y'] + h, s['x']:s['x'] + w] &= s['rgba'][..., 3] == 0
+            a = s['rgba'][:, :s['w']]
+            h, w = a.shape[:2]
+            free[s['y']:s['y'] + h, s['x']:s['x'] + w] &= a[..., 3] == 0
         for (y, x) in self.c.shadow_px:
             free[y, x] = False
         diff = np.abs(self.c.ground - self.c.raw).sum(-1)[free]
@@ -70,6 +71,14 @@ class TestLayers(unittest.TestCase):
         ys = [y for (y, x) in self.c.shadow_px if t['x'] <= x < t['x'] + t['rgba'].shape[1]
               and t['y'] <= y < t['y'] + t['rgba'].shape[0]]
         self.assertTrue(ys, 'the tree casts no shadow into the ground')
+
+    def test_lanterns_become_64_frame_strips(self):
+        lan = [s for s in self.c.sprites if s['frames'] > 1]
+        self.assertGreaterEqual(len(lan), 3)
+        for s in lan:
+            self.assertEqual(s['rgba'].shape[1], 64 * s['w'])
+            f = [s['rgba'][:, k * s['w']:(k + 1) * s['w']] for k in (0, 5, 17)]
+            self.assertFalse(all((f[0] == g).all() for g in f[1:]), 'the flame does not move')
 
     def test_every_standing_thing_has_a_sprite(self):
         self.assertGreater(len(self.c.sprites), 100)
