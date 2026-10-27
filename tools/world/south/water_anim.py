@@ -9,10 +9,8 @@ WATER = np.array(ow.WATER, float)
 OLD_WAT = np.array([(0x3c, 0x46, 0x50), (0x4e, 0x5a, 0x65), (0x64, 0x71, 0x7c), (0x7f, 0x8c, 0x96),
                     (0xa3, 0xae, 0xb6), (0xd6, 0xdd, 0xe1)], float)
 K_NEW = 2 * np.pi * 22 / 256        # streaks along the new brooks (whole periods in 256 px: no seam)
-K_OLD = 2 * np.pi * 61 / 256
 LOOP = 8.0                          # seconds, as the wallpaper and the lights: everything comes round together
 W_NEW = 2 * np.pi * 5 / LOOP        # streak phase speed: 5 whole turns a loop = about 7.3 px/s downstream
-W_OLD = 2 * np.pi * 14 / LOOP       # the old brook a touch quicker per streak (its streaks lie closer)
 W_LAKE = 2 * np.pi / LOOP
 
 
@@ -42,11 +40,12 @@ def animate(ground, wmap, x0, y0, t):
     out[m] = WATER[np.clip(np.round(v * 4), 0, 4).astype(int)][m]
 
     m = kind == 1                                                # the old brook, in gen_world's look
-    rip = np.sin(along * K_OLD - t * W_OLD + 3.6 * (1 - dep) + 2 * n)
-    wv = 0.52 - 0.22 * dep + 0.12 * rip + 0.06 * (h2 - 0.5)
-    wi = np.clip((wv * 6).astype(int), 0, 5)
-    wi = np.where((rip > 0.92) & (h2 < 0.35), 5, wi)
-    wi = np.where((dep < 0.25) & (h2 < 0.4), 4, wi)
+    rip = np.sin(along * K_NEW - t * W_NEW + 3.6 * (1 - dep) + 0.6 * n)   # broad calm streaks like the new
+    base = np.clip(((0.52 - 0.22 * dep + 0.06 * (h2 - 0.5)) * 6).astype(int), 0, 3)
+    wi = np.where(rip > 0.85, np.minimum(base + 1, 3), base)    # a streak lifts one step, never to the near-white
+                                                                # ones: in the snow they glittered
+    wi = np.where((rip > 0.97) & (h2 < 0.06), 4, wi)          # now and then a glint
+    wi = np.where((dep < 0.25) & (h2 < 0.15), 4, wi)          # light catching on the bank, still
     out[m] = OLD_WAT[wi][m]
 
     m = kind == 3                                                # the lake and the pools: calm ripples

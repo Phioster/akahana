@@ -37,7 +37,10 @@ def main(out):
     flowers = np.array(Image.open(os.path.join(F, 'flowers.png')).convert('RGBA'))
     wmap = np.array(Image.open(os.path.join(F, 'water.png')).convert('RGBA'))
     fl = np.load(os.path.join(ROOT, 'build', 'mist_fields.npz'))
+    only = sys.argv[2:]
     for name, (x0, y0, x1, y1) in SPOTS.items():
+        if only and name not in only:
+            continue
         sprites = [s for s in w['sprites'] if s['x'] < x1 and s['x'] + s['w'] > x0 and s['y'] < y1
                    and s['y'] + s['h'] > y0]
         pics = {s['name']: np.array(Image.open(os.path.join(A, 'sprites', s['name'] + '.png')).convert('RGBA'))
