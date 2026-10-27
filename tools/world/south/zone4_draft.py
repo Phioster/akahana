@@ -63,6 +63,11 @@ def render(w, seed=31, raw=False):
     water = m['lake'] | m['puddles'] | marsh | open_w
     shallow = (m['shallow'] | m['puddles'] | (marsh & ~open_w)) & ~(m['reed_isles'])
     water &= ~m['island']
+    jx = 578                                                     # the jetty's bank: a firm tongue of land under its
+    shore = int(np.argmax(m['lake'][:, jx]))                     # landward half, so no water shows round it
+    tongue = (((xx - jx) / 9.0) ** 2 + ((yy - shore + 8) / 14.0) ** 2 < 1) & (yy < shore + 2)
+    water &= ~tongue
+    shallow &= ~tongue
     damp = ndi.distance_transform_edt(~water) < 8
     ground[damp] *= 0.85
     img[Y4:] = ground
@@ -92,9 +97,48 @@ def render(w, seed=31, raw=False):
         extras.draw_path(img, pm, pc, pd_, pw_, prng)
         path |= pm
 
+    # a few puddles right on the paths, to splash through
+    ppud = np.zeros((NEW, W), bool)
+    for pts in (z2.TRAIL_A, z2.TRAIL_B):
+        c = z3.curve(pts, 4000)
+        c = c[c[:, 1] > Y4 + 30]
+        px_, py_ = c[int(rng.uniform(0.3, 0.8) * (len(c) - 1))]   # one each, where the ground dips
+        ppud |= L.organic_pool(int(px_), int(py_ - Y4), rng.uniform(6, 8), rng, (NEW, W))
+    plab0, _ = ndi.label(m['puddles'])                          # pools the paths run into by chance are gone
+    onpath = np.unique(plab0[ndi.binary_dilation(path[Y4:], iterations=3) & (plab0 > 0)])
+    gone0 = np.isin(plab0, onpath[onpath > 0])
+    water &= ~(gone0 & ~m['lake'])
+    shallow &= ~gone0
+    pud = (m['puddles'] & ~gone0) | ppud
+    water |= ppud
+    shallow |= ppud
+    plab, pn_ = ndi.label(pud)                                   # no pools sitting in a brook's bed
+    inbed = np.unique(plab[ndi.binary_dilation(brooks.mask, iterations=4) & (plab > 0)])
+    gone = np.isin(plab, inbed[inbed > 0])
+    pud &= ~gone
+    water &= ~(gone & ~m['lake'])
+
     brooks.y0 = Y4
     brooks.draw(img, rng)
+    with_brooks = img[Y4:].copy()
     ol.paint_lake(img, Y4, water, shallow, rng)                  # the lake over the brooks' ends
+    # the mouths: no mud lip across the brook, its banks open out, its paler water runs on into the lake
+    bm = brooks.mask
+    img[Y4:][bm & ~m['lake']] = with_brooks[bm & ~m['lake']]      # the lake's mud rim does not cross the brook
+    near = ndi.distance_transform_edt(~m['lake']) < 12           # the last 12 px before the lake
+    lip = ndi.binary_dilation(bm, iterations=3) & ~bm & near & ~m['lake']
+    lipw = lip & (rng.random((NEW, W)) < 0.7)                    # banks there: wet, water seeping through
+    img[Y4:][lipw] = np.array(ow.WATER)[rng.integers(2, 4, (NEW, W))][lipw]
+    fan = ndi.gaussian_filter(bm.astype(float), 4) * m['lake']   # a soft plume, no outline
+    fade = np.clip(1 - m['dist_in'] / 16.0, 0, 1) * np.clip(fan * 2.5, 0, 1)
+    take = rng.random((NEW, W)) < fade * 0.8
+    img[Y4:][take] = np.array(ow.WATER)[rng.integers(2, 4, (NEW, W))][take]
+    sub_ = img[Y4:]                                              # puddles: light, the evening sky in them
+    pn = rng.random((NEW, W))
+    sub_[pud] = ow.WATER[3]
+    sub_[pud & (pn > 0.82)] = ow.WATER[4]
+    rim = ndi.binary_dilation(pud, iterations=2) & ~pud & ~m['lake']
+    sub_[rim] = sub_[rim] * 0.8                                   # wet mud round the edge, no drawn ring
     isl = np.zeros((H, W), bool)
     isl[Y4:] = m['island']
     img[isl] = ground[m['island']]
@@ -105,10 +149,10 @@ def render(w, seed=31, raw=False):
     xr_ = xl_ + int(np.argmax(~m['reeds'][hy_, xl_ + 1:])) + 1
     hx_ = xr_
     # the jetty: from the reeds out into the lake at the end of the middle path
-    col = m['lake'][:, 471]
-    shore = int(np.argmax(col))
-    things = [ol.Steg(471, Y(shore - 6), Y(shore + 44)), ol.Boot(452, Y(shore + 22)),
-              z3.Holzlaterne(460, Y(shore - 8)),
+    # the jetty sits east of the brook mouths, the path comes to it over a bridge (jx, shore set above)
+    things = [ol.Steg(jx, Y(shore - 20), Y(shore + 30), dry=Y(shore)),   # half on the bank, half over the water
+               ol.Boot(jx - 19, Y(shore + 20)),
+              z3.Holzlaterne(jx - 12, Y(shore - 21)),
               ol.Huette(hx_ + 17, Y(hy_ + 6)), ol.Steg(Y(hy_), xl_ - 12, xr_ + 2, width=7, across=True),
               z2.Bank(195, Y(652)),
               ol.Laubbaum(470, Y(388), seed=11, size=0.9)]
@@ -122,14 +166,38 @@ def render(w, seed=31, raw=False):
         if m['lake'][y, x] and not m['shallow'][y, x]:
             things.append(ol.Seerosen(x, Y(y), int(rng.integers(5, 9)), 40 + k))
     things += [Findling(120, Y(150), 7, 41), Findling(820, Y(300), 6, 42), Findling(330, Y(660), 8, 43)]
+    sc = z3.curve(z2.TRAIL_S, 3000)                              # the bridge where the middle path meets the brook
+    sc = sc[sc[:, 1] > Y4] - (0, Y4)
+    bc = tails[1][0]
+    dd = np.hypot(sc[:, None, 0] - bc[None, :, 0], sc[:, None, 1] - bc[None, :, 1])
+    i, j = np.unravel_index(dd.argmin(), dd.shape)
+    tg = sc[min(i + 4, len(sc) - 1)] - sc[max(i - 4, 0)]
+    things.append(ow.Bruecke(int(bc[j, 0]), Y(bc[j, 1]), float(np.arctan2(tg[1], tg[0])), tails[1][1] + 1))
+    # the lake less empty: more lilies, rocks breaking the surface, a drifting branch, ducks
+    deep = m['lake'] & (m['dist_in'] > 14) & ~ndi.binary_dilation(m['island'] | m['reed_isles'], iterations=12)
+    deep[:shore + 60, jx - 30:jx + 30] = False
+    spots = np.argwhere(deep)
+    pick = spots[rng.choice(len(spots), 18, replace=False)]
+    for k, (y, x) in enumerate(pick[:10]):
+        things.append(ol.Seerosen(int(x), Y(y), int(rng.integers(4, 9)), 60 + k))
+    for k, (y, x) in enumerate(pick[10:14]):
+        things.append(ol.WasserStein(int(x), Y(y), rng.uniform(3, 5), 70 + k))
+    y, x = pick[14]
+    things.append(ol.Treibholz(int(x), Y(y), int(rng.integers(18, 26)), rng.uniform(-0.6, 0.6), 80))
+    for k, (y, x) in enumerate(pick[15:17]):
+        things.append(ol.Enten(int(x), Y(y), int(rng.integers(2, 4)), 90 + k))
 
     # reeds: the belt round the lake, the reed islands, rims of the pools, and the reed sea at the edge
-    reed_area = (m['reeds'] | (m['lake'] & m['reed_isles']) | (ndi.binary_dilation(m['puddles'], iterations=2) &
+    lab, n = ndi.label(m['puddles'])                             # only the bigger pools get a reed rim
+    big = np.isin(lab, [k + 1 for k, a in enumerate(ndi.sum(m['puddles'], lab, range(1, n + 1))) if a > 260])
+    reed_area = (m['reeds'] | (m['lake'] & m['reed_isles']) | (ndi.binary_dilation(big, iterations=2) &
                  ~m['puddles']) | (sea_reeds & ~open_w)) & ~ndi.binary_dilation(path[Y4:], iterations=3)
+    reed_area &= ~ndi.binary_dilation(brooks.mask, iterations=1)   # the brooks run open into the lake
+    reed_area &= ~pud
     for t_ in things:
         if isinstance(t_, ol.Steg):                              # the jetties stay clear of reeds
             x0, y0, x1, y1 = t_.box()
-            reed_area[max(0, y0 - Y4 - 4):max(0, y1 - Y4 + 15), max(0, x0 - 4):x1 + 4] = False   # stalks grow up 15 px
+            reed_area[max(0, y0 - Y4):max(0, y1 - Y4 + 15), max(0, x0 + 1):x1 - 1] = False   # stalks grow up 15 px; right beside it they may
     ys, xs = np.nonzero(reed_area)
     pick = rng.random(len(ys)) < np.where(sea_reeds[ys, xs], 1 / 9, 1 / 16)
     for y, x in zip(ys[pick], xs[pick]):
@@ -159,6 +227,7 @@ def render(w, seed=31, raw=False):
         keep_off[max(0, y0):max(0, y1), max(0, x0):max(0, x1)] = True
         if isinstance(t_, (ol.Huette, z2.Bank, Findling, ol.Steg)):
             low[max(0, y0):max(0, y1), max(0, x0):max(0, x1)] = True
+    low[Y4:] |= pud                                              # tall blades below a pool would hide it
     below = low.copy()
     for k in range(1, 13):
         below[k:] |= low[:-k]

@@ -303,7 +303,8 @@ _NT = __import__('zone4_layout').natural_trails()       # on round the lake in z
 TRAIL_A += [(x, y + 1760) for x, y in _NT['west'] if y > 20]
 TRAIL_B += [(x, y + 1760) for x, y in _NT['ost'] if y > 20]
 TRAIL_S = [(560, 936), (548, 1010), (532, 1090), (520, 1172), (560, 1220), (612, 1280), (616, 1360), (570, 1480),
-           (505, 1580), (472, 1680), (468, 1772), (472, 1810), (470, 1852)]   # past the spring to the jetty
+           (505, 1580), (472, 1680), (468, 1772), (488, 1800), (520, 1822), (552, 1850), (572, 1872),
+           (578, 1888)]   # past the spring, over the brook, to the jetty
 # fireflies by the bench, the trees, a boulder and over the grass
 SWARMS = [Swarm(250, Y0 + 180, 10, 11), Swarm(600, Y0 + 270, 9, 12), Swarm(800, Y0 + 350, 9, 13),
           Swarm(120, Y0 + 330, 8, 14), Swarm(470, Y0 + 90, 8, 15)]

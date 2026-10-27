@@ -140,8 +140,9 @@ class Steg:
     """A wooden jetty out of the reeds into the lake: planks across, posts at both sides standing in the
     water with a ring of ripples, its shadow on the water to the right. Runs down the screen, or with
     across=True sideways (x and y swapped while drawing)."""
-    def __init__(s, x, y_from, y_to, width=9, across=False):
+    def __init__(s, x, y_from, y_to, width=9, across=False, dry=None):
         s.x, s.y0, s.y1, s.w, s.across = x, y_from, y_to, width, across
+        s.dry = y_from if dry is None else dry                   # rows above this lie on the bank
 
     def box(s):
         if s.across:
@@ -156,7 +157,7 @@ class Steg:
             return
         g = lambda i, j: G[j % G.shape[0], i % G.shape[1]]
         hw = s.w // 2
-        for j in range(s.y0 + 2, s.y1 + 3):                     # shadow on the water
+        for j in range(max(s.y0 + 2, s.dry), s.y1 + 3):         # shadow on the water
             for i in range(s.x + hw + 1, s.x + hw + 3):
                 put(img, i, j, img[j, i] * 0.6) if 0 <= j < img.shape[0] and 0 <= i < img.shape[1] else None
         for j in range(s.y0, s.y1 + 1):
@@ -169,8 +170,9 @@ class Steg:
             for i in (s.x - hw - 1, s.x + hw + 1):
                 for d in range(3):
                     put(img, i, j + d, WOOD[0] if d else WOOD[2])
-                put(img, i + 1, j + 3, WATER[4])
-                put(img, i - 1, j + 3, WATER[3])
+                if j + 3 >= s.dry:
+                    put(img, i + 1, j + 3, WATER[4])
+                    put(img, i - 1, j + 3, WATER[3])
 
 
 class Boot:
@@ -227,3 +229,87 @@ class Huette:
         for k, ox in enumerate((2, 4)):                          # two oars leaning at the wall, left of the window
             for h in range(13):
                 put(img, x0 + ox + (h > 9), s.y - h, WOOD[3] if h > 9 else WOOD[2 - k])
+
+
+class WasserStein:
+    """A rock half under water: the dry top lit at the upper left, the waterline as a pale ring of ripples,
+    the part below only a darker shape in the water."""
+    def __init__(s, x, y, r=4.0, seed=1):
+        s.x, s.y, s.r, s.seed = x, y, r, seed
+
+    def box(s):
+        r = int(s.r) + 3
+        return (s.x - r, s.y - r, s.x + r + 1, s.y + r)
+
+    def draw(s, img, G):
+        g = lambda i, j: G[j % G.shape[0], i % G.shape[1]]
+        r = s.r
+        for j in range(int(s.y - r - 2), int(s.y + r + 3)):
+            for i in range(int(s.x - r - 3), int(s.x + r + 4)):
+                e = ((i - s.x) / r) ** 2 + ((j - s.y) / (r * 0.7)) ** 2
+                if e <= 1:
+                    if j > s.y + r * 0.15:                       # under the surface
+                        put(img, i, j, img[j, i] * 0.72) if 0 <= j < img.shape[0] and 0 <= i < img.shape[1] else None
+                    else:
+                        lit = (i - s.x) + (j - s.y) * 1.3 < -0.5
+                        put(img, i, j, q(STONE, 0.92 if lit else 0.58, g(i, j)))
+                elif e <= 1.6 and abs(j - s.y - r * 0.2) < 1.5 and g(i, j) < 0.7:
+                    put(img, i, j, WATER[4])                     # ripples at the waterline
+
+
+class Treibholz:
+    """A dead branch drifting, half sunk: grey wood, a stub of a side branch, ripples along it."""
+    def __init__(s, x, y, length=22, ang=-0.35, seed=3):
+        s.x, s.y, s.L, s.ang, s.seed = x, y, length, ang, seed
+
+    def box(s):
+        return (s.x - s.L // 2 - 3, s.y - 8, s.x + s.L // 2 + 4, s.y + 8)
+
+    def draw(s, img, G):
+        g = lambda i, j: G[j % G.shape[0], i % G.shape[1]]
+        GREY = [hx(c) for c in ['#3a3633', '#5a5550', '#7e7871', '#a39c93']]
+        ca, sa = np.cos(s.ang), np.sin(s.ang)
+        for k in range(s.L):
+            u = k - s.L / 2
+            x, y = s.x + ca * u, s.y + sa * u
+            w = 1.6 * (1 - 0.4 * abs(u) / s.L * 2)
+            sunk = abs(u) > s.L * 0.36                           # its ends dip under the water
+            for d in (-1, 0, 1):
+                if abs(d) > w:
+                    continue
+                i, j = int(round(x - sa * d)), int(round(y + ca * d))
+                if sunk:
+                    put(img, i, j, img[j, i] * 0.75) if 0 <= j < img.shape[0] and 0 <= i < img.shape[1] else None
+                else:
+                    put(img, i, j, q(GREY, 0.85 if d < 0 else 0.5 if d == 0 else 0.3, g(i, j)))
+            if not sunk and k % 3 == 0:
+                put(img, int(round(x)), int(round(y + 2)), WATER[4])
+        bx, by = s.x + ca * s.L * 0.15, s.y + sa * s.L * 0.15     # a stub of a side branch
+        for k in range(5):
+            put(img, int(round(bx + k * 0.4)), int(round(by - k)), GREY[2 - (k > 2)])
+
+
+class Enten:
+    """Draft only: where a few ducks swim (in the game living ones, like the birds), each with its wake."""
+    def __init__(s, x, y, n=3, seed=4):
+        s.x, s.y, s.n, s.seed = x, y, n, seed
+
+    def box(s):
+        return (s.x - 14, s.y - 6, s.x + 15, s.y + 8)
+
+    def draw(s, img, G):
+        rng = np.random.default_rng(s.seed)
+        BODY = [hx(c) for c in ['#3b332c', '#5e5246', '#8a7a68']]
+        HEAD = hx('#2f4a3a')
+        for k in range(s.n):
+            x, y = s.x + int(rng.integers(-10, 11)), s.y + int(rng.integers(-3, 4))
+            d = 1 if rng.random() < 0.5 else -1                   # swimming left or right
+            for t in range(3, 10):                               # the wake: a pale V behind
+                for side in (-1, 1):
+                    put(img, x - d * t, y + 1 + side * (t // 3), WATER[4] if t < 6 else WATER[3])
+            for (i, j, c) in [(0, -1, 2), (-d, -1, 1), (0, 0, 1), (-d, 0, 1), (d, 0, 2), (-2 * d, 0, 1),
+                              (-3 * d, 0, 0), (0, 1, 0), (-d, 1, 0), (d, 1, 0), (-2 * d, 1, 0), (2 * d, 0, 1)]:
+                put(img, x + i, y + j, BODY[c])                   # a little bigger: body 6 x 3
+            for (i, j) in [(2 * d, -1), (2 * d, -2), (3 * d, -2)]:
+                put(img, x + i, y + j, HEAD)                      # the green-dark head, two pixels high
+            put(img, x + 4 * d, y - 2, hx('#c9a24e'))             # the bill

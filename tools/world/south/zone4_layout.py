@@ -40,7 +40,11 @@ def masks():
     fine /= fine.std()
     lake = rad < 1 + wob + 0.025 * fine
     back = ((xx - 140) / 55) ** 2 + ((yy - 610) / 32) ** 2 < 1 + 0.15 * fine   # a backwater to the south-west
-    lake |= back | ((np.abs(yy - 560 - 0.25 * (xx - 160)) < 7) & (xx > 140) & (xx < 230))   # joined by a channel
+    ch = curve([(150, 606), (172, 600), (190, 584), (204, 586), (222, 572), (246, 560), (272, 546)], 200)   # a winding ditch,
+    ch[:, 1] += 2.5 * np.sin(np.linspace(0, 9, len(ch)))                                    # not a ruled line
+    from scipy.spatial import cKDTree
+    dch = cKDTree(ch).query(np.stack([xx.ravel(), yy.ravel()], 1))[0].reshape(H, W)
+    lake |= back | (dch < 3.2 + 0.8 * fine)
     lake = ndi.binary_opening(lake, iterations=2)
     belt_w = 7 + 14 * np.clip(0.5 + 0.5 * ndi.gaussian_filter(rng.normal(0, 1, (H, W)), 20) * 3, 0, 1)
     dist_out = ndi.distance_transform_edt(~lake)
@@ -48,19 +52,25 @@ def masks():
     reeds = (dist_out > 0) & (dist_out < belt_w)
     island = ((xx - 470) / 34) ** 2 + ((yy - 380) / 22) ** 2 < 1 + 0.2 * fine
     reed_isles = np.zeros_like(lake)
-    for (x0, y0, r0) in [(250, 300, 14), (650, 470, 11), (700, 250, 9), (330, 470, 10), (580, 200, 8)]:
+    for (x0, y0, r0) in [(250, 300, 14), (650, 470, 11), (700, 250, 9), (330, 470, 10), (580, 200, 8),
+                         (420, 250, 7), (520, 520, 9), (180, 480, 6)]:
         reed_isles |= ((xx - x0) / r0) ** 2 + ((yy - y0) / (r0 * 0.7)) ** 2 < 1 + 0.3 * fine
     shallow = lake & (dist_in < 12)
     puddles = np.zeros_like(lake)                                    # small pools scattered round the lake
     tries = 0
-    while puddles.max() == 0 or (tries < 400 and ndi.label(puddles)[1] < 14):
+    while puddles.max() == 0 or (tries < 1500 and ndi.label(puddles)[1] < 20):
         tries += 1
         x0, y0 = int(rng.integers(60, W - 60)), int(rng.integers(40, 690))
         near = dist_out[y0, x0]
-        if not (22 < near < 90) or rng.random() > 1.2 - near / 90:
+        if not (20 < near < 200) or rng.random() > 1.25 - near / 200 or y0 > edge(x0) - 20:
             continue
-        r0 = rng.uniform(4, 11)
-        blob = ((xx - x0) / r0) ** 2 + ((yy - y0) / (r0 * rng.uniform(0.5, 0.8))) ** 2 < 1 + 0.4 * fine
+        blob = organic_pool(x0, y0, rng.uniform(6, 12), rng)
+        lb, nb = ndi.label(blob)                                 # keep only its main body, no 1-px crumbs
+        if nb == 0:
+            continue
+        blob = lb == 1 + int(np.argmax(ndi.sum(blob, lb, range(1, nb + 1))))
+        if blob.sum() < 40:
+            continue
         if (ndi.binary_dilation(puddles, iterations=10) & blob).any():
             continue
         puddles |= blob
@@ -83,6 +93,25 @@ def edge(x):
     return 722 + 14 * np.sin(np.asarray(x) / 53.0) + 8 * np.sin(np.asarray(x) / 17.0 + 1)
 
 
+def organic_pool(x0, y0, r0, rng, shape=(H, W)):
+    """A pool in a hollow: a few overlapping lobes of different size, stretched and turned each its own way,
+    the rim frayed by fine noise, so no two are alike and none is an ellipse."""
+    h, w = shape
+    R = int(r0 * 2.2) + 4
+    ys, xs = slice(max(0, y0 - R), min(h, y0 + R)), slice(max(0, x0 - R), min(w, x0 + R))
+    yy, xx = np.mgrid[ys, xs]
+    f = np.zeros(yy.shape)
+    for _ in range(int(rng.integers(2, 5))):
+        cx, cy = x0 + rng.normal(0, r0 * 0.55), y0 + rng.normal(0, r0 * 0.3)
+        a, b, t = r0 * rng.uniform(0.45, 0.9), r0 * rng.uniform(0.25, 0.5), rng.uniform(-0.6, 0.6)
+        u, v = (xx - cx) * np.cos(t) + (yy - cy) * np.sin(t), -(xx - cx) * np.sin(t) + (yy - cy) * np.cos(t)
+        f = np.maximum(f, np.exp(-((u / a) ** 2 + (v / b) ** 2)))
+    n = ndi.gaussian_filter(rng.normal(0, 1, yy.shape), 1.3)
+    out = np.zeros(shape, bool)
+    out[ys, xs] = f + 0.12 * n / (n.std() + 1e-9) > 0.42
+    return out
+
+
 def natural_trails():
     """The two paths round the lake as trodden ways rather than a frame: the west one wanders, now near the
     reeds, now away, round the pools; the east one runs straighter, then bends towards the hut; they meet
@@ -90,7 +119,7 @@ def natural_trails():
     Returns zone-coordinate control points, one about every 30 px."""
     m = masks()
     yy, xx = np.mgrid[0:H, 0:W]
-    keep = ndi.binary_dilation(m['lake'] | m['reeds'] | m['puddles'], iterations=7) | (yy > edge(xx) - 14)
+    keep = ndi.binary_dilation(m['lake'] | m['reeds'], iterations=7)   # puddles keep off the paths, not the other way | (yy > edge(xx) - 14)
     free = ndi.distance_transform_edt(~keep)
     gy, gx = np.gradient(ndi.gaussian_filter(ndi.distance_transform_edt(keep), 3))
     out = {}
@@ -121,6 +150,7 @@ def natural_trails():
                 c[:, 1] = ndi.gaussian_filter1d(c[:, 1], 5, mode='nearest')
         arc = np.r_[0, np.cumsum(np.hypot(*np.diff(c, axis=0).T))]
         idx = [int(np.argmin(np.abs(arc - a))) for a in np.arange(0, arc[-1], 30)] + [len(c) - 1]
-        out[name] = [(float(c[i, 0]), float(c[i, 1])) for i in idx]
-        out[name][0], out[name][-1] = base[0], base[-1]
+        pts = [(float(c[i, 0]), float(c[i, 1])) for i in idx]
+        pts[0], pts[-1] = base[0], base[-1]
+        out[name] = [p for k, p in enumerate(pts) if k == 0 or np.hypot(p[0] - pts[k - 1][0], p[1] - pts[k - 1][1]) > 8]
     return out
