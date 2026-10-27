@@ -10,7 +10,10 @@ OLD_WAT = np.array([(0x3c, 0x46, 0x50), (0x4e, 0x5a, 0x65), (0x64, 0x71, 0x7c), 
                     (0xa3, 0xae, 0xb6), (0xd6, 0xdd, 0xe1)], float)
 K_NEW = 2 * np.pi * 22 / 256        # streaks along the new brooks (whole periods in 256 px: no seam)
 K_OLD = 2 * np.pi * 61 / 256
-FLOW = 7.0                          # px per second downstream
+LOOP = 8.0                          # seconds, as the wallpaper and the lights: everything comes round together
+W_NEW = 2 * np.pi * 5 / LOOP        # streak phase speed: 5 whole turns a loop = about 7.3 px/s downstream
+W_OLD = 2 * np.pi * 14 / LOOP       # the old brook a touch quicker per streak (its streaks lie closer)
+W_LAKE = 2 * np.pi / LOOP
 
 
 def hash2(x, y, s=0.0):
@@ -32,14 +35,14 @@ def animate(ground, wmap, x0, y0, t):
 
     m = kind == 2                                                # the new brooks
     across = xx * fy - yy * fx
-    streak = np.sin(along * K_NEW - t * K_NEW * FLOW + 2.2 * np.sin(across * 0.9) + 0.8 * n)
+    streak = np.sin(along * K_NEW - t * W_NEW + 2.2 * np.sin(across * 0.9) + 0.8 * n)
     v = 0.62 - 0.38 * dep + 0.06 * n
     v = np.where(streak > 0.82, v + 0.28, v)
     v = np.where((streak > 0.97) & (h2 < 0.5), 0.97, v)
     out[m] = WATER[np.clip(np.round(v * 4), 0, 4).astype(int)][m]
 
     m = kind == 1                                                # the old brook, in gen_world's look
-    rip = np.sin(along * K_OLD - t * K_OLD * FLOW + 3.6 * (1 - dep) + 2 * n)
+    rip = np.sin(along * K_OLD - t * W_OLD + 3.6 * (1 - dep) + 2 * n)
     wv = 0.52 - 0.22 * dep + 0.12 * rip + 0.06 * (h2 - 0.5)
     wi = np.clip((wv * 6).astype(int), 0, 5)
     wi = np.where((rip > 0.92) & (h2 < 0.35), 5, wi)
@@ -49,7 +52,7 @@ def animate(ground, wmap, x0, y0, t):
     m = kind == 3                                                # the lake and the pools: calm ripples
     v = 0.6 - 0.45 * dep + 0.05 * n
     idx = np.clip(np.round(v * 4), 0, 4).astype(int)
-    ripple = np.sin(xx * 0.45 + 3.0 * np.sin(yy * 0.35 + t * 0.25) + n + t * 0.5) > 0.93
+    ripple = np.sin(xx * 0.45 + 3.0 * np.sin(yy * 0.35 + t * W_LAKE) + n + t * 2 * W_LAKE) > 0.93
     ripple &= (yy % 3 == 0) & (h2 < 0.6)
     idx = np.where(ripple, 4, idx)
     out[m] = WATER[idx][m]
