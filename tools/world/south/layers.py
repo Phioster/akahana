@@ -43,6 +43,7 @@ class Collected:
         s.sway = {}                # (y, x) -> rgb, last writer wins (turned into an array by finish)
         s.sprites = {}             # id(thing) -> dict(thing, rgba, x, y, foot): a later draw replaces
         s.shadow = {}              # (y, x) -> factor the ground is darkened by
+        s.sway_h = {}              # (y, x) -> how high above its plant's foot a swaying pixel sits
         s.pass_ = 'ground'
         s.cut_sway = []            # masks of sway pixels a later zone lifted off again (zone 2: cut heads)
         s.scratch = None
@@ -55,9 +56,16 @@ class Collected:
             if 0 <= y < H and 0 <= x < W:
                 sw[y, x, :3] = np.clip(c, 0, 255)
                 sw[y, x, 3] = 255
+        hh = np.zeros((H, W), np.uint8)              # poppy heads (not in sway_h) sway whole: 255
+        hh[sw[..., 3] > 0] = 255
+        for (y, x), h in s.sway_h.items():
+            if 0 <= y < H and 0 <= x < W:
+                hh[y, x] = min(254, h)
         for m in s.cut_sway:
             sw[:m.shape[0]][m] = 0
+        hh[sw[..., 3] == 0] = 0
         s.sway = sw
+        s.sway_h = hh
         s.shadow_px = list(s.shadow.keys())
         g = s.ground.copy()
         for (y, x), k in s.shadow.items():
@@ -105,8 +113,10 @@ def _wrap(cls, kind):
         after = img[y0:y1, x0:x1]
         if kind == 'sway':
             ys, xs = np.nonzero(np.abs(after - before).sum(-1) > 0.5)
+            foot = getattr(t, 'order', None) or t.box()[3]
             for j, i in zip(ys, xs):
                 c.sway[(y0 + j, x0 + i)] = after[j, i].copy()
+                c.sway_h[(y0 + j, x0 + i)] = max(0, foot - (y0 + j))
             return out
         if c.scratch is None or c.scratch.shape != img.shape:   # the sentinel run on a private canvas
             c.scratch = np.zeros(img.shape)

@@ -243,6 +243,9 @@ def main():
     flowers[:TOP, :OW] = ofl[:TOP]
     flowers[:TOP, OW:] = eh[:TOP]
     flowers[TOP:] = c.sway
+    bend = np.zeros((H, W), np.uint8)                          # height above the plant's foot (255: sways whole)
+    bend[flowers[..., 3] > 0] = 255
+    bend[TOP:] = c.sway_h
 
     # ---------------------------------------------------------------- sprites
     for f in glob.glob(os.path.join(OUT, 'sprites', 's[0-9]*.png')):
@@ -323,6 +326,7 @@ def main():
     np.savez_compressed(os.path.join(ROOT, 'build', 'mist_fields.npz'), band=fields[0], calm=fields[1],
                         edge=fields[2])
     Image.fromarray(water_map(ground, w, c, m)).save(os.path.join(OUT, 'water.png'))
+    Image.fromarray(bend).save(os.path.join(OUT, 'bend.png'))
     Image.fromarray(ground).save(os.path.join(OUT, 'ground.png'))
     Image.fromarray(flowers).save(os.path.join(OUT, 'flowers.png'))
     Image.fromarray((walk * 255).astype(np.uint8)).save(os.path.join(OUT, 'walk.png'))

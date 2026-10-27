@@ -84,7 +84,7 @@ def main(out):
             Image.fromarray(o).resize(((x1 - x0) * SCALE, (y1 - y0) * SCALE), Image.NEAREST).save(
                 os.path.join(frames, f'{k:03d}.png'))
         subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-framerate', str(FPS), '-i',
-                        os.path.join(frames, '%03d.png'), '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '18',
+                        os.path.join(frames, '%03d.png'), '-vf', 'pad=ceil(iw/2)*2:ceil(ih/2)*2', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '18',
                         os.path.join(out, name + '.mp4')], check=True)
         print('ok', name, flush=True)
 

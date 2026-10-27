@@ -24,6 +24,12 @@ def split(src_dir, out_dir, chunk=(180, 200), apron=8):
     flowers = np.array(Image.open(os.path.join(src_dir, 'flowers.png')).convert('RGBA'))
     wpath = os.path.join(src_dir, 'water.png')                   # where water moves, for the water shader
     water = np.array(Image.open(wpath).convert('RGBA')) if os.path.exists(wpath) else None
+    bpath = os.path.join(src_dir, 'bend.png')                    # how high each swaying pixel stands
+    bend = None
+    if os.path.exists(bpath):
+        fh, fw = flowers.shape[:2]
+        bend = np.zeros((fh + 2 * apron, fw + 2 * apron), np.uint8)
+        bend[apron:apron + fh, apron:apron + fw] = np.array(Image.open(bpath).convert('L'))
     H, W = ground.shape[:2]
     assert W % cw == 0 and H % ch == 0, 'world size must be whole chunks'
     cells = np.fromfile(os.path.join(src_dir, 'walk_cells.bin'), np.uint8).reshape(H // CELL, W // CELL)
@@ -39,6 +45,8 @@ def split(src_dir, out_dir, chunk=(180, 200), apron=8):
             Image.fromarray(ground[y0:y0 + ch, x0:x0 + cw]).save(name + 'ground.png')
             if water is not None:
                 Image.fromarray(water[y0:y0 + ch, x0:x0 + cw]).save(name + 'water.png')
+            if bend is not None:
+                Image.fromarray(bend[y0:y0 + ch + 2 * apron, x0:x0 + cw + 2 * apron]).save(name + 'bend.png')
             Image.fromarray(padded[y0:y0 + ch + 2 * apron, x0:x0 + cw + 2 * apron]).save(name + 'flowers.png')
             sl = (slice(y0 // CELL, (y0 + ch) // CELL), slice(x0 // CELL, (x0 + cw) // CELL))
             np.ascontiguousarray(cells[sl]).tofile(name + 'cells.bin')
