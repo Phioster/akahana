@@ -11,6 +11,7 @@ Out: assets/world/{ground,flowers}.png, walk.bin, walk_cells.bin, ground_mat.bin
 import glob
 import json
 import os
+import re
 import sys
 
 import numpy as np
@@ -65,22 +66,98 @@ def fringe_sprites(fringe, ground):
         a = np.zeros((y1 - y0, x1 - x0, 4), np.uint8)
         a[..., :3] = np.clip(im, 0, 255).astype(np.uint8)
         a[..., 3] = (np.abs(im - base).sum(-1) > 0.5) * 255
-        out.append(dict(rgba=a, x=x0, y=y0, foot=f.p.y, frames=1, w=x1 - x0, h=y1 - y0))
+        out.append(dict(rgba=a, x=x0, y=y0, foot=f.p.y, frames=1, w=x1 - x0, h=y1 - y0, thing=f, draft=False))
     return out
 
 
-def footprint(s):
-    """What a standing thing covers on the ground: its pixels in the last rows above its foot."""
-    a = s['rgba'][:, :s['w']]
-    m = np.zeros((H, W), bool)
-    fy = s['foot'] - s['y']
-    lo, hi = max(0, fy - 4), min(a.shape[0], fy + 1)
-    if hi <= lo:
-        return m
-    sub = a[lo:hi, :, 3] > 0
-    ys, xs = np.nonzero(sub)
-    m[np.clip(s['y'] + lo + ys, 0, H - 1), np.clip(s['x'] + xs, 0, W - 1)] = True
-    return m
+YY, XX = np.mgrid[0:H, 0:W]
+
+
+def _rect(m, x0, y0, x1, y1):
+    m[max(0, int(y0)):max(0, int(y1) + 1), max(0, int(x0)):max(0, int(x1) + 1)] = True
+
+
+def _ell(m, cx, cy, rx, ry):
+    y0, y1, x0, x1 = int(cy - ry - 1), int(cy + ry + 2), int(cx - rx - 1), int(cx + rx + 2)
+    sub = m[max(0, y0):y1, max(0, x0):x1]
+    yy, xx = YY[max(0, y0):y1, max(0, x0):x1], XX[max(0, y0):y1, max(0, x0):x1]
+    sub |= ((xx - cx) / rx) ** 2 + ((yy - cy) / ry) ** 2 <= 1
+
+
+def _line(m, pts, half, dy=0):
+    pts = np.array(pts, float)
+    for (ax, ay), (bx, by) in zip(pts[:-1], pts[1:]):
+        n = int(max(abs(bx - ax), abs(by - ay))) + 1
+        for t in np.linspace(0, 1, n):
+            x, y = ax + (bx - ax) * t, ay + (by - ay) * t + dy
+            _rect(m, x - half, y - half, x + half, y + half)
+
+
+def solid(t, m, dy):
+    """Where a standing thing really stands on the ground: the trunk, the post, the wall's foot - never its
+    crown, light pool, shadow or the petals round it. Drawn into m; dy moves draft rows to world rows."""
+    import objects_lake as ol
+    import objects_south as os_
+    import objects_water as ow
+    import zone2_draft as z2
+    import zone3_draft as z3
+    n = type(t).__name__
+    if isinstance(t, z1.Fir):
+        x, y = t.p.x, t.p.y + dy
+        _rect(m, x - 3, y - 3, x + 3, y + 1)
+        return
+    x, y = getattr(t, 'x', 0), getattr(t, 'y', 0) + dy
+    if isinstance(t, (ol.Laubbaum, os_.Kirschbaum, ow.Weide)):
+        _rect(m, x - 4, y - 3, x + 5, y + 1)                   # the trunk; you walk under the crown
+    elif isinstance(t, ol.Huette):
+        x0 = x - t.W_ // 2
+        _rect(m, x0 - 2, y - 24, x0 + t.W_ + 5, y + 1)        # the walls and the depth of the house
+    elif isinstance(t, z2.Bank):
+        _rect(m, x - 10, y - 4, x + 11, y + 1)
+    elif isinstance(t, z2.Steinlaterne):
+        _rect(m, x - 5, y - 5, x + 6, y + 1)
+    elif isinstance(t, (z3.Holzlaterne, os_.Fackel, os_.Vogelscheuche)):
+        _rect(m, x - 2, y - 3, x + 3, y + 1)                   # a post
+    elif isinstance(t, os_.Wegstein):
+        _rect(m, x - t.w // 2, y - 4, x + t.w // 2, y + 1)
+    elif isinstance(t, os_.Findling):
+        _ell(m, x, y - t.r * 0.35, t.r, t.r * 0.55)
+    elif isinstance(t, os_.Steinhaufen):
+        _ell(m, x + 1, y - 3, 8, 4)
+    elif isinstance(t, os_.Baumstumpf):
+        _ell(m, x, y - 2, t.r + 1, (t.r + 1) * 0.6)
+    elif isinstance(t, os_.Stamm):
+        _line(m, [t.a, t.b], t.r - 1, dy)
+    elif isinstance(t, (os_.Mauer, os_.Zaun)):
+        _line(m, [(px, py - 1) for px, py in t.pts], 2 if n == 'Mauer' else 1, dy)
+    elif isinstance(t, os_.Karren):
+        _rect(m, x - 16, y - 6, x + 10, y + 1)
+    # ducks, birds, candles: nothing to bump into
+
+
+def fix_old_blocks(walk, sprites):
+    """The old map's own objects as gen_world blocked them, mended: a lantern blocked its whole light pool
+    as a bar (now only its post), the ruin's wall pieces get their foot blocked wherever drawn."""
+    for s in sprites:
+        nm, f = s['name'], s['foot']
+        x0, x1 = s['x'], s['x'] + s['w']
+        if 'laterne' in nm:
+            walk[max(0, f - 6):f + 2, x0 + 3:x1 - 3] = True        # gen_world's bar, on open meadow
+            cx = x0 + s['w'] // 2
+            if nm == 'steinlaterne' or nm == 'laterne_huette':
+                walk[f - 5:f + 2, cx - 5:cx + 7] = False
+            else:
+                walk[f - 3:f + 2, cx - 2:cx + 4] = False
+        elif nm == 'baum':                                     # the big cherry: gen_world's square sat right of and
+            tx, ty = s['x'], s['y']                            # above the trunk's foot; now the foot as drawn
+            walk[ty + 150:ty + 174, tx + 88:tx + 112] = True
+            walk[ty + 160:ty + 173, tx + 87:tx + 109] = False
+        elif nm.startswith('ruine'):
+            a = np.array(Image.open(os.path.join(OUT, 'sprites', nm + '.png')).convert('RGBA'))[:, :s['w']]
+            lo = max(0, f - s['y'] - 3)
+            ys, xs = np.nonzero(a[lo:f - s['y'] + 1, :, 3] > 0)
+            walk[s['y'] + lo + ys, x0 + xs] = False
+            walk[np.clip(s['y'] + lo + ys + 1, 0, H - 1), x0 + xs] = False   # a little thicker: no slipping through
 
 
 def main():
@@ -115,7 +192,8 @@ def main():
         Image.fromarray(s['rgba']).save(os.path.join(OUT, 'sprites', name + '.png'))
         sprites.append(dict(name=name, x=int(s['x']), y=int(s['y']), w=int(s['w']), h=int(s['rgba'].shape[0]),
                             foot=int(s['foot']), frames=int(s['frames']), fps=FPS))
-        blocked |= footprint(s)
+        if 'thing' in s:
+            solid(s['thing'], blocked, TOP if s.get('draft', True) else 0)
 
     # ---------------------------------------------------------------- where one can walk, and on what
     m = {k: np.zeros((H, W), bool) for k in ('path', 'brook', 'lake', 'shallow', 'Bruecke', 'Brett', 'Steg',
@@ -140,6 +218,7 @@ def main():
     walk[:TOP, OW - 10:] = False                                # the east wood, as the old map's edge was
     walk[:SEAM, :OW] = owalk[:SEAM]                            # the old map as it was, its bottom edge opened
     walk[:SEAM, OW - 10:OW] = False
+    fix_old_blocks(walk, [s for s in sprites if not re.fullmatch(r's\d+', s['name'])])
 
     lab, _ = ndi.label(walk, structure=np.ones((3, 3)))        # islands nobody can reach are not ground to
     st = w['start']                                            # walk on: a tap there would find no way

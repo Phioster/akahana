@@ -46,6 +46,16 @@ class WorldAssets(unittest.TestCase):
         self.assertFalse(self.cells[:15].any())
         self.assertFalse(self.cells[-5:].any())
 
+    def test_lanterns_block_their_post_not_their_light(self):
+        # gen_world blocked a lantern's whole box as a bar; one walks through the pool of light, round the post
+        for s in self.w['sprites']:
+            if 'laterne' not in s['name'] or s['w'] < 30:      # the stone ones with their wide pool of light
+                continue
+            cx, f = s['x'] + s['w'] // 2, s['foot']
+            self.assertEqual(self.cells[f // 2, (cx - 12) // 2], 1, s['name'])
+            self.assertEqual(self.cells[f // 2, (cx + 13) // 2], 1, s['name'])
+            self.assertEqual(self.cells[(f - 1) // 2, cx // 2], 0, s['name'] + ' Pfosten')
+
     def test_the_world_is_five_chunks_wide_and_eighteen_tall(self):
         self.assertEqual((self.w['width'], self.w['height']), (900, 3600))
         self.assertEqual(self.w['chunks'], [5, 18])
