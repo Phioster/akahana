@@ -1,11 +1,12 @@
 """Reflections on the water: everything that stands upright by the water (trees, the jetty, reeds, lanterns,
 the wanderer) shows mirrored at its foot, dimmed and taking on the water's colour, its rows pulled a pixel
 or two sideways by the ripples and here and there broken, the further from the foot the more.
-Upright pixels come as (x, y, rgb, foot_y): sprites from their foot, the swaying layer from its bend map."""
+Upright pixels come as (x, y, rgb, foot_y): sprites from their foot, the swaying layer from its bend map,
+the flat things in the ground from the generator's low map."""
 import numpy as np
 
 LOOP = 8.0
-KEEP = 0.5                 # how much of the thing's own colour shows (the rest is the water's)
+KEEP = 0.68                # how much of the thing's own colour shows (the rest is the water's)
 DIM = 0.72
 
 
@@ -13,6 +14,13 @@ def upright_from_layer(layer, bend, x0, y0):
     """The swaying layer (reeds, grass, flowers): each pixel's foot from the bend map (height above foot)."""
     ys, xs = np.nonzero((layer[..., 3] > 0) & (bend > 0) & (bend < 255))
     return [(x0 + x, y0 + y, layer[y, x, :3].astype(float), y0 + y + int(bend[y, x])) for y, x in zip(ys, xs)]
+
+
+def upright_from_low(ground, low, x0, y0):
+    """Flat things drawn into the ground (jetty, boat, bridges, stones in the water): low holds how many
+    pixels they stand above the water, so only their edges show mirrored, close under them."""
+    ys, xs = np.nonzero(low > 0)
+    return [(x0 + x, y0 + y, ground[y, x].astype(float), y0 + y + int(low[y, x])) for y, x in zip(ys, xs)]
 
 
 def upright_from_sprite(pic, sx, sy, foot):

@@ -22,9 +22,9 @@ import zone2_draft as z2  # noqa: E402
 ROOT = os.path.abspath(os.path.join(HERE, '..', '..', '..'))
 A = os.path.join(ROOT, 'assets', 'world')
 F = os.path.join(ROOT, 'build', 'world_full')
-SPOT = (440, 2880, 620, 3000)
+SPOT = (470, 2880, 660, 3030)
 FPS, SECONDS, SCALE = 12, 8, 3
-STRENGTHS = (0.55, 0.8)
+STRENGTHS = (0.68,)
 LAMP_H = 12                       # a lantern's light sits about this high above its foot
 
 
@@ -36,6 +36,7 @@ def main(out):
     FL = np.array(Image.open(os.path.join(F, 'flowers.png')).convert('RGBA'))[y0:y1, x0:x1]
     B = np.array(Image.open(os.path.join(F, 'bend.png')))[y0:y1, x0:x1]
     W = np.array(Image.open(os.path.join(F, 'water.png')))[y0:y1, x0:x1]
+    LOW = np.array(Image.open(os.path.join(F, 'low.png')))[y0:y1, x0:x1]
     water = (W[..., 3] > 0) & (FL[..., 3] == 0)
     sp = [s for s in w['sprites'] if s['x'] < x1 and s['x'] + s['w'] > x0 and s['y'] < y1 and s['y'] + s['h'] > y0]
     pics = {s['name']: np.array(Image.open(os.path.join(A, 'sprites', s['name'] + '.png')).convert('RGBA'))
@@ -44,7 +45,7 @@ def main(out):
     from scipy import ndimage as ndi                       # the wanderer ankle-deep, open water all round him
     open_ = ndi.binary_erosion(water, structure=np.ones((3, 9)))
     ys, xs = np.nonzero(open_ & (W[..., 1] > 2) & (W[..., 1] < 40))
-    k = np.argmin(np.abs(xs - 60) + np.abs(ys - 62))
+    k = np.argmin(np.abs(xs - 70) + np.abs(ys - 112))
     mx, my = x0 + xs[k], y0 + ys[k]
     lights = [dict(l, x=l['x'] - x0, y=l['y'] - y0) for l in w['lights']]
     mirrored = []                                          # a lantern near the water: a broken path of
@@ -60,7 +61,7 @@ def main(out):
     for n in range(FPS * SECONDS):
         t = n / FPS
         monk = sheet[0:16, (n // 6 % 2) * 12:(n // 6 % 2) * 12 + 12]           # idle breathing, frames 0-1
-        ups = ra.upright_from_layer(FL, B, x0, y0)
+        ups = ra.upright_from_layer(FL, B, x0, y0) + ra.upright_from_low(G, LOW, x0, y0)
         for s in sp:
             fr = int(t * s['fps']) % s['frames']
             ups += ra.upright_from_sprite(pics[s['name']][:, fr * s['w']:(fr + 1) * s['w']], s['x'], s['y'], s['foot'])
@@ -89,18 +90,18 @@ def main(out):
             o = mood_map.mood(img, dict(w, lights=lights, wisps=[]), t, grass_mist=z2.GRASS_MIST)
             ph = 2 * np.pi * t / 8.0
             for (lx, ly) in mirrored:                      # glints in rows, swaying, thinning out downwards
-                for d in range(0, 26):
-                    j = ly - y0 + d
+                for d in range(0, 44):
+                    j = ly + d                     # lights are already in the cut's coordinates
                     if not 0 <= j < o.shape[0] or (j * 5 + int(ph * 4)) % 3 == 0:
                         continue
-                    half = 1 + d // 9
+                    half = 1 + d // 14
                     off = int(np.round(1.5 * np.sin(j * 0.9 - ph * 2)))
-                    for i in range(lx - x0 - half + off, lx - x0 + half + off + 1):
+                    for i in range(lx - half + off, lx + half + off + 1):
                         if 0 <= i < o.shape[1] and water[j, i] and ((i * 3 + j) % 4 or d < 4):
-                            a_ = keep * (1 - d / 30) * 0.9
+                            a_ = min(0.85, keep * 1.2 * (1 - d / 50))
                             o[j, i] = o[j, i] * (1 - a_) + np.array([236, 190, 110]) * a_
             side.append(np.clip(o, 0, 255).astype(np.uint8))
-        im = np.concatenate([side[0], np.full((side[0].shape[0], 4, 3), 20, np.uint8), side[1]], 1)
+        im = side[0]
         Image.fromarray(im).resize((im.shape[1] * SCALE, im.shape[0] * SCALE), Image.NEAREST).save(
             os.path.join(frames, f'{n:03d}.png'))
     subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-framerate', str(FPS), '-i',

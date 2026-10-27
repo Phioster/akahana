@@ -224,6 +224,9 @@ def water_map(ground, w, c, m):
     return out
 
 
+LOW_H = {'Steg': 2, 'Boot': 2, 'Bruecke': 3, 'Brett': 1, 'Trittsteine': 1, 'WasserStein': 2, 'Treibholz': 1}
+
+
 def main():
     w, og, ofl, owalk, omat = old_world()
     with layers.collect() as c:
@@ -268,6 +271,15 @@ def main():
     for k, v in c.masks.items():
         if k in m:
             m[k][TOP:TOP + v.shape[0]] = v[:H - TOP]
+    # how high the flat things drawn into the ground stand over the water, for their reflections
+    low = np.zeros((H, W), np.uint8)
+    for k, v in c.masks.items():
+        hgt = LOW_H.get(k, 0)
+        if hgt:
+            part = np.zeros((H, W), bool)
+            part[TOP:TOP + v.shape[0]] = v[:H - TOP]
+            low[part] = np.maximum(low[part], hgt)
+    Image.fromarray(low).save(os.path.join(OUT, 'low.png'))
     stones = m['Trittsteine']
     ford = ndi.binary_dilation(stones, iterations=3) & m['brook']   # between the stones: wade, as the old ford
     wood = m['Bruecke'] | m['Brett'] | m['Steg']
