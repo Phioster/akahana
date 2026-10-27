@@ -59,7 +59,7 @@ def render(w, seed=31, raw=False):
     edge = L.edge(np.arange(W))[None, :] + 4 * fbm(NEW, W, 6, 406)
     # the sides likewise: past zone 3's firs the edges turn to reeds and water in the mist, not snowy woods
     side = np.minimum(xx, W - 1 - xx) - 4 * fbm(NEW, W, 7, 410)
-    grow = np.clip((yy - 20) / 90.0, 0, 1)
+    grow = np.clip(0.12 + yy / 320.0, 0, 1) ** 1.3               # continues zone 3's thin mist, thickens slowly               # a long blend: firs and reeds overlap
     sea_reeds = (yy > edge) | (side < 26 * grow)
     marsh = ((yy > edge + 30 + 8 * fbm(NEW, W, 8, 407)) & (fbm(NEW, W, 4, 408) > -0.3)) | (side < 15 * grow)
     open_w = (yy > edge + 52 + 6 * np.sin(xx / 23.0)) | (side < 9 * grow)
@@ -217,11 +217,12 @@ def render(w, seed=31, raw=False):
         things.append(ow.Farn(x, Y(y), int(rng.integers(0, 999)), 7))
 
     firs = []
-    for y in range(Y4 + 4, Y4 + 110, 13):                       # zone 3's side firs thin out and stop
-        for x in (int(rng.integers(-6, 12)), W - int(rng.integers(-6, 12))):
-            if rng.random() < (y - Y4) / 110:
+    for y in range(Y4 + 4, Y4 + 320, 11):                       # zone 3's side firs thin out slowly, smaller and
+        for x in (int(rng.integers(-6, 12)), W - int(rng.integers(-6, 12))):   # further out as the reeds take over
+            f = (y - Y4) / 320
+            if rng.random() < f ** 0.7:
                 continue
-            firs.append(Fir(x, y + int(rng.integers(-3, 4)), int(rng.integers(36, 48)), int(rng.integers(0, 10 ** 6))))
+            firs.append(Fir(x, y + int(rng.integers(-3, 4)), int(rng.integers(36, 48) * (1 - 0.35 * f)), int(rng.integers(0, 10 ** 6)), snow=0.25 * (1 - f)))
 
     # the tall grass on all the dry land
     keep_off = np.zeros((H, W), bool)
@@ -274,6 +275,9 @@ def render(w, seed=31, raw=False):
     band[:Y4] = band3
     band[Y4:] = np.clip(ndi.gaussian_filter((m['lake'] | brooks.mask).astype(float), 4) * 1.3, 0, 1)
     edge_fog = np.zeros((H, W))
+    sd = np.minimum(np.arange(W), W - 1 - np.arange(W))[None, :]   # the side mist already begins in zone 3's
+    pre = np.clip(np.arange(-160, 0) / 160.0 + 1, 0, 1)[:, None] ** 2 * 0.06   # last rows, over its firs
+    edge_fog[Y4 - 160:Y4] = np.clip((24 - sd) / 24.0, 0, 1) ** 1.3 * 0.8 * pre
     edge_fog[Y4:] = np.maximum(np.clip((yy - 690) / 110.0, 0, 1) ** 1.4 * 0.88,
                                np.clip((24 - side) / 24.0, 0, 1) ** 1.3 * 0.8 * grow)
     calm = np.zeros((H, W))
