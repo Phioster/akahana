@@ -8,6 +8,7 @@ in two ways for the approval page:
 import numpy as np
 
 BEND_H = 10.0                         # px above the foot from where a blade goes the whole way
+KINK = True
 CALM_B = 1.1                          # the gentle sway between gusts: at 0.5 it rounded to 0, reeds stood still
 
 
@@ -50,9 +51,23 @@ def sway(layer, bend, x0, y0, t, mode):
         for k in range(-2, 4):                                 # which source pixel lands here after bending (either way)
             sx = np.clip(xx - k, 0, w - 1)
             hs = bend[yy, sx].astype(float)
-            d = np.round(dx_b[yy, sx] * np.minimum(hs / BEND_H, 1.0)).astype(int)
+            gx = sx + x0                                       # each stalk (column) kinks at its own height,
+            kink = 0.55 + 0.9 * _h(gx, 7.0) if KINK else 1.0   # else a whole clump breaks along one row: a line
+            d = np.round(dx_b[yy, sx] * np.minimum(hs * kink / BEND_H, 1.0)).astype(int)
             d = np.where(hs >= 255, dx[yy, sx], d)
             hit = (d == k) & (layer[yy, sx, 3] > 0) & (hs > best)
             out[hit] = layer[yy, sx][hit]
             best = np.where(hit, hs, best)
+        # where a gust's front runs between two stalks one goes and the other not yet: a 1-px gap showed the
+        # dark ground and ran through the reeds as a line. Fill it from where this pixel itself would come.
+        hole = (out[..., 3] == 0) & (layer[..., 3] > 0)
+        ht = bend.astype(float)
+        kt = 0.55 + 0.9 * _h(xx + x0, 7.0) if KINK else 1.0
+        dt = np.round(dx_b * np.minimum(ht * kt / BEND_H, 1.0)).astype(int)
+        dt = np.where(ht >= 255, dx, dt)
+        src = layer[yy, np.clip(xx - dt, 0, w - 1)]
+        fill = hole & (src[..., 3] > 0)
+        out[fill] = src[fill]
+        rest = hole & ~fill
+        out[rest] = layer[rest]
     return out[:, 4:]
