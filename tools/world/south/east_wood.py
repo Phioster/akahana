@@ -17,7 +17,9 @@ import field6  # noqa: E402
 from field6 import ground_organic, patches, CMAP, DG as STEM  # noqa: E402
 import zone1_draft as z1  # noqa: E402
 
-H, X0, X1 = z1.OLD_H - z1.CTX, z1.OLD_W, z1.W      # down to where zone 1's canvas (and its wood) begins
+TOP = z1.OLD_H - z1.CTX                    # where zone 1's canvas (and its wood) begins
+BLEND = 40                                 # rows the two woods' floors run into each other
+H, X0, X1 = TOP + BLEND, z1.OLD_W, z1.W
 WD = X1 - X0
 DG, MG, L1, WH = [np.array(c, float) for c in ((92, 96, 104), (140, 144, 150), (186, 190, 196), (232, 234, 236))]
 
@@ -132,9 +134,9 @@ if __name__ == '__main__':
     img = np.zeros((z1.OLD_H, z1.W, 3))
     img[:, :X0] = old
     eg, eh, fr = render()
-    img[:H, X0:] = eg
-    m = eh[..., 3] > 0
-    img[:H, X0:][m] = eh[m][:, :3]
+    img[:TOP, X0:] = eg[:TOP]
+    m = eh[:TOP, :, 3] > 0
+    img[:TOP, X0:][m] = eh[:TOP][m][:, :3]
     for f_ in sorted(fr, key=lambda f_: f_.p.y):
         h = 50
         a0, b0 = f_.p.x - h, max(0, f_.p.y - h - 4)
@@ -142,7 +144,7 @@ if __name__ == '__main__':
         f_.p.x -= a0
         f_.p.y -= b0
         f_.draw(sub)
-    img[H:, X0:] = img[H - 1, X0:]
+    img[TOP:, X0:] = img[TOP - 1, X0:]
     a = mood_map.mood(img, w, 2.0)
-    Image.fromarray(np.clip(a, 0, 255).astype(np.uint8)[:H, 300:]).save(out)
+    Image.fromarray(np.clip(a, 0, 255).astype(np.uint8)[:TOP, 300:]).save(out)
     print('ok')

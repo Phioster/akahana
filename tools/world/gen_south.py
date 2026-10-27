@@ -92,11 +92,15 @@ def main():
 
     ground = np.zeros((H, W, 3), np.uint8)
     ground[:TOP, :OW] = og[:TOP]
-    ground[:EH, OW:] = np.clip(eg, 0, 255).astype(np.uint8)
+    ground[:TOP, OW:] = np.clip(eg[:TOP], 0, 255).astype(np.uint8)
     ground[TOP:] = np.clip(c.ground, 0, 255).astype(np.uint8)
+    p = np.linspace(1, 0, EH - TOP)[:, None] ** 1.2             # the east wood's floor gives way to zone 1's
+    take = np.random.default_rng(9).random((EH - TOP, W - OW)) < p   # pixel by pixel: no line between them
+    band = ground[TOP:EH, OW:]
+    band[take] = np.clip(eg[TOP:], 0, 255).astype(np.uint8)[take]
     flowers = np.zeros((H, W, 4), np.uint8)
     flowers[:TOP, :OW] = ofl[:TOP]
-    flowers[:EH, OW:] = eh
+    flowers[:TOP, OW:] = eh[:TOP]
     flowers[TOP:] = c.sway
 
     # ---------------------------------------------------------------- sprites
@@ -133,7 +137,7 @@ def main():
     yy, xx = np.mgrid[TOP:TOP + z1.CTX + 60, 0:W]               # zone 1's wood beside the camp: closed, too
     walk[TOP:TOP + z1.CTX + 60] &= z1.in_forest(xx, yy - TOP) < -2
     walk[H - 10:] = False
-    walk[:EH, OW - 10:] = False                                # the east wood, as the old map's edge was
+    walk[:TOP, OW - 10:] = False                                # the east wood, as the old map's edge was
     walk[:SEAM, :OW] = owalk[:SEAM]                            # the old map as it was, its bottom edge opened
     walk[:SEAM, OW - 10:OW] = False
 
@@ -169,6 +173,12 @@ def main():
         if len(birds) >= len(w.get('birds', [])) + 16:
             break
 
+    fields = np.zeros((3, H, W), np.float32)                   # the mist's own maps, for the preview and the
+    fields[0, TOP:] = c.band                                   # mist shader: water band, calm lake, edge fog
+    fields[1, TOP:] = c.calm
+    fields[2, TOP:] = c.edge_fog
+    np.savez_compressed(os.path.join(ROOT, 'build', 'mist_fields.npz'), band=fields[0], calm=fields[1],
+                        edge=fields[2])
     Image.fromarray(ground).save(os.path.join(OUT, 'ground.png'))
     Image.fromarray(flowers).save(os.path.join(OUT, 'flowers.png'))
     Image.fromarray((walk * 255).astype(np.uint8)).save(os.path.join(OUT, 'walk.png'))
