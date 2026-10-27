@@ -14,7 +14,7 @@ done
 cp assets/world/world.json build/world_old/world_old.json
 nice -n 10 python3 tools/world/gen_south.py
 python3 tools/world/split_chunks.py
-for f in $FULL water.png bend.png low.png; do
+for f in $FULL water.png bend.png low.png refl.png; do
 	mv -f "assets/world/$f" build/world_full/
 	rm -f "assets/world/$f.import"
 done

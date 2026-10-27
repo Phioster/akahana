@@ -22,6 +22,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path[:0] = [os.path.join(HERE, 'south'), os.path.join(HERE, 'lib'), HERE]
 import east_wood  # noqa: E402
 import layers  # noqa: E402
+import reflect_map  # noqa: E402
 import zone1_draft as z1  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(HERE, '..', '..'))
@@ -345,6 +346,24 @@ def main():
     wm = water_map(ground, w, c, m)                            # where fish and ducks may be: the lake's depth,
     lake = np.where(wm[..., 3] == 3, wm[..., 1], 0)            # half size (shipped, read by scenes/lake_life.gd)
     lake = lake.reshape(H // 2, 2, W // 2, 2).min(axis=(1, 3))
+    standing = []                                              # what stands still by the water, mirrored once
+    for s_ in sprites:
+        pic = np.array(Image.open(os.path.join(OUT, 'sprites', s_['name'] + '.png')).convert('RGBA'))[:, :s_['w']]
+        standing.append((pic, s_['x'], s_['y'], s_['foot']))
+    open_water = (wm[..., 3] > 0) & (flowers[..., 3] == 0) & (low == 0)
+    Image.fromarray((open_water * 255).astype(np.uint8)).save(os.path.join(OUT, 'open_water.png'))   # for the
+    lake_open = open_water & (wm[..., 3] == 3)                 # wanderer's reflection (shaders/reflection)                 # a lantern by the lake: its light's path on the
+    lamp_paths = []                                            # water starts where the open water really does
+    for l in lights:
+        i, j0 = int(l['x']), int(l['y'])
+        col = lake_open[j0:j0 + 70, i] if 0 <= i < W and 0 <= j0 < H else np.zeros(0, bool)
+        if len(col) >= 4:
+            run = np.convolve(col, np.ones(4), 'valid') == 4
+            if run.any():
+                lamp_paths.append(dict(x=i, y=j0 + int(np.argmax(run))))
+    w['lamp_paths'] = lamp_paths
+    Image.fromarray(reflect_map.bake(H, W, open_water, flowers, bend, low, ground, standing)).save(
+        os.path.join(OUT, 'refl.png'))
     Image.fromarray(lake.astype(np.uint8)).save(os.path.join(OUT, 'lake.png'))
     Image.fromarray(ground).save(os.path.join(OUT, 'ground.png'))
     Image.fromarray(flowers).save(os.path.join(OUT, 'flowers.png'))

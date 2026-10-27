@@ -15,6 +15,14 @@ const vec3 OLD_WAT[6] = {vec3(60.0, 70.0, 80.0), vec3(78.0, 90.0, 101.0), vec3(1
 
 uniform sampler2D water_tex : filter_nearest;
 uniform vec2 origin;                    // world position of this chunk's top-left pixel
+// The still things by the water, mirrored (tools/world/south/reflect_map.py, the approved reflect_anim look):
+// RGB the dimmed colour, A strength (high nibble) and distance below the foot / 6 (low nibble). It has the
+// apron, so the ripples can pull a reflection across the chunk's edge.
+uniform sampler2D refl_tex : filter_nearest;
+uniform float apron = 8.0;
+uniform vec2 lamps[4];                  // a lantern by the lake: where its light's path on the water starts
+uniform int lamp_count = 0;
+const vec3 LAMP = vec3(236.0, 190.0, 110.0);
 
 // The GPU computes in 32 bit: sin() of world coordinates in the thousands would make the noise stripy,
 // so the coordinates are folded first (water_anim.hash2 does the same).
@@ -61,6 +69,38 @@ void fragment() {
 				c = OLD_WAT[wi];
 			}
 		}
-		COLOR = vec4(c / 255.0, base.a);
+		vec3 col = c / 255.0;
+		float ph = 6.2831853 * t / LOOP;
+		// the reflection: rows swayed by two swells at their own pace, broken by ripple rows further out
+		float sway = 0.65 * sin(p.y * 0.85 - ph + 0.03 * p.x) + 0.45 * sin(p.y * 0.31 + 3.0 * ph + 0.05 * p.x + 1.7);
+		ivec2 rs = ivec2(textureSize(refl_tex, 0));
+		ivec2 q = px + ivec2(int(apron));
+		int a0 = int(round(texelFetch(refl_tex, q, 0).a * 255.0));
+		float amp = a0 > 0 ? min(2.0, 0.4 + float(a0 & 15) * 6.0 / 14.0) : 1.4;   // further out, more sway
+		vec4 r = texelFetch(refl_tex, clamp(q - ivec2(int(round(amp * sway)), 0), ivec2(0), rs - 1), 0);
+		int a = int(round(r.a * 255.0));
+		if (a > 0) {
+			float d = float(a & 15) * 6.0;
+			bool broken = d > 6.0 && sin(p.y * 1.7 + 2.0 * ph + sin(p.y * 0.23 - ph) * 3.0)
+					> 1.0 - min(4.0, floor(d / 8.0)) / 4.5;
+			if (!broken)
+				col = mix(col, r.rgb, float(a >> 4) / 15.0);
+		}
+		// a lantern's light: glints in their own rhythm, swaying, thinning out downwards (lake only)
+		if (kind == 3) {
+			for (int i = 0; i < 4; i++) {
+				if (i >= lamp_count) break;
+				float dd = p.y - lamps[i].y;
+				if (dd < 0.0 || dd >= 26.0) continue;
+				float half = 1.0 + floor(dd / 9.0);
+				float off = round(1.0 * sin(p.y * 0.9 - ph) + 0.7 * sin(p.y * 0.37 + 3.0 * ph + 1.3));
+				if (abs(p.x - (lamps[i].x + off)) > half) continue;
+				float hh = hash2(p, 3.1);
+				float cyc = 1.0 + floor(hh * 5.0);           // whole cycles per loop: it still loops
+				if (sin(cyc * ph + hh * 40.0) < 0.15) continue;
+				col = mix(col, LAMP / 255.0, 0.68 * (1.0 - dd / 30.0) * 0.9);
+			}
+		}
+		COLOR = vec4(col, base.a);
 	}
 }

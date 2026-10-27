@@ -70,3 +70,16 @@ func test_stopping_has_no_last_jump() -> void:
 		prev = pl.position
 	assert_true(worst <= Player.SPEED / 60.0 + 0.01, "größter Satz in einem Bild: %.2f px" % worst)
 	pl.free()
+
+func test_the_wanderer_shows_mirrored_below_his_feet_on_water() -> void:
+	var pl := Player.new()
+	pl._ready()
+	var r: Sprite2D = pl.get_node("Spiegelbild")
+	assert_true(r.flip_v, "auf dem Kopf")
+	assert_true(r.offset.y >= 0.0, "unter den Füßen")
+	assert_true((r.material as ShaderMaterial).shader.resource_path.ends_with("reflection.gdshader"))
+	pl.walk_to(PackedVector2Array([Vector2(30, 0)]))
+	for i in 7:
+		pl._process(0.05)
+	assert_eq(r.frame, pl.sprite.frame, "er geht im Spiegel mit")
+	pl.free()

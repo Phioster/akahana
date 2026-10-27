@@ -92,6 +92,15 @@ func _make_chunk(c: Vector2i) -> void:
 	wm.shader = _water
 	wm.set_shader_parameter("water_tex", store.water_tex(c))
 	wm.set_shader_parameter("origin", corner)
+	wm.set_shader_parameter("refl_tex", store.refl_tex(c))      # the shore mirrored, pulled by the ripples
+	wm.set_shader_parameter("apron", float(ChunkGrid.APRON))
+	var lamps := PackedVector2Array()                  # lanterns whose light lies on this chunk's water
+	for l in world.lamp_paths:
+		var at := Vector2(float(l["x"]), float(l["y"]))
+		if Rect2(corner - Vector2(4, 40), Vector2(ChunkGrid.SIZE) + Vector2(8, 40)).has_point(at):
+			lamps.append(at)
+	wm.set_shader_parameter("lamps", lamps)
+	wm.set_shader_parameter("lamp_count", lamps.size())
 	g.material = wm
 	add_child(g)
 	var f := Sprite2D.new()

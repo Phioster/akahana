@@ -50,9 +50,10 @@ func poll() -> Array[Vector2i]:
 		var f := _base(c) + "flowers.png"
 		var wt := _base(c) + "water.png"
 		var bd := _base(c) + "bend.png"
-		if not (_arrived(g) and _arrived(f) and _arrived(wt) and _arrived(bd)):   # all or none: a taken one is gone
+		var rf := _base(c) + "refl.png"
+		if not (_arrived(g) and _arrived(f) and _arrived(wt) and _arrived(bd) and _arrived(rf)):   # all or none
 			continue
-		_tex[c] = [_take(g), _take(f), _take(wt), _take(bd)]
+		_tex[c] = [_take(g), _take(f), _take(wt), _take(bd), _take(rf)]
 		_pending.erase(c)
 		done.append(c)
 	return done
@@ -65,7 +66,8 @@ func load_now(c: Vector2i) -> void:
 	if not _cells.has(c):
 		_load_data(c)
 	_tex[c] = [TextureLoader.load_texture(_base(c) + "ground.png"), TextureLoader.load_texture(_base(c) + "flowers.png"),
-			TextureLoader.load_texture(_base(c) + "water.png"), TextureLoader.load_texture(_base(c) + "bend.png")]
+			TextureLoader.load_texture(_base(c) + "water.png"), TextureLoader.load_texture(_base(c) + "bend.png"),
+			TextureLoader.load_texture(_base(c) + "refl.png")]
 	_pending.erase(c)
 
 
@@ -87,6 +89,11 @@ func water_tex(c: Vector2i) -> Texture2D:
 
 func bend_tex(c: Vector2i) -> Texture2D:
 	return _tex[c][3] if _tex.has(c) else null
+
+
+## The still things by the water mirrored on it, with the apron (tools/world/south/reflect_map.py).
+func refl_tex(c: Vector2i) -> Texture2D:
+	return _tex[c][4] if _tex.has(c) else null
 
 
 func loaded_count() -> int:
@@ -137,7 +144,8 @@ func _load_data(c: Vector2i) -> void:
 ## Exported game: Godot's threaded loader. Dev device (no import cache): an Image on a worker thread.
 func _start_pictures(c: Vector2i) -> void:
 	_pending[c] = true
-	for path in [_base(c) + "ground.png", _base(c) + "flowers.png", _base(c) + "water.png", _base(c) + "bend.png"]:
+	for path in [_base(c) + "ground.png", _base(c) + "flowers.png", _base(c) + "water.png", _base(c) + "bend.png",
+			_base(c) + "refl.png"]:
 		if ResourceLoader.exists(path):
 			ResourceLoader.load_threaded_request(path)
 		else:

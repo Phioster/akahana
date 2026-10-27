@@ -5,7 +5,8 @@ Per chunk (cx, cy): c_<cx>_<cy>_ground.png (the chunk), c_<cx>_<cy>_flowers.png 
 apron of the neighbours' pixels, so the poppy shader can shift blossoms across the edge without a
 seam), c_<cx>_<cy>_cells.bin and _mat.bin (walkable and ground material per 2-px cell), _walls.bin and
 _paths.bin (int32 cell indices of the walls and of the cheap ground, for the per-tap path grid), and
-c_<cx>_<cy>_water.png (where water moves and how, for the water shader; gen_south.water_map).
+c_<cx>_<cy>_water.png (where water moves and how, for the water shader; gen_south.water_map),
+c_<cx>_<cy>_refl.png (the still things mirrored on the water, with the apron; south/reflect_map.py).
 """
 import json
 import os
@@ -30,6 +31,12 @@ def split(src_dir, out_dir, chunk=(180, 200), apron=8):
         fh, fw = flowers.shape[:2]
         bend = np.zeros((fh + 2 * apron, fw + 2 * apron), np.uint8)
         bend[apron:apron + fh, apron:apron + fw] = np.array(Image.open(bpath).convert('L'))
+    rpath = os.path.join(src_dir, 'refl.png')                    # the still things mirrored on the water
+    refl = None
+    if os.path.exists(rpath):
+        r = np.array(Image.open(rpath).convert('RGBA'))
+        refl = np.zeros((r.shape[0] + 2 * apron, r.shape[1] + 2 * apron, 4), np.uint8)   # apron: the ripples
+        refl[apron:apron + r.shape[0], apron:apron + r.shape[1]] = r                   # pull across the edge
     H, W = ground.shape[:2]
     assert W % cw == 0 and H % ch == 0, 'world size must be whole chunks'
     cells = np.fromfile(os.path.join(src_dir, 'walk_cells.bin'), np.uint8).reshape(H // CELL, W // CELL)
@@ -47,6 +54,8 @@ def split(src_dir, out_dir, chunk=(180, 200), apron=8):
                 Image.fromarray(water[y0:y0 + ch, x0:x0 + cw]).save(name + 'water.png')
             if bend is not None:
                 Image.fromarray(bend[y0:y0 + ch + 2 * apron, x0:x0 + cw + 2 * apron]).save(name + 'bend.png')
+            if refl is not None:
+                Image.fromarray(refl[y0:y0 + ch + 2 * apron, x0:x0 + cw + 2 * apron]).save(name + 'refl.png')
             Image.fromarray(padded[y0:y0 + ch + 2 * apron, x0:x0 + cw + 2 * apron]).save(name + 'flowers.png')
             sl = (slice(y0 // CELL, (y0 + ch) // CELL), slice(x0 // CELL, (x0 + cw) // CELL))
             np.ascontiguousarray(cells[sl]).tofile(name + 'cells.bin')

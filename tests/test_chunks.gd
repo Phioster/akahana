@@ -154,6 +154,25 @@ func test_water_moves_on_the_ground_of_a_brook_chunk() -> void:
 	assert_eq(m.get_shader_parameter("origin"), Vector2(180, 600))
 	v.queue_free()
 
+func test_the_lake_mirrors_what_stands_on_its_shore() -> void:
+	# the jetty chunk (3, 14): the still things' reflections come baked, with an apron for the ripples
+	var v := _view(Rect2(540, 2880, 120, 120))
+	var c := Vector2i(3, 14)
+	assert_true(v._chunks.has(c), "Kachel am Steg geladen")
+	var m := (v._chunks[c][0] as Sprite2D).material as ShaderMaterial
+	var rt: Texture2D = m.get_shader_parameter("refl_tex")
+	assert_true(rt != null and rt.get_size() == Vector2(196, 216), "Spiegelbild mit Rand")
+	var img := rt.get_image()
+	var any := 0
+	for y in range(0, img.get_height(), 2):
+		for x in range(0, img.get_width(), 2):
+			if img.get_pixel(x, y).a > 0.0:
+				any += 1
+	assert_true(any > 50, "das Ufer spiegelt sich: %d" % any)
+	var lamps: PackedVector2Array = m.get_shader_parameter("lamps")
+	assert_true(lamps.size() >= 1, "die Laterne am Steg wirft ihren Lichtweg")
+	v.queue_free()
+
 func test_blades_bend_with_their_height_map() -> void:
 	# grass and reeds bend from the foot (bend map per chunk, with the flowers' apron); poppies move whole
 	var v := _view(Rect2(90, 2040, 180, 120))
@@ -192,4 +211,7 @@ func test_ground_arriving_before_its_flowers_is_not_lost() -> void:
 	s.poll()
 	s._images[s._base(c) + "bend.png"] = Image.create(196, 216, false, Image.FORMAT_L8)
 	s.poll()
-	assert_true(s.is_ready(c), "Kachel fertig, als beide Bilder da waren")
+	assert_false(s.is_ready(c), "das Spiegelbild fehlt noch")
+	s._images[s._base(c) + "refl.png"] = Image.create(196, 216, false, Image.FORMAT_RGBA8)
+	s.poll()
+	assert_true(s.is_ready(c), "Kachel fertig, als alle Bilder da waren")

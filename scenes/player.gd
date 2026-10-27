@@ -15,6 +15,7 @@ signal stepped                       # a foot touches the ground (twice per walk
 var path := PackedVector2Array()
 var dir: int = Dir.DOWN
 var sprite: Sprite2D
+var mirror: Sprite2D                 # his reflection on the water (shaders/reflection.gdshader)
 var _t := 0.0
 var _last_col := -1
 var _heading := Vector2.ZERO
@@ -28,6 +29,24 @@ func _ready() -> void:
 	sprite.centered = false
 	sprite.offset = Vector2(-6, -15)    # feet at the node's position
 	add_child(sprite)
+	mirror = Sprite2D.new()              # below his feet, upside down: shows only on open water
+	mirror.name = "Spiegelbild"
+	mirror.texture = sprite.texture
+	mirror.hframes = COLS
+	mirror.vframes = 4
+	mirror.centered = false
+	mirror.flip_v = true
+	mirror.offset = Vector2(-6, 1)
+	mirror.z_as_relative = false
+	mirror.z_index = -2                  # on the ground's water, under the reeds and grass
+	var mm := ShaderMaterial.new()
+	mm.shader = preload("res://shaders/reflection.gdshader")
+	var ow := TextureLoader.load_texture("res://assets/world/open_water.png")
+	if ow != null:
+		mm.set_shader_parameter("open_water", ow)
+		mm.set_shader_parameter("world_size", ow.get_size())
+	mirror.material = mm
+	add_child(mirror)
 	# the ear: without it Godot measures sound distances in (stretched) screen pixels, not world pixels
 	var ear := AudioListener2D.new()
 	ear.position = Vector2(0, -8)
@@ -88,6 +107,8 @@ func _process(delta: float) -> void:
 	_last_col = col
 	if sprite != null:
 		sprite.frame = dir * COLS + col
+		mirror.frame = sprite.frame
+		(mirror.material as ShaderMaterial).set_shader_parameter("foot_y", global_position.y)
 
 
 func _face(v: Vector2) -> void:
