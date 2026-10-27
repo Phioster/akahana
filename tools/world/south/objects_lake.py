@@ -16,6 +16,11 @@ from objects_water import WATER, MUD  # noqa: E402
 
 LEAF = [hx(c) for c in ['#1f2c1d', '#2f4329', '#456138', '#5f7f49', '#7f9f5e']]   # greener than the willows
 LEAF_HI = hx('#a6c47a')
+AUTUMN = {                                                       # here and there one turned, among the green
+    'orange': ([hx(c) for c in ['#2c1a14', '#5a2a18', '#8c4320', '#b8632a', '#d98a3a']], hx('#f0b25a')),
+    'rost': ([hx(c) for c in ['#241414', '#4a1d1a', '#73281f', '#9a3a26', '#b9563a']], hx('#d67a52')),
+    'gold': ([hx(c) for c in ['#2a1f12', '#58401a', '#8a6526', '#b48a30', '#d2a845']], hx('#eac46a')),
+}
 PAD = [hx(c) for c in ['#2c4226', '#426036', '#5c7f47', '#7c9e5e']]
 LILY = [hx(c) for c in ['#c9a7b4', '#ead2da', '#f6ece6']]
 SAND = [hx(c) for c in ['#4a5552', '#5d6a64', '#74817a']]          # the lake floor showing through the shallows
@@ -80,8 +85,8 @@ class Seerosen:
 class Laubbaum:
     """A broadleaf tree, greener than the rest: a short trunk, a round crown of leaf clumps lit at the upper
     left with bright rims (as the willow's clumps, without the hanging twigs), gaps letting the limbs show."""
-    def __init__(s, x, y, seed=5, size=1.0):
-        s.x, s.y, s.seed, s.size = x, y, seed, size
+    def __init__(s, x, y, seed=5, size=1.0, leaf=None):
+        s.x, s.y, s.seed, s.size, s.leaf = x, y, seed, size, leaf
 
     def box(s):
         r = int(20 * s.size)
@@ -132,9 +137,10 @@ class Laubbaum:
                     lit *= 0.75 + 0.25 * high
                     if e > 0.7 and (i - cx) + (j - cy) > 0:
                         lit *= 0.55
-                    c = q(LEAF, lit, g(i, j))
+                    pal, hi = AUTUMN[s.leaf] if s.leaf else (LEAF, LEAF_HI)
+                    c = q(pal, lit, g(i, j))
                     if e > 0.5 and (i - cx) + (j - cy) < -r * 0.6 and lit > 0.62 and g(i, j) < 0.6:
-                        c = LEAF_HI
+                        c = hi
                     put(img, i, j, c)
 
 
