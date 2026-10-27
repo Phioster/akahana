@@ -10,6 +10,7 @@ var world: WorldData
 var store: ChunkStore
 var sorted: Node2D                   # the y-sorted layer objects stand in (the wanderer lives there too)
 var _shader: Shader = preload("res://shaders/flowers.gdshader")
+var _water: Shader = preload("res://shaders/water.gdshader")
 var _chunks := {}                    # Vector2i -> [ground Sprite2D, flowers Sprite2D]
 var _keep: Array[Vector2i] = []
 var _objects := Activator.new()
@@ -87,6 +88,11 @@ func _make_chunk(c: Vector2i) -> void:
 	g.centered = false
 	g.position = corner
 	g.z_index = -2
+	var wm := ShaderMaterial.new()                     # the brooks flow, the lake ripples (water map per chunk)
+	wm.shader = _water
+	wm.set_shader_parameter("water_tex", store.water_tex(c))
+	wm.set_shader_parameter("origin", corner)
+	g.material = wm
 	add_child(g)
 	var f := Sprite2D.new()
 	f.texture = store.flowers_tex(c)

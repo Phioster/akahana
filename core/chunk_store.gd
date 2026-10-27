@@ -48,9 +48,10 @@ func poll() -> Array[Vector2i]:
 	for c in _pending.keys():
 		var g := _base(c) + "ground.png"
 		var f := _base(c) + "flowers.png"
-		if not (_arrived(g) and _arrived(f)):          # take both or neither: a taken one cannot be had again
+		var wt := _base(c) + "water.png"
+		if not (_arrived(g) and _arrived(f) and _arrived(wt)):   # all or none: a taken one cannot be had again
 			continue
-		_tex[c] = [_take(g), _take(f)]
+		_tex[c] = [_take(g), _take(f), _take(wt)]
 		_pending.erase(c)
 		done.append(c)
 	return done
@@ -62,7 +63,8 @@ func load_now(c: Vector2i) -> void:
 		return
 	if not _cells.has(c):
 		_load_data(c)
-	_tex[c] = [TextureLoader.load_texture(_base(c) + "ground.png"), TextureLoader.load_texture(_base(c) + "flowers.png")]
+	_tex[c] = [TextureLoader.load_texture(_base(c) + "ground.png"), TextureLoader.load_texture(_base(c) + "flowers.png"),
+			TextureLoader.load_texture(_base(c) + "water.png")]
 	_pending.erase(c)
 
 
@@ -76,6 +78,10 @@ func ground_tex(c: Vector2i) -> Texture2D:
 
 func flowers_tex(c: Vector2i) -> Texture2D:
 	return _tex[c][1] if _tex.has(c) else null
+
+
+func water_tex(c: Vector2i) -> Texture2D:
+	return _tex[c][2] if _tex.has(c) else null
 
 
 func loaded_count() -> int:
@@ -126,7 +132,7 @@ func _load_data(c: Vector2i) -> void:
 ## Exported game: Godot's threaded loader. Dev device (no import cache): an Image on a worker thread.
 func _start_pictures(c: Vector2i) -> void:
 	_pending[c] = true
-	for path in [_base(c) + "ground.png", _base(c) + "flowers.png"]:
+	for path in [_base(c) + "ground.png", _base(c) + "flowers.png", _base(c) + "water.png"]:
 		if ResourceLoader.exists(path):
 			ResourceLoader.load_threaded_request(path)
 		else:

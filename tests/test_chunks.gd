@@ -141,6 +141,25 @@ func test_objects_appear_only_near_the_view() -> void:
 	assert_true(expect < v.world.sprites.size(), "nicht alle Objekte")
 	v.queue_free()
 
+func test_water_moves_on_the_ground_of_a_brook_chunk() -> void:
+	# the old brook runs through chunk (1, 3): its ground carries the water shader and its water map
+	var v := _view(Rect2(200, 600, 180, 120))
+	var c := Vector2i(1, 3)
+	assert_true(v._chunks.has(c), "Kachel mit dem alten Bach geladen")
+	var g: Sprite2D = v._chunks[c][0]
+	var m := g.material as ShaderMaterial
+	assert_true(m != null and m.shader.resource_path.ends_with("water.gdshader"), "Wasser-Shader am Boden")
+	var wt: Texture2D = m.get_shader_parameter("water_tex")
+	assert_true(wt != null and wt.get_size() == Vector2(180, 200), "Wasserkarte der Kachel")
+	assert_eq(m.get_shader_parameter("origin"), Vector2(180, 600))
+	v.queue_free()
+
+func test_water_shader_keeps_its_noise_small() -> void:
+	# on the phone the GPU computes in 32 bit: sin() of big world coordinates turns the noise into stripes
+	var code: String = (load("res://shaders/water.gdshader") as Shader).code
+	assert_true(code.contains("mod(p, 289.0)"))
+	assert_true(code.contains("mod(TIME, LOOP)"))
+
 func test_flower_shader_reads_world_coordinates() -> void:
 	var code: String = (load("res://shaders/flowers.gdshader") as Shader).code
 	assert_true(code.contains("uniform vec2 origin"))
@@ -156,5 +175,7 @@ func test_ground_arriving_before_its_flowers_is_not_lost() -> void:
 	s._images[g] = Image.create(180, 200, false, Image.FORMAT_RGB8)
 	s.poll()
 	s._images[f] = Image.create(196, 216, false, Image.FORMAT_RGBA8)
+	s.poll()
+	s._images[s._base(c) + "water.png"] = Image.create(180, 200, false, Image.FORMAT_RGBA8)
 	s.poll()
 	assert_true(s.is_ready(c), "Kachel fertig, als beide Bilder da waren")

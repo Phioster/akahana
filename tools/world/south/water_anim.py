@@ -15,6 +15,7 @@ W_LAKE = 2 * np.pi / LOOP
 
 
 def hash2(x, y, s=0.0):
+    x, y = np.mod(x, 289.0), np.mod(y, 289.0)                  # as the shader: small arguments for 32-bit sin
     return (np.sin(x * 12.9898 + y * 78.233 + s) * 43758.5453) % 1.0
 
 
