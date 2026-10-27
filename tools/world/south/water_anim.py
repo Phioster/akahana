@@ -40,9 +40,10 @@ def animate(ground, wmap, x0, y0, t):
     out[m] = WATER[np.clip(np.round(v * 4), 0, 4).astype(int)][m]
 
     m = kind == 1                                                # the old brook, in gen_world's look
-    rip = np.sin(along * K_NEW - t * W_NEW + 3.6 * (1 - dep) + 0.6 * n)   # broad calm streaks like the new
+    rip = np.sin(along * K_NEW - t * W_NEW + 2.2 * np.sin(across * 0.9) + 0.8 * n)   # the new brooks' streaks:
+                                                                # wavering across the stream, not straight bars
     base = np.clip(((0.52 - 0.22 * dep + 0.06 * (h2 - 0.5)) * 6).astype(int), 0, 3)
-    wi = np.where(rip > 0.85, np.minimum(base + 1, 3), base)    # a streak lifts one step, never to the near-white
+    wi = np.where(rip > 0.82, np.minimum(base + 1, 3), base)    # a streak lifts one step, never to the near-white
                                                                 # ones: in the snow they glittered
     wi = np.where((rip > 0.97) & (h2 < 0.06), 4, wi)          # now and then a glint
     wi = np.where((dep < 0.25) & (h2 < 0.15), 4, wi)          # light catching on the bank, still
