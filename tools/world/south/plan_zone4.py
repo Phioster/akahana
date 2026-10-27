@@ -47,6 +47,19 @@ reed_isles = np.zeros_like(lake)
 for (x0, y0, r0) in [(250, 300, 14), (650, 470, 11), (700, 250, 9), (330, 470, 10), (580, 200, 8)]:
     reed_isles |= ((xx - x0) / r0) ** 2 + ((yy - y0) / (r0 * 0.7)) ** 2 < 1 + 0.3 * fine
 shallow = lake & (dist_in < 12)
+puddles = np.zeros_like(lake)                                    # small pools scattered round the lake
+tries = 0
+while puddles.max() == 0 or (tries < 400 and ndi.label(puddles)[1] < 14):
+    tries += 1
+    x0, y0 = int(rng.integers(60, W - 60)), int(rng.integers(40, 690))
+    near = dist_out[y0, x0]
+    if not (22 < near < 90) or rng.random() > 1.2 - near / 90:
+        continue
+    r0 = rng.uniform(4, 11)
+    blob = ((xx - x0) / r0) ** 2 + ((yy - y0) / (r0 * rng.uniform(0.5, 0.8))) ** 2 < 1 + 0.4 * fine
+    if (ndi.binary_dilation(puddles, iterations=10) & blob).any():
+        continue
+    puddles |= blob
 
 img = np.zeros((H, W, 3), np.uint8)
 img[:] = (92, 112, 78)
@@ -54,6 +67,8 @@ img[reeds] = (70, 92, 60)
 img[lake] = (96, 128, 150)
 img[shallow] = (120, 160, 180)
 img[lake & reed_isles] = (70, 92, 60)
+img[ndi.binary_dilation(puddles, iterations=2) & ~puddles] = (70, 92, 60)
+img[puddles] = (120, 160, 180)
 img[island] = (92, 112, 78)
 img[ndi.binary_dilation(island, iterations=5) & ~island & lake] = (70, 92, 60)
 pil = Image.fromarray(img).resize((W * S, H * S), Image.NEAREST)
@@ -80,6 +95,8 @@ trails = {'west': [(330, -5), (230, 40), (110, 90), (48, 200), (36, 360), (58, 5
           'zur_bank': [(120, 690), (190, 655)], 'zur_huette': [(850, 520), (800, 515)]}
 trails['west'][-3:] = [(120, 660), (250, 690), (450, 700)]       # the round path keeps above the reeds
 trails['ost'][-3:] = [(790, 640), (640, 690), (450, 700)]
+wc = curve(trails['west'], 300)                                 # the bench path starts on the round path itself
+trails['zur_bank'][0] = tuple(wc[np.hypot(*(wc - trails['zur_bank'][1]).T).argmin()])
 for k, pts in trails.items():
     P(curve(pts, 300) if len(pts) > 2 else np.array(pts, float), 4, (205, 190, 160))
 for (x, y) in [(330, 240), (352, 262), (600, 430), (585, 455), (410, 520), (620, 190), (180, 400), (760, 380)]:
