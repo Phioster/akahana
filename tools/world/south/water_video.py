@@ -16,6 +16,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path[:0] = [HERE, os.path.join(HERE, '..', 'lib'), os.path.join(HERE, '..')]
 import mood_map  # noqa: E402
 import water_anim  # noqa: E402
+import fish_anim  # noqa: E402
 import zone2_draft as z2  # noqa: E402
 from fireflies import Swarm  # noqa: E402
 
@@ -23,6 +24,7 @@ ROOT = os.path.abspath(os.path.join(HERE, '..', '..', '..'))
 A = os.path.join(ROOT, 'assets', 'world')
 F = os.path.join(ROOT, 'build', 'world_full')
 SPOTS = {                                       # name: (x0, y0, x1, y1) in world pixels
+    'fische': (300, 2980, 560, 3160),
     'alter_bach': (200, 600, 380, 720),
     'wasserlaeufe': (380, 2380, 560, 2500),
     'muendung_steg': (390, 2810, 650, 2990),
@@ -52,11 +54,21 @@ def main(out):
                 sw = Swarm(s['x'] - x0, s['y'] - y0, 0)
                 sw.flies = s['flies']
                 swarms.append(sw)
+        frng = np.random.default_rng(7)                       # fish only in the deep lake, a few per screen
+        wm = wmap[y0:y1, x0:x1]
+        deep = (wm[..., 3] == 3) & (wm[..., 1] > 80)               # out in the lake, away from the shallows
+        swim = (wm[..., 3] == 3) & (wm[..., 1] > 25)
+        ys, xs = np.nonzero(deep)
+        fishes = []
+        while len(fishes) < (5 if name == 'fische' else 0):
+            k = frng.integers(len(ys))
+            fishes.append(fish_anim.Fish((x0 + xs[k], y0 + ys[k]), frng))
         frames = os.path.join(out, name)
         os.makedirs(frames, exist_ok=True)
         for k in range(FPS * SECONDS):
             t = k / FPS
             img = water_anim.animate(ground[y0:y1, x0:x1], wmap[y0:y1, x0:x1], x0, y0, t)
+            fish_anim.draw(img, x0, y0, swim, fishes, t)
             f = flowers[y0:y1, x0:x1]
             m = f[..., 3] > 0
             img[m] = f[m][:, :3]
