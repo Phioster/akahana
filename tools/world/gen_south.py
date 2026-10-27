@@ -169,6 +169,61 @@ def fix_old_blocks(walk, sprites):
             walk[np.clip(s['y'] + lo + ys + 1, 0, H - 1), x0 + xs] = False   # a little thicker: no slipping through
 
 
+OLD_WAT = [(0x3c, 0x46, 0x50), (0x4e, 0x5a, 0x65), (0x64, 0x71, 0x7c), (0x7f, 0x8c, 0x96), (0xa3, 0xae, 0xb6),
+           (0xd6, 0xdd, 0xe1)]                                 # gen_world's brook
+KIND_OLD, KIND_BROOK, KIND_LAKE = 1, 2, 3
+WATER_K = 2 * np.pi * 22 / 256                                 # streak frequency along the stream: whole periods in
+OLD_K = 2 * np.pi * 61 / 256                                   # the 256 px the along channel wraps at, so no seam
+
+
+def _is(ground, pal):
+    m = np.zeros(ground.shape[:2], bool)
+    for c in pal:
+        m |= (ground == np.array(c, np.uint8)).all(-1)
+    return m
+
+
+def water_map(ground, w, c, m):
+    """Where water is and how it moves, per pixel, for the water shader (RGBA8):
+    R flow direction (angle / 2pi * 256), G depth 0..1, B distance along the stream mod 256 px, A kind
+    (1 old brook, 2 new brook, 3 lake and pools). Only pixels still painted in a water colour: bridges,
+    stones, lily pads, the lake floor showing through, shadows keep still."""
+    import objects_water as ow
+    out = np.zeros((H, W, 4), np.uint8)
+    # the old brook: its pixels by colour, its course from world.json's points along it
+    old = _is(ground[:TOP, :OW], OLD_WAT)
+    pts = np.array([(p['x'], p['y']) for p in w['brook'] if p['y'] < TOP and p['x'] < OW], float)
+    pts = pts[np.argsort(pts[:, 0])]                           # it runs from west to east across the map
+    xs = np.arange(pts[0, 0], pts[-1, 0], 0.5)
+    ys = np.interp(xs, pts[:, 0], pts[:, 1])
+    arc = np.r_[0, np.cumsum(np.hypot(np.diff(xs), np.diff(ys)))]
+    from scipy.spatial import cKDTree
+    yy, xx = np.nonzero(old)
+    d, i = cKDTree(np.stack([xs, ys], 1)).query(np.stack([xx, yy], 1))
+    tang = np.stack([np.gradient(xs), np.gradient(ys)], 1)
+    ang = np.arctan2(tang[i, 1], tang[i, 0])
+    dep = np.clip(ndi.distance_transform_edt(ndi.binary_dilation(old, iterations=2))[yy, xx] / 5.0, 0, 1)
+    out[yy, xx] = np.stack([(ang / (2 * np.pi) % 1 * 256).astype(np.uint8), (dep * 255).astype(np.uint8),
+                            (arc[i] % 256).astype(np.uint8), np.full(len(yy), KIND_OLD, np.uint8)], 1)
+    # the new brooks: depth, flow and distance along exactly as the drafts drew them
+    wat = _is(ground, [tuple(int(v) for v in col) for col in ow.WATER])
+    for b in c.brooks:
+        y0 = TOP + b.y0
+        sel = b.mask & wat[y0:y0 + b.H, :b.W] & ~m['lake'][y0:y0 + b.H, :b.W]   # in the lake it is still water
+        yy, xx = np.nonzero(sel)
+        ang = np.arctan2(b.flow[yy, xx, 1], b.flow[yy, xx, 0])
+        out[y0 + yy, xx] = np.stack([(ang / (2 * np.pi) % 1 * 256).astype(np.uint8),
+                                     (b.depth[yy, xx] * 255).astype(np.uint8),
+                                     (b.along[yy, xx] % 256).astype(np.uint8),
+                                     np.full(len(yy), KIND_BROOK, np.uint8)], 1)
+    # the lake, the backwater, the pools and the marsh: still water, its depth as paint_lake had it
+    lake = m['lake'] & wat & (out[..., 3] == 0)
+    dep = np.clip(ndi.distance_transform_edt(m['lake']) / 40.0, 0, 1)
+    out[lake, 1] = (dep[lake] * 255).astype(np.uint8)
+    out[lake, 3] = KIND_LAKE
+    return out
+
+
 def main():
     w, og, ofl, owalk, omat = old_world()
     with layers.collect() as c:
@@ -267,6 +322,7 @@ def main():
     fields[2, TOP:] = c.edge_fog
     np.savez_compressed(os.path.join(ROOT, 'build', 'mist_fields.npz'), band=fields[0], calm=fields[1],
                         edge=fields[2])
+    Image.fromarray(water_map(ground, w, c, m)).save(os.path.join(OUT, 'water.png'))
     Image.fromarray(ground).save(os.path.join(OUT, 'ground.png'))
     Image.fromarray(flowers).save(os.path.join(OUT, 'flowers.png'))
     Image.fromarray((walk * 255).astype(np.uint8)).save(os.path.join(OUT, 'walk.png'))

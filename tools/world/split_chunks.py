@@ -4,7 +4,8 @@
 Per chunk (cx, cy): c_<cx>_<cy>_ground.png (the chunk), c_<cx>_<cy>_flowers.png (the chunk plus an
 apron of the neighbours' pixels, so the poppy shader can shift blossoms across the edge without a
 seam), c_<cx>_<cy>_cells.bin and _mat.bin (walkable and ground material per 2-px cell), _walls.bin and
-_paths.bin (int32 cell indices of the walls and of the cheap ground, for the per-tap path grid).
+_paths.bin (int32 cell indices of the walls and of the cheap ground, for the per-tap path grid), and
+c_<cx>_<cy>_water.png (where water moves and how, for the water shader; gen_south.water_map).
 """
 import json
 import os
@@ -21,6 +22,8 @@ def split(src_dir, out_dir, chunk=(180, 200), apron=8):
     cw, ch = chunk
     ground = np.array(Image.open(os.path.join(src_dir, 'ground.png')))
     flowers = np.array(Image.open(os.path.join(src_dir, 'flowers.png')).convert('RGBA'))
+    wpath = os.path.join(src_dir, 'water.png')                   # where water moves, for the water shader
+    water = np.array(Image.open(wpath).convert('RGBA')) if os.path.exists(wpath) else None
     H, W = ground.shape[:2]
     assert W % cw == 0 and H % ch == 0, 'world size must be whole chunks'
     cells = np.fromfile(os.path.join(src_dir, 'walk_cells.bin'), np.uint8).reshape(H // CELL, W // CELL)
@@ -34,6 +37,8 @@ def split(src_dir, out_dir, chunk=(180, 200), apron=8):
             x0, y0 = cx * cw, cy * ch
             name = os.path.join(out_dir, f'c_{cx}_{cy}_')
             Image.fromarray(ground[y0:y0 + ch, x0:x0 + cw]).save(name + 'ground.png')
+            if water is not None:
+                Image.fromarray(water[y0:y0 + ch, x0:x0 + cw]).save(name + 'water.png')
             Image.fromarray(padded[y0:y0 + ch + 2 * apron, x0:x0 + cw + 2 * apron]).save(name + 'flowers.png')
             sl = (slice(y0 // CELL, (y0 + ch) // CELL), slice(x0 // CELL, (x0 + cw) // CELL))
             np.ascontiguousarray(cells[sl]).tofile(name + 'cells.bin')
