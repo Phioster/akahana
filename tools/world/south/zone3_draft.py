@@ -98,7 +98,7 @@ def on_bank(c, i, off):
     return x - dy / n * off, y + dx / n * off
 
 
-def render(w, seed=21):
+def render(w, seed=21, raw=False):
     base, lights, swarms = z2.render(w, raw=True)
     rng = np.random.default_rng(seed)
     H = Y3 + NEW
@@ -220,6 +220,8 @@ def render(w, seed=21):
     sw = swarms + SWARMS
     band = np.zeros((H, W))
     band[Y3:] = ndi.gaussian_filter(water.mask.astype(float), 3) * 1.6
+    if raw:
+        return np.clip(img, 0, 255), lit, sw, np.clip(band, 0, 1)
     out = mood_map.mood(np.clip(img, 0, 255), dict(w, lights=lit + [l for s_ in sw for l in s_.lights(2.0)], wisps=[]),
                         2.0, grass_mist=z2.GRASS_MIST, water_band=np.clip(band, 0, 1)).astype(float)
     for s_ in sw:
