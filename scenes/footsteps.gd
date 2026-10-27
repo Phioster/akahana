@@ -7,12 +7,29 @@ var store: ChunkStore
 var _sets := {}
 var _last := -1
 var _out: AudioStreamPlayer
+var _rustle: AudioStreamPlayer
+var _steps := 0
+const TALL_GRASS_Y := 1800.0         # from zone 2 on the grass stands tall (tools/world/south/zone2_draft.py)
+
+
+## Whether a footfall here brushes through tall grass.
+static func rustles(mat: int, y: float) -> bool:
+	return mat == GroundMat.GRASS and y >= TALL_GRASS_Y
+
+
+## Counts the step; true on every second one in tall grass (each one rustling was too busy).
+func next_rustles(mat: int, y: float) -> bool:
+	_steps += 1
+	return rustles(mat, y) and _steps % 2 == 0
 
 
 func _ready() -> void:
 	_out = AudioStreamPlayer.new()
 	_out.bus = AudioSetup.SOUNDS
 	add_child(_out)
+	_rustle = AudioStreamPlayer.new()
+	_rustle.bus = AudioSetup.SOUNDS
+	add_child(_rustle)
 	if player != null:
 		player.stepped.connect(_on_step)
 
@@ -25,7 +42,17 @@ func ground_at(p: Vector2) -> int:
 
 
 func _on_step() -> void:
-	var name := SoundBank.step_set(ground_at(player.position), player.position.y)
+	var mat := ground_at(player.position)
+	if next_rustles(mat, player.position.y):
+		if not _sets.has("rascheln"):
+			_sets["rascheln"] = SoundBank.variants("rascheln")
+		var r: Array = _sets["rascheln"]
+		if not r.is_empty():                           # the blades pushed aside, a little under the footfall
+			_rustle.stream = r[randi() % r.size()]
+			_rustle.pitch_scale = randf_range(0.95, 1.05)
+			_rustle.volume_db = randf_range(-13.0, -11.0)
+			_rustle.play()
+	var name := SoundBank.step_set(mat, player.position.y)
 	if not _sets.has(name):
 		_sets[name] = SoundBank.variants(name)
 	var v: Array = _sets[name]

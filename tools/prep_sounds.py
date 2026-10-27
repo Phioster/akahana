@@ -81,6 +81,30 @@ def first(pattern):
     return hits[0]
 
 
+def south():
+    """The south's sounds (approved on the review page): the tall grass's rustle, the fireflies' hum."""
+    import shutil
+    sud = os.path.join(FS, 'sueden')
+    for f in sorted(glob.glob(os.path.join(sud, 'hochgras', 'rascheln_*.ogg'))):   # cut from #559082 (CC0)
+        shutil.copy(f, os.path.join(OUT, os.path.basename(f)))
+    # fireflies: BBC "Several hovering" (NHU05086119, BBC licence: personal use only - replace before any
+    # release) with the moth's flutter (#693457, CC0) far below it
+    hum = load(os.path.join(SRC, 'bbc', 'NHU05086119.mp3'), 2, 22)
+    fl = load(os.path.join(sud, '693457.ogg'), 0, 22)
+    n = min(len(hum), len(fl))
+    mix = hum[:n] / (np.sqrt(np.mean(hum[:n] ** 2)) + 1e-9) + 0.2 * fl[:n] / (np.sqrt(np.mean(fl[:n] ** 2)) + 1e-9)
+    f = int(2.0 * SR)
+    m = n - f
+    out = mix[:m].copy()
+    ramp = np.linspace(0, 1, f)
+    out[:f] = mix[:f] * ramp + mix[m:m + f] * (1 - ramp)
+    save('gluehwuermchen', out, 0.08)
+
+
+if __name__ == '__main__' and sys.argv[1:] == ['south']:
+    south()
+    sys.exit(0)
+
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)
     for f in glob.glob(os.path.join(OUT, '*.ogg')):
@@ -119,4 +143,5 @@ if __name__ == '__main__':
     for i, sid in enumerate([484933, 484941, 484949]):
         save(f'seite_{i}', load(f'{FS}/{sid}.ogg'), 0.1)
     save('buch_zu_0', load(f'{FS}/484886.ogg'), 0.1)           # chosen over 484884
+    south()
     print('ok', len(glob.glob(os.path.join(OUT, '*.ogg'))), 'Dateien')

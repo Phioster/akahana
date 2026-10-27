@@ -625,3 +625,29 @@ func test_the_view_moves_evenly_while_walking_straight() -> void:
 			hi = maxf(hi, d)
 	assert_true(hi - lo < 0.02, "Schritte schwanken %.3f..%.3f" % [lo, hi])
 	m.queue_free()
+
+func test_tall_grass_rustles_on_every_second_step() -> void:
+	# south of the poppies (from zone 2 on) the grass is tall: a footfall, and every second one a rustle
+	assert_true(Footsteps.rustles(GroundMat.GRASS, 2000.0), "hohes Gras im Süden")
+	assert_false(Footsteps.rustles(GroundMat.GRASS, 900.0), "nicht im Mohnfeld")
+	assert_false(Footsteps.rustles(GroundMat.EARTH, 2000.0), "nicht auf dem Weg")
+	var f := Footsteps.new()
+	var n := 0
+	for i in 10:
+		if f.next_rustles(GroundMat.GRASS, 2000.0):
+			n += 1
+	assert_eq(n, 5)
+	f.free()
+	assert_eq(SoundBank.variants("rascheln").size(), 8)
+
+func test_fireflies_hum_only_close_by() -> void:
+	var w := WorldData.load_default()
+	var sw := Fireflies.new()
+	sw.setup(w.fireflies[0])
+	var tree := Engine.get_main_loop() as SceneTree
+	tree.root.add_child(sw)
+	var hum: AudioStreamPlayer2D = sw.get_node_or_null("Summen")
+	assert_true(hum != null and hum.stream != null, "Summen geladen")
+	assert_true(hum.max_distance <= 60.0, "nur nah zu hören")
+	assert_true(hum.volume_db <= -14.0, "viel leiser")
+	sw.queue_free()

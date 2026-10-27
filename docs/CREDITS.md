@@ -31,6 +31,10 @@ Alles hier ist frei nutzbar. Die Namen stehen trotzdem hier, aus Dank.
   - #484949 „Page Turn - 29“ von SpaceJoe
   - #484886 „Book Close - 6“ von SpaceJoe
   - #484884 „Book Close - 4“ von SpaceJoe
+  Süden:
+  - #559082 „Foley_Movement_High_Grass_Mono.wav“ von Nox_Sound
+  - #693457 „moth1.wav“ von HYPERBLOODHELL
+- Glühwürmchen-Summen: BBC Sound Effects NHU05086119 „Several hovering“ — BBC-Lizenz nur für private Nutzung; vor einer Veröffentlichung ersetzen
 
 
 ## Figur

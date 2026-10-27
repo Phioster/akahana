@@ -13,10 +13,23 @@ var flies: Array = []
 var _t := randf() * 100.0
 
 
+const HUM_DB := -18.0                # a soft hovering hum, much quieter than anything else
+const HUM_RANGE := 50.0               # only heard when walking through or right beside a swarm
+
+
 func setup(d: Dictionary) -> void:
 	home = Vector2(float(d["x"]), float(d["y"]))
 	flies = d["flies"]
 	add_to_group("fireflies")
+	var hum := AudioStreamPlayer2D.new()
+	hum.name = "Summen"
+	hum.stream = SoundBank.looped("gluehwuermchen")
+	hum.bus = AudioSetup.SOUNDS
+	hum.volume_db = HUM_DB
+	hum.max_distance = HUM_RANGE
+	hum.position = home
+	hum.autoplay = true
+	add_child(hum)
 
 
 ## Every fly at time t (seconds): x, y in the world and its glow 0..1.
