@@ -22,7 +22,7 @@ SAND = [hx(c) for c in ['#4a5552', '#5d6a64', '#74817a']]          # the lake fl
 ROOF = [hx(c) for c in ['#2b231e', '#43362d', '#5e4c3e', '#7a6553']]
 
 
-def paint_lake(img, y0, lake, shallow, rng):
+def paint_lake(img, y0, lake, shallow, rng, rimless=None):
     """Calm lake water: dark where deep, the shallow rim lighter with the floor showing (that is where one can
     wade), short level glints of ripples, a dark wet rim of mud at the shore."""
     H, W = lake.shape
@@ -41,6 +41,8 @@ def paint_lake(img, y0, lake, shallow, rng):
     sub = img[y0:y0 + H]
     sub[lake] = col[lake]
     rim = ndi.binary_dilation(lake, iterations=2) & ~lake
+    if rimless is not None:                                     # e.g. pools: no mud ring round them
+        rim &= ~ndi.binary_dilation(rimless, iterations=3)
     g = rng.random((H, W))
     sub[rim & (g < 0.8)] = np.array(MUD)[np.clip((g * 4).astype(int), 0, 2)][rim & (g < 0.8)]
 

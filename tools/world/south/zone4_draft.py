@@ -68,7 +68,7 @@ def render(w, seed=31, raw=False):
     tongue = (((xx - jx) / 9.0) ** 2 + ((yy - shore + 8) / 14.0) ** 2 < 1) & (yy < shore + 2)
     water &= ~tongue
     shallow &= ~tongue
-    damp = ndi.distance_transform_edt(~water) < 8
+    damp = ndi.distance_transform_edt(~(water & ~m['puddles'])) < 8   # pools leave the grass round them as it is
     ground[damp] *= 0.85
     img[Y4:] = ground
 
@@ -121,7 +121,7 @@ def render(w, seed=31, raw=False):
     brooks.y0 = Y4
     brooks.draw(img, rng)
     with_brooks = img[Y4:].copy()
-    ol.paint_lake(img, Y4, water, shallow, rng)                  # the lake over the brooks' ends
+    ol.paint_lake(img, Y4, water, shallow, rng, rimless=pud)     # the lake over the brooks' ends
     # the mouths: no mud lip across the brook, its banks open out, its paler water runs on into the lake
     bm = brooks.mask
     img[Y4:][bm & ~m['lake']] = with_brooks[bm & ~m['lake']]      # the lake's mud rim does not cross the brook
@@ -137,8 +137,8 @@ def render(w, seed=31, raw=False):
     pn = rng.random((NEW, W))
     sub_[pud] = ow.WATER[3]
     sub_[pud & (pn > 0.82)] = ow.WATER[4]
-    rim = ndi.binary_dilation(pud, iterations=2) & ~pud & ~m['lake']
-    sub_[rim] = sub_[rim] * 0.8                                   # wet mud round the edge, no drawn ring
+    rim = ndi.binary_dilation(pud, iterations=1) & ~pud & ~m['lake'] & (rng.random((NEW, W)) < 0.5)
+    sub_[rim] = sub_[rim] * 0.92                                  # barely wet at the edge, no drawn ring
     isl = np.zeros((H, W), bool)
     isl[Y4:] = m['island']
     img[isl] = ground[m['island']]
@@ -194,6 +194,10 @@ def render(w, seed=31, raw=False):
                  ~m['puddles']) | (sea_reeds & ~open_w)) & ~ndi.binary_dilation(path[Y4:], iterations=3)
     reed_area &= ~ndi.binary_dilation(brooks.mask, iterations=1)   # the brooks run open into the lake
     reed_area &= ~pud
+    dshadow = ndi.binary_dilation(m['ditch'], iterations=2)      # the ditch to the backwater stays open: nothing
+    for k in range(1, 16):                                       # rooted just below it may grow up over it
+        dshadow[k:] |= m['ditch'][:-k]
+    reed_area &= ~dshadow
     for t_ in things:
         if isinstance(t_, ol.Steg):                              # the jetties stay clear of reeds
             x0, y0, x1, y1 = t_.box()
@@ -227,7 +231,7 @@ def render(w, seed=31, raw=False):
         keep_off[max(0, y0):max(0, y1), max(0, x0):max(0, x1)] = True
         if isinstance(t_, (ol.Huette, z2.Bank, Findling, ol.Steg)):
             low[max(0, y0):max(0, y1), max(0, x0):max(0, x1)] = True
-    low[Y4:] |= pud                                              # tall blades below a pool would hide it
+    low[Y4:] |= pud | m['ditch']                                             # tall blades below a pool would hide it
     below = low.copy()
     for k in range(1, 13):
         below[k:] |= low[:-k]

@@ -44,7 +44,8 @@ def masks():
     ch[:, 1] += 2.5 * np.sin(np.linspace(0, 9, len(ch)))                                    # not a ruled line
     from scipy.spatial import cKDTree
     dch = cKDTree(ch).query(np.stack([xx.ravel(), yy.ravel()], 1))[0].reshape(H, W)
-    lake |= back | (dch < 3.2 + 0.8 * fine)
+    ditch = (dch < 3.2 + 0.8 * fine) & ~back
+    lake |= back | ditch
     lake = ndi.binary_opening(lake, iterations=2)
     belt_w = 7 + 14 * np.clip(0.5 + 0.5 * ndi.gaussian_filter(rng.normal(0, 1, (H, W)), 20) * 3, 0, 1)
     dist_out = ndi.distance_transform_edt(~lake)
@@ -75,7 +76,7 @@ def masks():
             continue
         puddles |= blob
     return dict(lake=lake, back=back, reeds=reeds, island=island, reed_isles=reed_isles, shallow=shallow,
-                puddles=puddles, dist_out=dist_out, dist_in=dist_in, fine=fine, rng=rng)
+                puddles=puddles, ditch=ditch, dist_out=dist_out, dist_in=dist_in, fine=fine, rng=rng)
 
 
 # trails (zone coordinates): far out round the lake, meeting below it as a round path
