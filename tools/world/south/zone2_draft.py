@@ -154,6 +154,7 @@ def render(w, seed=12, raw=False):
     cut = np.isin(lab, np.unique(lab[-1][lab[-1] > 0]))
     same = (np.abs(img[:Y0] - h1[..., :3]).sum(-1) < 1) & cut
     img[:Y0][same] = g1[same]
+    z1.HOOKS['lift'](cut)
 
     fog = np.clip(0.70 + 0.10 * fbm(NEW, W, 18, 204), 0, 1)
     flow = np.clip(0.22 + 0.10 * fbm(NEW, W, 10, 205), 0, 1)

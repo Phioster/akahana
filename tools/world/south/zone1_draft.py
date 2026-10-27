@@ -234,7 +234,8 @@ def render(kind, w, seed=7, raw=False):
     STASH.update(ground=ground.copy(), heads=heads)
     img = ground.copy()
     m = heads[..., 3] > 0
-    img[m] = heads[m][:, :3]
+    if HOOKS['heads'](heads):                                  # the generator keeps them in their own layer
+        img[m] = heads[m][:, :3]
 
     # the old map cut its edge firs off at its own border (x 540, y 1200); now the world goes on there,
     # so those are drawn whole again, same foot and height
@@ -248,7 +249,8 @@ def render(kind, w, seed=7, raw=False):
             continue                    # the old right edge ran on below the wood: now it would poke out of the curve
         firs.append(Fir(fx, fy, max(h, 30),
                         int(rng.integers(0, 10 ** 6))))
-    draw_sprites(img, [s_ for s_ in osprites if s_ not in cut], -(OLD_H - CTX))   # the camp, unchanged
+    if HOOKS['old']():
+        draw_sprites(img, [s_ for s_ in osprites if s_ not in cut], -(OLD_H - CTX))   # the camp, unchanged
     for t in sorted(things + firs, key=lambda t: (getattr(t, 'order', None) or t.box()[3]) if hasattr(t, 'box') else t.p.y):
         if isinstance(t, Fir):
             t.draw(img)
@@ -271,6 +273,7 @@ def render(kind, w, seed=7, raw=False):
 
 LIT = []                                     # the lights of torches and candles, for the animation
 STASH = {}                                   # ground, heads and firs of the last render, for the zone below
+HOOKS = dict(heads=lambda heads: True, lift=lambda mask: None, old=lambda: True)   # set by layers.py
 # fireflies over the quiet spots: by the cherry tree, the fence, the log, a boulder, the scarecrow, the wall
 SWARMS = [Swarm(510, CTX + 478, 12, 1), Swarm(430, CTX + 455, 8, 2), Swarm(705, CTX + 160, 9, 3),
           Swarm(835, CTX + 500, 8, 4), Swarm(640, CTX + 320, 8, 5), Swarm(150, CTX + 285, 10, 6)]
