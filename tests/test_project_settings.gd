@@ -20,3 +20,5 @@ func test_the_app_icon_is_the_journal() -> void:
 	var cfg := f.get_as_text()
 	assert_true(cfg.contains('adaptive_foreground_432x432="res://assets/icon/vordergrund.png"'), "kein Godot-Logo mehr")
 	assert_true(FileAccess.file_exists("res://assets/icon/vordergrund.png"))
+	# themed launchers (Nothing) tint icons one colour: give them our own drawing, not a washed-out book
+	assert_true(cfg.contains('adaptive_monochrome_432x432="res://assets/icon/einfarbig.png"'))

@@ -24,3 +24,15 @@ Entschieden von Philip, 2026-10-27: alles japanisch, angezeigt in japanischer Sc
 | 花室 | Hanamuro | Blumenkammer | das Gewächshaus im Dorf |
 | 聖堂 | Seidō | heilige Halle | die Kathedrale im Dorf |
 | 漁師小屋 | Ryōshi-goya | Fischerhütte | am Ostufer des Sees |
+| 千年桜 | Sennen-zakura | die tausendjährige Kirsche | der große Kirschbaum beim Lager |
+| 羊飼いの小屋 | Hitsujikai-no-koya | Hirtenhaus | im Norden |
+| 道標 | Michishirube | Wegweiser | der Wegstein an der Gabelung |
+| 蛍野 | Hotaru-no | Glühwürmchenfeld | das Grasland mit den Glühwürmchen |
+| 細流 | Seseragi | das Plätschern | die Bäche |
+| 柳の泉 | Yanagi-no-izumi | Weidenquelle | die Quelle mit der Trauerweide |
+| 浮島 | Ukishima | schwimmende Insel | die Insel im See |
+| 灯の桟橋 | Hi-no-sanbashi | Lichtsteg | der Steg mit Laterne |
+| 霧の葦原 | Kiri-no-ashihara | Schilfmeer im Nebel | der Südrand |
+| 小橋 | Kobashi | kleine Brücke | über den alten Bach |
+
+Beim ersten Betreten eines Gebiets oder Orts erscheint der Name kurz auf einer Schriftrolle (Kanji und Umschrift).
