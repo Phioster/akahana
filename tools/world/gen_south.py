@@ -330,6 +330,10 @@ def main():
         os.path.join(OUT, 'mist_fields.png'))
     Image.fromarray(water_map(ground, w, c, m)).save(os.path.join(OUT, 'water.png'))
     Image.fromarray(bend).save(os.path.join(OUT, 'bend.png'))
+    wm = water_map(ground, w, c, m)                            # where fish and ducks may be: the lake's depth,
+    lake = np.where(wm[..., 3] == 3, wm[..., 1], 0)            # half size (shipped, read by scenes/lake_life.gd)
+    lake = lake.reshape(H // 2, 2, W // 2, 2).min(axis=(1, 3))
+    Image.fromarray(lake.astype(np.uint8)).save(os.path.join(OUT, 'lake.png'))
     Image.fromarray(ground).save(os.path.join(OUT, 'ground.png'))
     Image.fromarray(flowers).save(os.path.join(OUT, 'flowers.png'))
     Image.fromarray((walk * 255).astype(np.uint8)).save(os.path.join(OUT, 'walk.png'))

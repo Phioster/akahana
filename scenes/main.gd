@@ -20,6 +20,7 @@ var store: ChunkStore
 var view_node: WorldView
 var marker: TapMarker
 var birds: Birds
+var lake: LakeLife
 var _life := Activator.new()         # wisps: made near the view, dropped far from it
 var book: BookUI
 var save := SaveData.new()
@@ -75,6 +76,12 @@ func _ready() -> void:
 	birds.player = player
 	birds.sorted = sorted
 	add_child(birds)
+	lake = LakeLife.new()                                  # fish and ducks turn up near the view on the lake
+	lake.world = world
+	lake.player = player
+	lake.sorted = sorted
+	lake.store = store
+	add_child(lake)
 
 	cam = Camera2D.new()
 	cam.limit_left = 0
@@ -270,6 +277,7 @@ func _process(delta: float) -> void:
 	post.set_shader_parameter("cam_pos", top_left)
 	view_node.update(Rect2(top_left, view))
 	birds.update_area(Rect2(top_left, view))
+	lake.step(delta, Rect2(top_left, view))
 	_life.update(Rect2(top_left, view))
 	_feed_lights(Rect2(top_left, view))
 
