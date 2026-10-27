@@ -15,6 +15,7 @@ var lights: Array = []
 var brook: Array = []                # points along the stream, for its sound and the frogs
 var birds: Array = []                # open spots where small birds land
 var wisps: Array = []                # where the will-o'-the-wisps live
+var fireflies: Array = []            # swarms: home spot and every fly's loop
 var fire := {}
 var chunks := Vector2i.ZERO          # how many chunks across and down
 var grid: ChunkGrid
@@ -37,6 +38,7 @@ static func load_default() -> WorldData:
 	d.brook = j.get("brook", [])
 	d.birds = j.get("birds", [])
 	d.wisps = j.get("wisps", [])
+	d.fireflies = j.get("fireflies", [])
 	d.fire = j.get("fire", {})
 	var cs: Array = j.get("chunks", [0, 0])
 	d.chunks = Vector2i(int(cs[0]), int(cs[1]))

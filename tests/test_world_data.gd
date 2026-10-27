@@ -23,3 +23,25 @@ func test_every_sprite_file_exists_and_fits_its_frames() -> void:
 		assert_true(tex != null, path)
 		if tex != null:
 			assert_eq(tex.get_width(), int(s["w"]) * int(s["frames"]), "Breite " + path)
+
+func test_fireflies_load_from_world() -> void:
+	var w := WorldData.load_default()
+	assert_true(w.fireflies.size() > 5, "Glühwürmchen-Schwärme im Süden")
+	var s: Dictionary = w.fireflies[0]
+	assert_true(s.has("x") and s.has("y") and s["flies"].size() > 3)
+
+func test_a_swarm_glows_and_moves() -> void:
+	var w := WorldData.load_default()
+	var f := Fireflies.new()
+	f.setup(w.fireflies[0])
+	var a := f.state(0.0)
+	var b := f.state(3.0)
+	assert_eq(a.size(), b.size())
+	assert_true(a[0] != b[0], "die Fliegen ziehen ihre Bahn")
+	var lit := 0
+	for t in 40:
+		for p in f.state(t * 0.25):
+			if p.z > 0.45:
+				lit += 1
+	assert_true(lit > 0, "manche glühen auf")
+	f.free()

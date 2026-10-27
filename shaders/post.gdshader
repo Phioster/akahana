@@ -12,6 +12,8 @@ uniform vec2 cam_pos;                 // world position (art px, fractional) of 
 uniform int light_count = 0;
 uniform vec4 lights[16];              // x, y, radius, strength
 uniform vec4 light_info[16];          // kind, x seed, y seed, glowing pixel count
+uniform int fly_count = 0;
+uniform vec4 flies[40];               // fireflies: x, y, radius, strength (their glow pulses in the node)
 
 const float LOOP = 8.0;               // the wallpaper loops every 8 s; flicker uses the same phase
 const vec3 LCOL = vec3(1.0, 0.62, 0.30);
@@ -73,6 +75,15 @@ void fragment() {
 			L += li;
 			bloom += vec3(250.0, 190.0, 90.0) * info.w * fl * g;
 		}
+	}
+	for (int i = 0; i < 40; i++) {                                 // the fireflies: tiny warm pools, a faint bloom
+		if (i >= fly_count) break;
+		vec4 l = flies[i];
+		vec2 dv = world - l.xy;
+		float d = length(dv * vec2(1.0, 1.35)) / l.z;
+		L += l.w / (1.0 + 4.0 * d * d) * sqrt(clamp(1.0 - d, 0.0, 1.0));
+		float r2 = dot(dv, dv);
+		bloom += vec3(250.0, 190.0, 90.0) * 0.8 * (l.w / 0.27) * (0.0875 * exp(-r2 / 8.0) + 0.0221 * exp(-r2 / 72.0));
 	}
 	bloom *= vec3(1.0, 0.80, 0.55);
 	a *= 1.0 + L * LCOL * 1.4 + Lw * WCOL * 1.2;

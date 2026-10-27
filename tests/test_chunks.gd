@@ -84,6 +84,20 @@ func test_no_flapping_between_near_and_far() -> void:
 	assert_eq(n["made"], 1, "nur einmal erzeugt")
 	a.clear()
 
+func test_activator_only_visits_nearby_buckets() -> void:
+	# the grown world has some 1200 things: a look at every one each frame would cost, so only those
+	# whose neighbourhood the view touches are checked
+	var a := Activator.new()
+	for i in 1000:
+		a.add(Rect2((i % 40) * 250, (i / 40) * 250, 20, 20), 40.0, 120.0, func(): return Node.new(), func(x): x.free())
+	a.visited = 0
+	a.update(Rect2(1000, 1000, 180, 400))
+	assert_between(a.active_count(), 1, 12)
+	assert_true(a.visited < 60, "nur Eintraege in der Naehe geprueft (%d)" % a.visited)
+	a.update(Rect2(20000, 20000, 180, 400))
+	assert_eq(a.active_count(), 0, "die Alten fallen weg, obwohl ihr Eimer nicht mehr in Sicht ist")
+	a.clear()
+
 func test_clear_drops_everything() -> void:
 	var a := Activator.new()
 	for i in 5:

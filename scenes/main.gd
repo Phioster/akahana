@@ -3,8 +3,9 @@
 extends Node2D
 
 const MAX_LIGHTS := 16
-const KINDS := {"fire": 0.0, "lantern": 1.0, "wood": 2.0, "candle": 3.0, "wisp": 4.0}
-const GLOW := {"fire": 40.0, "lantern": 6.0, "wood": 8.0, "candle": 4.0, "wisp": 4.0}   # glowing pixels, for bloom
+const MAX_FLIES := 40
+const KINDS := {"fire": 0.0, "lantern": 1.0, "wood": 2.0, "candle": 3.0, "wisp": 4.0, "kerze": 3.0}
+const GLOW := {"fire": 40.0, "lantern": 6.0, "wood": 8.0, "candle": 4.0, "wisp": 4.0, "kerze": 1.2}   # glowing pixels, for bloom
 const SAVE_EVERY := 5.0
 const CAM_EASE := 5.0                # how quickly the view catches up: starting and stopping glide
 const CAM_MIN_SPEED := 4.0           # art px/s: the slowest it glides before arriving
@@ -65,6 +66,10 @@ func _ready() -> void:
 	for w in world.wisps:                                 # wisps appear beyond the view's edge only
 		var at := Vector2(float(w["x"]), float(w["y"]))
 		_life.add(Rect2(at, Vector2.ZERO), 60.0, 160.0, _make_wisp.bind(at), func(n: Node): n.queue_free())
+	for s in world.fireflies:                             # fireflies: only the swarms near the view fly
+		var at := Vector2(float(s["x"]), float(s["y"]))
+		_life.add(Rect2(at - Vector2(20, 20), Vector2(40, 40)), 40.0, 120.0, _make_swarm.bind(s),
+				func(n: Node): n.queue_free())
 	birds = Birds.new()
 	birds.world = world
 	birds.player = player
@@ -120,6 +125,14 @@ func _make_wisp(at: Vector2) -> Node:
 	wisp.player = player
 	add_child(wisp)
 	return wisp
+
+
+func _make_swarm(s: Dictionary) -> Node:
+	var f := Fireflies.new()
+	f.setup(s)
+	f.z_index = 1                                     # they hover: over the grass and the wanderer's feet
+	add_child(f)
+	return f
 
 
 func _start_position() -> Vector2:
@@ -288,6 +301,16 @@ func _feed_lights(view: Rect2) -> void:
 	while pos.size() < MAX_LIGHTS:
 		pos.append(Vector4.ZERO)
 		info.append(Vector4.ZERO)
+	var flies: Array[Vector4] = []                     # the fireflies' tiny lights: their own list, so the
+	for sw in get_tree().get_nodes_in_group("fireflies"):  # lamps keep their 16 slots
+		for l in sw.lights():
+			if flies.size() < MAX_FLIES and view.grow(10.0).has_point(Vector2(l.x, l.y)):
+				flies.append(l)
+	var nf := flies.size()
+	while flies.size() < MAX_FLIES:
+		flies.append(Vector4.ZERO)
+	post.set_shader_parameter("flies", flies)
+	post.set_shader_parameter("fly_count", nf)
 	post.set_shader_parameter("lights", pos)
 	post.set_shader_parameter("light_info", info)
 	post.set_shader_parameter("light_count", n)
