@@ -130,9 +130,12 @@ def solid(t, m, dy, spr=None):
         _line(m, [t.a, t.b], t.r - 1, dy)
     elif isinstance(t, (os_.Mauer, os_.Zaun)) and spr is not None:   # only where stones were drawn: it is a ruin
         a = spr['rgba'][:, :spr['w'], 3] > 0
-        for i in np.nonzero(a.any(0))[0]:
-            j = int(np.nonzero(a[:, i])[0].max())              # the foot of the wall in this column
-            _rect(m, spr['x'] + i, spr['y'] + j - 3, spr['x'] + i, spr['y'] + j)
+        for i in range(a.shape[1]):                            # standing stones only: three or more on top of
+            col = a[:, i]                                      # each other; loose crumbs on the ground don't block
+            for j in range(len(col) - 1, 1, -1):
+                if col[j] and col[j - 1] and col[j - 2]:
+                    _rect(m, spr['x'] + i, spr['y'] + j - 3, spr['x'] + i, spr['y'] + j)
+                    break
     elif isinstance(t, os_.Karren):
         _rect(m, x - 16, y - 6, x + 10, y + 1)
     # ducks, birds, candles: nothing to bump into
@@ -151,6 +154,9 @@ def fix_old_blocks(walk, sprites):
                 walk[f - 5:f + 2, cx - 5:cx + 7] = False
             else:
                 walk[f - 3:f + 2, cx - 2:cx + 4] = False
+        elif nm == 'zelt':                                     # the canvas, not the shadow beside it
+            walk[f - 6:f + 3, x0 + 3:x1 - 3] = True
+            walk[1090:1101, 238:268] = False
         elif nm == 'baum':                                     # the big cherry: gen_world's square sat right of and
             tx, ty = s['x'], s['y']                            # above the trunk's foot; now the foot as drawn
             walk[ty + 150:ty + 174, tx + 88:tx + 112] = True
