@@ -105,6 +105,7 @@ func _make_chunk(c: Vector2i) -> void:
 	m.shader = _shader
 	m.set_shader_parameter("tex_size", Vector2(ChunkGrid.SIZE + Vector2i(2, 2) * ChunkGrid.APRON))
 	m.set_shader_parameter("origin", corner - Vector2(ChunkGrid.APRON, ChunkGrid.APRON))
+	m.set_shader_parameter("bend_tex", store.bend_tex(c))
 	_feed(m)
 	f.material = m
 	add_child(f)

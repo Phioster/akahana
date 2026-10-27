@@ -154,6 +154,18 @@ func test_water_moves_on_the_ground_of_a_brook_chunk() -> void:
 	assert_eq(m.get_shader_parameter("origin"), Vector2(180, 600))
 	v.queue_free()
 
+func test_blades_bend_with_their_height_map() -> void:
+	# grass and reeds bend from the foot (bend map per chunk, with the flowers' apron); poppies move whole
+	var v := _view(Rect2(90, 2040, 180, 120))
+	var c := Vector2i(0, 10)
+	assert_true(v._chunks.has(c), "Kachel im Grasland geladen")
+	var m := (v._chunks[c][1] as Sprite2D).material as ShaderMaterial
+	var bt: Texture2D = m.get_shader_parameter("bend_tex")
+	assert_true(bt != null and bt.get_size() == Vector2(196, 216), "Höhenkarte mit Rand")
+	var code: String = (load("res://shaders/flowers.gdshader") as Shader).code
+	assert_true(code.contains("BEND_H"))
+	v.queue_free()
+
 func test_water_shader_keeps_its_noise_small() -> void:
 	# on the phone the GPU computes in 32 bit: sin() of big world coordinates turns the noise into stripes
 	var code: String = (load("res://shaders/water.gdshader") as Shader).code
@@ -177,5 +189,7 @@ func test_ground_arriving_before_its_flowers_is_not_lost() -> void:
 	s._images[f] = Image.create(196, 216, false, Image.FORMAT_RGBA8)
 	s.poll()
 	s._images[s._base(c) + "water.png"] = Image.create(180, 200, false, Image.FORMAT_RGBA8)
+	s.poll()
+	s._images[s._base(c) + "bend.png"] = Image.create(196, 216, false, Image.FORMAT_L8)
 	s.poll()
 	assert_true(s.is_ready(c), "Kachel fertig, als beide Bilder da waren")
