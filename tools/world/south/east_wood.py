@@ -39,6 +39,12 @@ def render(seed=73):
     sn = ndi.gaussian_filter(rng.random((H, WD)), 1.2)
     lie = sn < 0.42 + 0.3 * alt - 0.3
     g[lie] = WH * (0.8 + 0.12 * alt[lie, None])                  # snow lying between the trunks
+    # the seam: the old map's own ground carries on, pixel by pixel giving way to the wood's floor
+    from PIL import Image
+    old = np.array(Image.open(os.path.join(z1.ROOT, 'build', 'world_full', 'ground.png')).convert('RGB')).astype(float)
+    src = old[np.clip(yy + 37, 0, old.shape[0] - 1), X0 - 45 + (xx % 45)]   # shifted, so nothing repeats beside itself
+    take = rng.random((H, WD)) < np.clip(1 - xx / 60.0, 0, 1) ** 0.8
+    g[take] = src[take]
     G = rng.random((H, WD))
 
     def boulder(x_, y_, rx, ry):                                 # as gen_world's cliff foot
