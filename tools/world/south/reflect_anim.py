@@ -43,11 +43,12 @@ def draw(img, x0, y0, water, ups, t, mode='B'):
         if not 0 <= j < h:
             continue
         amp = min(2.0, 0.4 + d / 14.0)                 # rows sway more the further out they lie
-        dx = int(np.round(amp * np.sin(ry * 0.85 - ph * 2 + 0.03 * x)))
+        dx = int(np.round(amp * (0.65 * np.sin(ry * 0.85 - ph + 0.03 * x)        # two swells crossing at
+                                 + 0.45 * np.sin(ry * 0.31 + 3 * ph + 0.05 * x + 1.7))))   # their own pace
         i = x - x0 + dx
         if not 0 <= i < w or not water[j, i]:
             continue
-        if mode == 'B' and d > 6 and ((ry * 7 + int(ph * 3)) % 9 < min(4, d // 8)):
+        if mode == 'B' and d > 6 and np.sin(ry * 1.7 + 2 * ph + np.sin(ry * 0.23 - ph) * 3) > 1 - min(4, d // 8) / 4.5:
             continue                                   # broken by a ripple row
         fade = max(0.35, 1.0 - d / 90.0)
         k = KEEP * fade

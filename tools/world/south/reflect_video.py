@@ -96,12 +96,16 @@ def main(out):
             for (lx, ly) in mirrored:                      # glints in rows, swaying, thinning out downwards
                 for d in range(0, 26):
                     j = ly + d                     # lights are already in the cut's coordinates
-                    if not 0 <= j < o.shape[0] or (j * 5 + int(ph * 4)) % 3 == 0:
+                    if not 0 <= j < o.shape[0]:
                         continue
                     half = 1 + d // 9
-                    off = int(np.round(1.5 * np.sin(j * 0.9 - ph * 2)))
+                    off = int(np.round(1.0 * np.sin(j * 0.9 - ph) + 0.7 * np.sin(j * 0.37 + 3 * ph + 1.3)))
                     for i in range(lx - half + off, lx + half + off + 1):
-                        if 0 <= i < o.shape[1] and lake[j, i] and ((i * 3 + j) % 4 or d < 4):
+                        hh = (np.sin(i * 12.9898 + j * 78.233) * 43758.5453) % 1.0   # every glint its own rhythm
+                        cyc = 1 + int(hh * 5)                  # whole cycles per loop, so it still loops
+                        if np.sin(cyc * ph + hh * 40.0) < 0.15:
+                            continue
+                        if 0 <= i < o.shape[1] and lake[j, i]:
                             a_ = keep * (1 - d / 30) * 0.9
                             o[j, i] = o[j, i] * (1 - a_) + np.array([236, 190, 110]) * a_
             side.append(np.clip(o, 0, 255).astype(np.uint8))
