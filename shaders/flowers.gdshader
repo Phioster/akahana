@@ -77,6 +77,7 @@ void fragment() {
 	}
 	vec2 src = p;
 	bool trampled = false;
+	float press = 0.0;                                     // in the trail's middle the blades lie pressed down
 	float h = hash(p);
 	float rw = mix(R1, R0, bk);                            // the V opens with age
 	if (best > 0.3 * h && abs(bo) < rw) {                  // frayed: each flower lets go at its own moment
@@ -84,6 +85,7 @@ void fragment() {
 		float amt = PUSH * ease * clamp(1.0 - abs(bo) / rw, 0.0, 1.0) * 1.6;
 		float off = floor(clamp(amt, 0.0, PUSH) + h * 0.6);
 		trampled = abs(bo) < 1.0 && h < 0.5 * ease;        // here and there one bent under his feet
+		press = ease * clamp(1.0 - abs(bo) / (rw * 0.7), 0.0, 1.0);
 		src = p - bn * sign(bo) * off;
 	}
 	// poppy heads (height 255) move whole, as they always did
@@ -101,8 +103,13 @@ void fragment() {
 				best = h;
 			}
 		}
-		// at a gust's front one blade goes and its neighbour not yet: fill that 1-px gap, never show ground
-		if (c.a == 0.0 && at(TEXTURE, src).a > 0.0 && height_at(src) < 254.5) {
+		// the trail through tall grass: pressed blades show only low (they rise again as he walks on); the
+		// wind's gap filling below must not close the lane again
+		float lie = mix(40.0, 2.0, press);
+		// (else) at a gust's front one blade goes and its neighbour not yet: fill that 1-px gap, never ground
+		if (press > 0.05 && best > lie)
+			c = vec4(0.0);
+		else if (c.a == 0.0 && press < 0.05 && at(TEXTURE, src).a > 0.0 && height_at(src) < 254.5) {
 			vec4 f = at(TEXTURE, src - vec2(bend_of(src, height_at(src)), 0.0));
 			c = f.a > 0.0 ? f : at(TEXTURE, src);
 		}

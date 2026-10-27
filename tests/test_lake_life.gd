@@ -66,3 +66,62 @@ func test_lake_life_keeps_a_few_animals_near_the_view_only() -> void:
 		l.step(0.05, Rect2(100, 700, 180, 400))
 	assert_eq(l.fish_count(), 0, "weit weg vom See keine Fische")
 	l.queue_free()
+
+func _lake() -> LakeLife:
+	var l := LakeLife.new()
+	l.world = WorldData.load_default()
+	l.load_map()
+	return l
+
+func test_a_duck_at_the_shallows_turns_once_and_does_not_flicker() -> void:
+	# phone 0.7.0: a duck by a stone turned every frame and its face flickered left/right
+	var l := _lake()
+	var d := LakeLife.Duck.new()
+	d.setup(l, Vector2(519, 3223), Vector2(900, 3223))        # heading east, into the shallows
+	d.heading = Vector2.RIGHT
+	var faces := []
+	for i in 120:
+		d.live(1.0 / 30.0, Vector2(-999, -999), Rect2(0, 0, 9999, 9999))
+		faces.append(d.facing)
+	var flips := 0
+	for i in range(1, faces.size()):
+		if faces[i] != faces[i - 1]:
+			flips += 1
+	assert_true(flips <= 1, "dreht sich einmal um, nicht hin und her: %d" % flips)
+	assert_true(l.swim_depth(d.pos) >= LakeLife.DUCK_DEPTH, "bleibt im Wasser")
+	d.free()
+	l.free()
+
+func test_a_fish_at_the_shallows_turns_away_and_keeps_its_course() -> void:
+	var l := _lake()
+	var f := LakeLife.Fish.new()
+	f.setup(l, Vector2(593, 3225))
+	f.circling = false
+	f.heading = Vector2.RIGHT
+	f.brain = FishBrain.new(30.0)
+	var turns := 0
+	var last := f.heading
+	for i in 120:
+		f.live(1.0 / 30.0, Vector2(-999, -999), false)
+		if f.heading.angle_to(last) > 1.0 or f.heading.angle_to(last) < -1.0:
+			turns += 1
+		last = f.heading
+	assert_true(turns <= 2, "wendet einmal, zappelt nicht: %d" % turns)
+	assert_true(l.swim_depth(f.pos) >= LakeLife.FISH_DEPTH, "bleibt im tiefen Wasser")
+	f.free()
+	l.free()
+
+func test_ducks_keep_off_stones_in_the_water() -> void:
+	var l := _lake()
+	var ow := Image.load_from_file(ProjectSettings.globalize_path("res://assets/world/open_water.png"))
+	var stone := Vector2(-1, -1)
+	for y in range(2900, 3500, 3):                             # a lake pixel that is not open water: a stone
+		for x in range(100, 800, 3):
+			if l.depth_at(Vector2(x, y)) > 60 and ow.get_pixel(x, y).r < 0.5:
+				stone = Vector2(x, y)
+				break
+		if stone.x >= 0.0:
+			break
+	assert_true(stone.x >= 0.0, "ein Stein im See gefunden")
+	assert_eq(l.swim_depth(stone), 0, "auf dem Stein schwimmt nichts")
+	l.free()

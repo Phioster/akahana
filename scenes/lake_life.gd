@@ -17,6 +17,7 @@ var player: Node2D
 var sorted: Node2D
 var store: ChunkStore                        # to tell when the wanderer is wading
 var _map: Image
+var _open: Image                             # full size: open water, no stones, jetty or boat in it
 var _fish: Array = []
 var _ducks: Array = []
 var _fish_in := 1.0
@@ -36,6 +37,8 @@ func _ready() -> void:
 func load_map() -> void:
 	var t := TextureLoader.load_texture(MAP)
 	_map = t.get_image() if t != null else null
+	var o := TextureLoader.load_texture("res://assets/world/open_water.png")
+	_open = o.get_image() if o != null else null
 
 
 func depth_at(p: Vector2) -> int:
@@ -48,11 +51,35 @@ func depth_at(p: Vector2) -> int:
 	return int(round(_map.get_pixel(x, y).r * 255.0))
 
 
+## Depth where something can swim: none on a stone, the jetty or the boat (the half-size map has them as lake).
+func swim_depth(p: Vector2) -> int:
+	if _open != null:
+		var x := int(p.x)
+		var y := int(p.y)
+		if x < 0 or y < 0 or x >= _open.get_width() or y >= _open.get_height() or _open.get_pixel(x, y).r < 0.5:
+			return 0
+	return depth_at(p)
+
+
+## A way on from p that stays at least min_depth deep: straight on if it can, else the smallest turn,
+## first to the side it turned last time (so it does not swing back and forth at an edge).
+func steer(p: Vector2, heading: Vector2, min_depth: int, side: float) -> Vector2:
+	for a in [0.0, 0.5, 1.0, 1.6, 2.2, 2.8]:
+		for sgn in [side, -side]:
+			var h := heading.rotated(a * sgn)
+			if swim_depth(p + h * 6.0) >= min_depth and swim_depth(p + h * 2.0) >= min_depth:
+				return h
+			if a == 0.0:
+				break
+	return -heading
+
+
 ## A random point at least min_depth deep inside r, or (-1, -1) if none was found.
 func random_spot(r: Rect2, min_depth: int) -> Vector2:
 	for i in 24:
 		var p := Vector2(randf_range(r.position.x, r.end.x), randf_range(r.position.y, r.end.y))
-		if depth_at(p) >= min_depth:
+		if swim_depth(p) >= min_depth and swim_depth(p + Vector2(8, 0)) >= min_depth \
+				and swim_depth(p - Vector2(8, 0)) >= min_depth:
 			return p.round()
 	return Vector2(-1, -1)
 
@@ -128,6 +155,9 @@ class Fish:
 	var heading := Vector2.RIGHT
 	var speed := 6.0
 	var circling := false
+	var _side := 1.0                             # which way it turns at an edge, kept for its whole life
+	var _shown := Vector2.ZERO
+	var pos := Vector2.ZERO                      # the true, smooth spot; the node stands on _shown
 	var centre := Vector2.ZERO
 	var radius := 10.0
 	var _a := 0.0
@@ -136,7 +166,7 @@ class Fish:
 	func setup(l: LakeLife, at: Vector2) -> void:
 		lake = l
 		brain = FishBrain.new(randf_range(6.0, 16.0))
-		position = at
+		pos = at
 		length = float(randi_range(7, 9))
 		heading = Vector2.RIGHT.rotated(randf() * TAU)
 		circling = randf() < 0.5                     # a few rounds, or off in one direction
@@ -144,26 +174,33 @@ class Fish:
 		centre = at - heading.orthogonal() * radius
 		_a = (at - centre).angle()
 		speed = randf_range(4.0, 7.0)
+		_side = 1.0 if randf() < 0.5 else -1.0
 		z_index = -1
+		_shown = at.round()
+		position = _shown
 
 	func live(delta: float, player_at: Vector2, wading: bool) -> void:
 		_t += delta
-		brain.update(delta, position.distance_to(player_at), wading)
-		var next := position
+		brain.update(delta, pos.distance_to(player_at), wading)
+		var next := pos
 		if brain.state == FishBrain.DART:            # off and down, away from the feet
-			heading = (position - player_at).normalized()
-			next = position + heading * 30.0 * delta
+			heading = (pos - player_at).normalized()
+			next = pos + heading * 30.0 * delta
 		elif circling:
 			_a += speed / radius * delta
 			next = centre + Vector2.from_angle(_a) * radius
 			heading = Vector2.from_angle(_a + PI / 2.0)
 		else:
-			next = position + heading * speed * delta
-		if lake.depth_at(next) < LakeLife.FISH_DEPTH and brain.state != FishBrain.DART:
-			circling = false                         # shallow ahead: turn away from it
-			heading = heading.rotated(randf_range(PI * 0.6, PI * 1.4))
-			next = position
-		position = next
+			next = pos + heading * speed * delta
+		if lake.swim_depth(next) < LakeLife.FISH_DEPTH and brain.state != FishBrain.DART:
+			circling = false                         # shallow ahead: turn once, the smallest way, and go on
+			heading = lake.steer(pos, heading, LakeLife.FISH_DEPTH, _side)
+			next = pos + heading * speed * delta
+			if lake.swim_depth(next) < LakeLife.FISH_DEPTH:
+				next = pos
+		pos = next
+		_shown = PixelSnap.sticky(_shown, pos)   # whole pixels, without shaking round a pixel's middle
+		position = _shown
 		queue_redraw()
 
 	func _draw() -> void:
@@ -173,7 +210,7 @@ class Fish:
 		var L := length / 2.0
 		var c := heading.normalized()
 		var r := int(L) + 3
-		var origin := position.round()
+		var origin := _shown
 		for j in range(-r, r + 1):
 			for i in range(-r, r + 1):
 				var w := Vector2(i, j) + origin
@@ -187,19 +224,19 @@ class Fish:
 				# rising and sinking, the shape comes and goes pixel by pixel (no transparency)
 				if fposmod(sin(w.x * 12.9898 + w.y * 78.233) * 43758.5453, 1.0) > shown:
 					continue
-				var at := Vector2(i, j) + origin - position
+				var at := Vector2(i, j)
 				if absf(u) <= L and absf(v) <= half:
 					draw_rect(Rect2(at, Vector2.ONE), BODY)
 				elif u > L * 0.3 and absf(u) <= L + 1.0 and absf(v) <= half + 1.0 and (i * 7 + j * 3) % 3 != 0:
 					draw_rect(Rect2(at, Vector2.ONE), BOW)
 		if brain.state == FishBrain.SWIM and absf(heading.angle_to(Vector2.RIGHT.rotated(_t))) < 0.05:
-			draw_rect(Rect2(origin - position, Vector2.ONE), GLINT)   # turning, a flank catches the light
+			draw_rect(Rect2(Vector2.ZERO, Vector2.ONE), GLINT)   # turning, a flank catches the light
 		if brain.state == FishBrain.RISE:                # where it came up, a small ring spreads
 			var rr := 1.5 + _t * 4.0
 			for k in int(8 + rr * 5):
 				var p := (origin + Vector2(cos(k * TAU / (8 + rr * 5)) * rr, 0.6 * rr * sin(k * TAU / (8 + rr * 5)))).round()
 				if lake.depth_at(p) >= 25:
-					draw_rect(Rect2(p - position, Vector2.ONE), RING)
+					draw_rect(Rect2(p - origin, Vector2.ONE), RING)
 
 
 ## One duck: a small brown body with a dark green head and a pale V of wake behind it.
@@ -212,42 +249,58 @@ class Duck:
 	var brain: DuckBrain
 	var lake: LakeLife
 	var heading := Vector2.RIGHT
+	var facing := 1                              # which way it looks; only turns on a clear sideways heading
 	var _turn_in := 2.0
+	var _side := 1.0
 	var _t := 0.0
+	var pos := Vector2.ZERO                      # the true, smooth spot; the node stands on _shown
+	var _shown := Vector2.ZERO
 
 	func setup(l: LakeLife, at: Vector2, towards: Vector2) -> void:
 		lake = l
 		brain = DuckBrain.new(randf_range(20.0, 40.0))
-		position = at
+		pos = at
 		heading = (towards - at).normalized().rotated(randf_range(-0.5, 0.5))
+		_side = 1.0 if randf() < 0.5 else -1.0
+		facing = 1 if heading.x >= 0.0 else -1
+		_shown = at.round()
+		position = _shown
 
 	func live(delta: float, player_at: Vector2, view: Rect2) -> void:
 		_t += delta
-		brain.update(delta, position.distance_to(player_at))
+		brain.update(delta, pos.distance_to(player_at))
 		var speed := 3.0
 		match brain.state:
 			DuckBrain.FLY:
-				heading = (position - player_at).normalized()
-				position += (heading + Vector2(0, -0.5)) * 40.0 * delta
+				heading = (pos - player_at).normalized()
+				pos += (heading + Vector2(0, -0.5)) * 40.0 * delta
+				_shown = pos.round()
+				position = _shown
 				queue_redraw()
 				return
 			DuckBrain.LEAVE:
-				heading = (position - view.get_center()).normalized()
+				heading = (pos - view.get_center()).normalized()
 				speed = 5.0
 			_:
 				_turn_in -= delta
 				if _turn_in <= 0.0:
 					_turn_in = randf_range(2.0, 5.0)
 					heading = heading.rotated(randf_range(-1.0, 1.0))
-		var next := position + heading * speed * delta
-		if lake.depth_at(next) < LakeLife.DUCK_DEPTH:
-			heading = heading.rotated(PI * randf_range(0.7, 1.3))
-		else:
-			position = next
+		var next := pos + heading * speed * delta
+		if lake.swim_depth(next) < LakeLife.DUCK_DEPTH:
+			heading = lake.steer(pos, heading, LakeLife.DUCK_DEPTH, _side)
+			_turn_in = randf_range(2.0, 5.0)         # and keep that course a while
+			next = pos + heading * speed * delta
+		if lake.swim_depth(next) >= LakeLife.DUCK_DEPTH:
+			pos = next
+		if absf(heading.x) > 0.3:
+			facing = 1 if heading.x > 0.0 else -1
+		_shown = PixelSnap.sticky(_shown, pos)
+		position = _shown
 		queue_redraw()
 
 	func _draw() -> void:
-		var d := 1 if heading.x >= 0.0 else -1
+		var d := facing
 		var o := Vector2.ZERO
 		if brain.state == DuckBrain.FLY:             # wings beating
 			var up := int(_t * 8.0) % 2 == 0

@@ -183,6 +183,7 @@ func test_blades_bend_with_their_height_map() -> void:
 	assert_true(bt != null and bt.get_size() == Vector2(196, 216), "Höhenkarte mit Rand")
 	var code: String = (load("res://shaders/flowers.gdshader") as Shader).code
 	assert_true(code.contains("BEND_H"))
+	assert_true(code.contains("press"), "in der Spur liegen die Halme flach, der Wind schließt die Gasse nicht")
 	v.queue_free()
 
 func test_water_shader_keeps_its_noise_small() -> void:

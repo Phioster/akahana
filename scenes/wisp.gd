@@ -34,6 +34,7 @@ var _last_breath := -1
 var _vel := Vector2.ZERO
 var _pos := Vector2.ZERO              # the true, smooth position; the node shows it rounded
 var _pos_set := false
+var _shown := Vector2.ZERO            # the whole pixel it is drawn on
 
 
 func _ready() -> void:
@@ -71,8 +72,9 @@ func _process(delta: float) -> void:
 
 func step(delta: float, pl: Vector2) -> void:
 	_t += delta
-	if not _pos_set or position != _pos.round():   # placed from outside (main, tests): start there
+	if not _pos_set or position != _shown:         # placed from outside (main, tests): start there
 		_pos = position
+		_shown = position.round()
 		_pos_set = true
 	var away := _pos - pl
 	var dist := away.length()
@@ -80,7 +82,8 @@ func step(delta: float, pl: Vector2) -> void:
 		if pl.distance_to(anchor) > SHY + 40.0:
 			_hidden = false
 			_pos = anchor
-			position = _pos.round()
+			_shown = _pos.round()
+			position = _shown
 			_vel = Vector2.ZERO
 		return
 	_alpha = minf(1.0, _alpha + delta * 0.5)
@@ -102,7 +105,8 @@ func step(delta: float, pl: Vector2) -> void:
 	_pos += _vel * delta
 	# the node itself stands on whole world pixels like the ground: with pixel snapping on, a fractional
 	# node was rounded against the scrolling camera and hopped a pixel in the walking direction
-	position = _pos.round()
+	_shown = PixelSnap.sticky(_shown, _pos)        # and hovering round a pixel's middle it does not shake
+	position = _shown
 
 
 func visible_amount() -> float:

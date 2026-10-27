@@ -154,6 +154,12 @@ func _start_position() -> Vector2:
 
 # ---------------------------------------------------------------- journal and saving
 
+## Where the view comes to rest: its top-left corner on a whole pixel. The view's height in art pixels is
+## rarely whole (180 wide on a tall phone), so a whole-pixel middle would leave the corner on half a pixel.
+static func rest_goal(goal: Vector2, view: Vector2) -> Vector2:
+	return (goal - view * 0.5).round() + view * 0.5
+
+
 func _on_start_walking(fresh: bool) -> void:
 	if fresh:
 		_cam_at = Vector2.INF
@@ -264,7 +270,7 @@ func _process(delta: float) -> void:
 			if absf(off) > CAM_CALM[k]:
 				_cam_goal[k] = c[k] - signf(off) * CAM_CALM[k]
 		if not player.is_walking():                    # rest on a whole pixel (between two the post shader
-			_cam_goal = _cam_goal.round()              # read on borders); walking, round goals wobbled the view
+			_cam_goal = rest_goal(_cam_goal, view)     # read on borders); walking, round goals wobbled the view
 		# ease out, but never creep: below a small speed it rolls straight onto the goal and stops there
 		# (the endless creep ended in a visible snap)
 		var left := _cam_at.distance_to(_cam_goal)

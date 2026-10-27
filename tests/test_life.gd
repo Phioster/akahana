@@ -656,3 +656,33 @@ func test_fireflies_hum_only_close_by() -> void:
 	assert_true(hum.max_distance <= 60.0, "nur nah zu hören")
 	assert_true(hum.volume_db <= -14.0, "viel leiser")
 	sw.queue_free()
+
+func test_at_rest_the_view_s_corner_lies_on_a_whole_pixel() -> void:
+	# phone: the view is 180 wide and about 400.4 high; a whole-pixel middle left the corner on half a pixel,
+	# the world drawn between two pixels (he stood "in" the jetty, everything soft)
+	var main := load("res://scenes/main.gd")
+	for view in [Vector2(180, 400.4), Vector2(180, 401), Vector2(180, 399.75)]:
+		var g: Vector2 = main.rest_goal(Vector2(271.3, 2955.6), view)
+		var corner: Vector2 = g - view * 0.5
+		assert_eq(corner, corner.round(), "Ecke auf ganzem Pixel bei %s" % view)
+		assert_true(g.distance_to(Vector2(271.3, 2955.6)) <= 0.75, "kaum verschoben")
+
+func test_a_hovering_thing_does_not_hop_between_two_pixels() -> void:
+	# phone 0.7.0: the wisp and the fish shook back and forth: their true spot swung round a pixel's middle
+	var shown := Vector2(3, 7)
+	var hops := 0
+	for i in 60:
+		var p := Vector2(3.5 + 0.08 * sin(i * 1.3), 7.5 + 0.08 * cos(i * 0.9))
+		var n := PixelSnap.sticky(shown, p)
+		if n != shown:
+			hops += 1
+		shown = n
+	assert_true(hops <= 1, "bleibt stehen: %d Sprünge" % hops)
+	var s := Vector2(0, 0)
+	var steps := 0
+	for i in 100:                                   # steady drift still moves pixel by pixel
+		var n := PixelSnap.sticky(s, Vector2(i * 0.1, 0))
+		if n != s:
+			steps += 1
+		s = n
+	assert_true(steps >= 8 and steps <= 10, "gleichmäßig weiter: %d" % steps)
