@@ -363,6 +363,22 @@ func test_post_shader_knows_where_the_camera_really_is() -> void:
 	assert_true(worst < 0.01, "Shader liegt %.2f Pixel neben der echten Kamera" % worst)
 	m.queue_free()
 
+func test_the_south_mist_map_reaches_the_post_shader() -> void:
+	# thinner over grass and water, calm over the lake, a mist wall at the world's edge (south drafts)
+	var tree := Engine.get_main_loop() as SceneTree
+	var m: Node2D = load("res://scenes/main.gd").new()
+	tree.root.add_child(m)
+	await tree.process_frame
+	if m.world == null:
+		m.queue_free()
+		return
+	var t: Texture2D = m.post.get_shader_parameter("mist_fields")
+	assert_true(t != null, "Nebelkarte geladen")
+	assert_eq(m.post.get_shader_parameter("world_size"), Vector2(900, 3600))
+	var code: String = (load("res://shaders/post.gdshader") as Shader).code
+	assert_true(code.contains("GRASS_MIST") and code.contains("edge"))
+	m.queue_free()
+
 func test_wisp_stands_on_whole_world_pixels_like_the_ground() -> void:
 	# with "snap 2D transforms to pixel" on, a node at a fractional spot is rounded against the scrolling
 	# camera, the ground (on whole pixels) is not - so the wisp hopped a pixel in the walking direction

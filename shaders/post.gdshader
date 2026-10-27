@@ -7,6 +7,8 @@ render_mode unshaded;
 uniform sampler2D screen_tex : hint_screen_texture, filter_nearest;
 uniform sampler2D mist1 : repeat_enable, filter_linear;
 uniform sampler2D mist2 : repeat_enable, filter_linear;
+uniform sampler2D mist_fields : filter_linear;  // south: R mist band over the brooks, G calm over the lake,
+uniform vec2 world_size = vec2(900.0, 3600.0);   // B the mist wall at the world's edge (gen_south)
 uniform vec2 view_world = vec2(180.0, 400.0);   // visible area in art pixels
 uniform vec2 cam_pos;                 // world position (art px, fractional) of the screen's top-left corner
 uniform int light_count = 0;
@@ -19,6 +21,7 @@ const float LOOP = 8.0;               // the wallpaper loops every 8 s; flicker 
 const vec3 LCOL = vec3(1.0, 0.62, 0.30);
 const vec3 WCOL = vec3(1.0, 0.58, 0.26);      // the will-o'-the-wisp: a warm amber flame
 const vec3 MIST = vec3(214.0, 214.0, 212.0);
+const float GRASS_MIST = 0.45;        // thinner over green grass, where grey patches stood out (south drafts)
 
 float flick(float kind, float ph, vec2 s) {
 	if (kind < 0.5) return 0.80 + 0.12 * sin(ph * 11.0) + 0.08 * sin(ph * 23.0 + 1.3);                 // fire
@@ -92,6 +95,11 @@ void fragment() {
 	vec2 m2 = (world - vec2(6.0 * TIME, 0.0)) / vec2(256.0);
 	float f = 0.55 * (texture(mist1, m1).r - 0.5) * 6.0 + 0.45 * (texture(mist2, m2).r - 0.5) * 6.0;
 	float dens = clamp((f - 0.2) * 0.36, 0.0, 0.32);
+	float green = clamp((src.g - (src.r + src.b) * 0.5) / 10.0, 0.0, 1.0);
+	dens *= 1.0 - (1.0 - GRASS_MIST) * green;
+	vec3 mf = texture(mist_fields, world / world_size).rgb;
+	dens = dens * (1.0 - 0.5 * mf.r) + 0.06 * mf.r;                 // over the brooks: a flat, thin band
+	dens *= 1.0 - 0.65 * mf.g;                                     // over the wide lake: thin and even
 
 	vec2 t = 1.0 / view_world;                                     // softness only where the mist is thick
 	vec3 nb = texture(screen_tex, uv + vec2(t.x, 0.0)).rgb + texture(screen_tex, uv - vec2(t.x, 0.0)).rgb
@@ -110,5 +118,6 @@ void fragment() {
 		float q = floor(l2 / 22.0 + bay) * 22.0;
 		a = a * (q / l2);
 	}
+	a = a * (1.0 - mf.b) + MIST * mf.b;                            // the world fades into mist at its edge
 	COLOR = vec4(clamp(a / 255.0, 0.0, 1.0), 1.0);
 }

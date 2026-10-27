@@ -94,6 +94,8 @@ func _ready() -> void:
 	post.shader = load("res://shaders/post.gdshader")
 	post.set_shader_parameter("mist1", TextureLoader.load_texture(WorldData.DIR + "mist1.png"))
 	post.set_shader_parameter("mist2", TextureLoader.load_texture(WorldData.DIR + "mist2.png"))
+	post.set_shader_parameter("mist_fields", TextureLoader.load_texture(WorldData.DIR + "mist_fields.png"))
+	post.set_shader_parameter("world_size", Vector2(world.width, world.height))
 	rect.material = post
 	layer.add_child(rect)
 

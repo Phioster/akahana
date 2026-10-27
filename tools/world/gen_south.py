@@ -325,6 +325,9 @@ def main():
     fields[2, TOP:] = c.edge_fog
     np.savez_compressed(os.path.join(ROOT, 'build', 'mist_fields.npz'), band=fields[0], calm=fields[1],
                         edge=fields[2])
+    half = fields.reshape(3, H // 2, 2, W // 2, 2).mean(axis=(2, 4))   # the game's copy: half size, it is soft
+    Image.fromarray((np.clip(half, 0, 1).transpose(1, 2, 0) * 255).round().astype(np.uint8)).save(
+        os.path.join(OUT, 'mist_fields.png'))
     Image.fromarray(water_map(ground, w, c, m)).save(os.path.join(OUT, 'water.png'))
     Image.fromarray(bend).save(os.path.join(OUT, 'bend.png'))
     Image.fromarray(ground).save(os.path.join(OUT, 'ground.png'))
