@@ -46,6 +46,8 @@ class Collected:
         s.pass_ = 'ground'
         s.cut_sway = []            # masks of sway pixels a later zone lifted off again (zone 2: cut heads)
         s.scratch = None
+        s.brooks = []              # the Brooks drawn (their centre lines give the stream sounds)
+        s.masks = {}               # name -> (H, W) bool on the canvas: paths, brooks, lake, shallow, flat things
 
     def finish(s, H, W):
         sw = np.zeros((H, W, 4), np.uint8)
@@ -89,9 +91,15 @@ def _wrap(cls, kind):
             return orig(t, img, *rest)
         if c.pass_ == 'ground':
             return None if kind != 'flat' else orig(t, img, *rest)
-        if kind == 'flat':
-            return orig(t, img, *rest)
+        if img.shape[1] != z1.W:                               # a sideways jetty draws on the turned picture:
+            return orig(t, img, *rest)                         # the outer call records it
         x0, y0, x1, y1 = _box_of(t, img)
+        if kind == 'flat':                                     # where it lies, by kind: bridges, stones, the jetty
+            before = img[y0:y1, x0:x1].copy()
+            out = orig(t, img, *rest)
+            ch = np.abs(img[y0:y1, x0:x1] - before).sum(-1) > 0.5
+            _mark(c, type(t).__name__, img.shape, (y0, y1, x0, x1), ch)
+            return out
         before = img[y0:y1, x0:x1].copy()
         out = orig(t, img, *rest)
         after = img[y0:y1, x0:x1]
@@ -138,12 +146,66 @@ def _wrap(cls, kind):
     cls.draw = draw
 
 
+def _mark(c, name, shape, reg, m):
+    full = c.masks.get(name)
+    if full is None or full.shape != shape[:2]:
+        grown = np.zeros(shape[:2], bool)
+        if full is not None:                                   # zone canvases grow downwards: keep what is there
+            grown[:full.shape[0]] = full[:shape[0]]
+        full = c.masks[name] = grown
+    y0, y1, x0, x1 = reg
+    full[y0:y1, x0:x1] |= m
+
+
+def _wrap_fn(mod, name, record):
+    orig = getattr(mod, name)
+    if hasattr(orig, '_orig'):
+        return
+
+    def fn(*a, **k):
+        if _active is not None and _active.pass_ == 'full':
+            record(_active, *a, **k)
+        return orig(*a, **k)
+
+    fn._orig = orig
+    setattr(mod, name, fn)
+
+
+def _rec_path(c, img, pm, *rest):
+    _mark(c, 'path', img.shape, (0, pm.shape[0], 0, pm.shape[1]), pm)
+
+
+def _rec_lake(c, img, y0, lake, shallow, *rest, **k):
+    H = lake.shape[0]
+    _mark(c, 'lake', img.shape, (y0, y0 + H, 0, lake.shape[1]), lake)
+    _mark(c, 'shallow', img.shape, (y0, y0 + H, 0, lake.shape[1]), shallow & lake)
+
+
+def _wrap_brooks():
+    orig = ow.Brooks.draw
+    if hasattr(orig, '_orig'):
+        return
+
+    def draw(b, img, rng):
+        if _active is not None and _active.pass_ == 'full':
+            _mark(_active, 'brook', img.shape, (b.y0, b.y0 + b.H, 0, b.W), b.mask)
+            _active.brooks.append(b)
+        return orig(b, img, rng)
+
+    draw._orig = orig
+    ow.Brooks.draw = draw
+
+
 def _install():
     for k, group in (('sway', SWAY), ('flat', FLAT), ('stand', STAND)):
         for cls in group:
             if not hasattr(cls.draw, '_orig'):
                 _wrap(cls, k)
     z1.HOOKS.update(heads=heads_shown, lift=lift_heads, old=old_sprites_shown)
+    import extras
+    _wrap_fn(extras, 'draw_path', _rec_path)
+    _wrap_fn(ol, 'paint_lake', _rec_lake)
+    _wrap_brooks()
 
 
 def heads_shown(heads):
@@ -180,7 +242,7 @@ def collect():
     global _active
     import zone4_draft as z4
     import json, os
-    with open(os.path.join(z1.ROOT, 'build', 'world_full', 'world_old.json')) as f:
+    with open(os.path.join(z1.ROOT, 'build', 'world_old', 'world_old.json')) as f:
         w = json.load(f)
     c = Collected()
     _active = c

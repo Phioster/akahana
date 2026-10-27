@@ -35,8 +35,8 @@ BAND = 70                                   # old rows the new field may grow in
 def old_layers(w):
     """The old world's last CTX rows as separate layers: ground, poppy heads (RGBA), and its sprites."""
     y0 = OLD_H - CTX
-    g = np.array(Image.open(os.path.join(ROOT, 'build', 'world_full', 'ground.png')).convert('RGB')).astype(float)
-    f = np.array(Image.open(os.path.join(ROOT, 'build', 'world_full', 'flowers.png')))
+    g = np.array(Image.open(os.path.join(ROOT, 'build', 'world_old', 'ground.png')).convert('RGB')).astype(float)
+    f = np.array(Image.open(os.path.join(ROOT, 'build', 'world_old', 'flowers.png')))
     sprites = [s_ for s_ in w['sprites'] if s_['y'] + s_['h'] > y0]
     return g[y0:], f[y0:], sprites
 

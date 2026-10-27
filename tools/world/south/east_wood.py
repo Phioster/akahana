@@ -41,7 +41,7 @@ def render(seed=73):
     g[lie] = WH * (0.8 + 0.12 * alt[lie, None])                  # snow lying between the trunks
     # the seam: the old map's own ground carries on, pixel by pixel giving way to the wood's floor
     from PIL import Image
-    old = np.array(Image.open(os.path.join(z1.ROOT, 'build', 'world_full', 'ground.png')).convert('RGB')).astype(float)
+    old = np.array(Image.open(os.path.join(z1.ROOT, 'build', 'world_old', 'ground.png')).convert('RGB')).astype(float)
     src = old[np.clip(yy + 37, 0, old.shape[0] - 1), X0 - 45 + (xx % 45)]   # shifted, so nothing repeats beside itself
     take = rng.random((H, WD)) < np.clip(1 - xx / 60.0, 0, 1) ** 0.8
     g[take] = src[take]
@@ -125,10 +125,10 @@ if __name__ == '__main__':
     from PIL import Image
     import mood_map
     out = sys.argv[1]
-    with open(os.path.join(z1.ROOT, 'build', 'world_full', 'world_old.json')) as f:
+    with open(os.path.join(z1.ROOT, 'build', 'world_old', 'world_old.json')) as f:
         w = json.load(f)
     w = dict(w, sprites=old_sprites_kept(w['sprites']))
-    old = mood_map.composite(w)
+    old = mood_map.composite(w, os.path.join(z1.ROOT, 'build', 'world_old'))
     img = np.zeros((z1.OLD_H, z1.W, 3))
     img[:, :X0] = old
     eg, eh, fr = render()

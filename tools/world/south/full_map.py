@@ -28,10 +28,10 @@ EMPTY = np.array([29.0, 28.0, 32.0])         # the page background: nothing draw
 
 
 def main(out, scale=2):
-    w = json.load(open(os.path.join(ROOT, 'assets', 'world', 'world.json')))
+    w = json.load(open(os.path.join(ROOT, 'build', 'world_old', 'world_old.json')))
     south, lights, swarms, band, edge_fog, calm = z4.render(w, raw=True)
     top = z1.OLD_H - z1.CTX                    # the south canvas starts at this old-world row
-    old = mood_map.composite(w)
+    old = mood_map.composite(w, os.path.join(ROOT, 'build', 'world_old'))
     H = top + south.shape[0]
     img = np.zeros((H, z1.W, 3))
     img[:top] = EMPTY

@@ -41,7 +41,7 @@ class TestLayers(unittest.TestCase):
             cls.c = c
 
     def test_paint_without_collector_is_unchanged(self):
-        w = json.load(open(os.path.join(z1.ROOT, 'build', 'world_full', 'world_old.json')))
+        w = json.load(open(os.path.join(z1.ROOT, 'build', 'world_old', 'world_old.json')))
         r = z4.render(w, raw=True)[0]
         self.assertEqual(hashlib.md5(np.ascontiguousarray(r).tobytes()).hexdigest(), RAW_MD5)
 

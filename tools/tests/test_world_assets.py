@@ -44,6 +44,33 @@ class WorldAssets(unittest.TestCase):
         self.assertFalse(self.cells[:, :5].any())
         self.assertFalse(self.cells[:, -5:].any())
         self.assertFalse(self.cells[:15].any())
+        self.assertFalse(self.cells[-5:].any())
+
+    def test_the_world_is_five_chunks_wide_and_eighteen_tall(self):
+        self.assertEqual((self.w['width'], self.w['height']), (900, 3600))
+        self.assertEqual(self.w['chunks'], [5, 18])
+
+    def _from_start(self):
+        st = self.w['start']
+        return reach(self.cells.astype(bool), [(int(st['y']) // 2, int(st['x']) // 2)], diagonal=True)
+
+    def test_every_path_can_be_reached_from_the_start(self):
+        # no dead ends: brooks may steer the way, never cut a path off (spec, anti-goal "labyrinth")
+        mat = _cells(self.w, 'mat')
+        paths = (mat == 1) & self.cells.astype(bool)
+        got = self._from_start()
+        self.assertGreater(got[paths].mean(), 0.99, 'Wegzellen vom Start erreichbar')
+
+    def test_the_south_crossings_and_the_lake_rim_can_be_reached(self):
+        mat = _cells(self.w, 'mat')
+        got = self._from_start()
+        south = np.zeros(mat.shape, bool)
+        south[600:] = True
+        for kind, share, what in ((3, 0.97, 'Bruecken, Brett, Stege'), (2, 0.9, 'Trittsteine'),
+                                  (5, 0.8, 'flacher Seerand und Pfuetzen')):
+            sel = south & (mat == kind) & self.cells.astype(bool)
+            self.assertTrue(sel.any(), what)
+            self.assertGreater(got[sel].mean(), share, what)
 
     def test_ground_materials_cover_the_world_in_cells(self):
         mat = _cells(self.w, 'mat')

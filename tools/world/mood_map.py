@@ -26,9 +26,10 @@ BAYER = np.array([[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]])
 BAYER /= 16.0
 
 
-def composite(w):
-    img = np.array(Image.open(os.path.join(D, 'ground.png')).convert('RGB')).astype(float)
-    fl = np.array(Image.open(os.path.join(D, 'flowers.png')))
+def composite(w, d=None):
+    d = d or D                                                 # build/world_old: the old map alone
+    img = np.array(Image.open(os.path.join(d, 'ground.png')).convert('RGB')).astype(float)
+    fl = np.array(Image.open(os.path.join(d, 'flowers.png')))
     m = fl[..., 3] > 0
     img[m] = fl[m][:, :3]
     for s in sorted(w['sprites'], key=lambda s: s['foot']):
