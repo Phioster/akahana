@@ -163,7 +163,7 @@ def render(w, seed=31, raw=False):
                                 (60, 640), (800, 420), (100, 420), (760, 200), (380, 640), (560, 100)]):
         near_path = path[max(0, Y(y) - 6):Y(y) + 4, max(0, x - 8):x + 9].any()
         if not (m['lake'] | m['reeds'] | sea_reeds)[min(y, NEW - 1), x] and not near_path:
-            things.append(ol.Laubbaum(x, Y(y), seed=20 + k, size=rng.uniform(0.9, 1.25)))
+            things.append(ol.Laubbaum(x, Y(y), seed=20 + k, size=rng.uniform(0.9, 1.25), leaf=ol.LEAVES[k % 8]))
     for k, (x, y) in enumerate([(330, 240), (352, 262), (600, 430), (585, 455), (410, 520), (620, 190), (180, 400),
                                 (760, 380)]):
         if m['lake'][y, x] and not m['shallow'][y, x]:
@@ -188,7 +188,7 @@ def render(w, seed=31, raw=False):
     y, x = pick[14]
     things.append(ol.Treibholz(int(x), Y(y), int(rng.integers(18, 26)), rng.uniform(-0.6, 0.6), 80))
     for k, (y, x) in enumerate(pick[15:17]):
-        things.append(ol.Enten(int(x), Y(y), int(rng.integers(2, 4)), 90 + k))
+        rng.integers(2, 4)                                       # the ducks live in the game now (keep the draws)
 
     # reeds: the belt round the lake, the reed islands, rims of the pools, and the reed sea at the edge
     lab, n = ndi.label(m['puddles'])                             # only the bigger pools get a reed rim

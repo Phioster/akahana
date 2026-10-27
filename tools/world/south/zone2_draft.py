@@ -197,6 +197,7 @@ def render(w, seed=12, raw=False):
     TREES = [(200, Y(118)), (566, Y(246)), (826, Y(322))]
     things = [Kirschbaum(200, Y(118), seed=23, trunk=11.0), Kirschbaum(566, Y(246), seed=41, trunk=10.0, depth=4),
               Kirschbaum(826, Y(322), seed=57, trunk=12.0),
+              __import__('objects_lake').Laubbaum(717, Y(102), seed=61, size=1.0, leaf='orange'),
               BANK, Kerzen([(217, Y(123)), (220, Y(122))], 11, BANK),
               Steinlaterne(362, Y(146)),
               Findling(92, Y(300), 8, 13), Findling(612, Y(62), 6, 14), Steinhaufen(420, Y(330)),

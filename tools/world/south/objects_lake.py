@@ -21,6 +21,9 @@ AUTUMN = {                                                       # here and ther
     'rost': ([hx(c) for c in ['#241414', '#4a1d1a', '#73281f', '#9a3a26', '#b9563a']], hx('#d67a52')),
     'gold': ([hx(c) for c in ['#2a1f12', '#58401a', '#8a6526', '#b48a30', '#d2a845']], hx('#eac46a')),
 }
+for _k, (_p, _h) in AUTUMN.items():                              # muted for the dusk (the approved, lower row):
+    AUTUMN[_k] = ([c * 0.82 + c.mean() * 0.1 for c in _p], _h * 0.8 + _h.mean() * 0.1)   # a step darker, greyer
+LEAVES = [None, 'orange', None, 'rost', None, 'gold', None, None]   # how the trees go: most green, some turned
 PAD = [hx(c) for c in ['#2c4226', '#426036', '#5c7f47', '#7c9e5e']]
 LILY = [hx(c) for c in ['#c9a7b4', '#ead2da', '#f6ece6']]
 SAND = [hx(c) for c in ['#4a5552', '#5d6a64', '#74817a']]          # the lake floor showing through the shallows

@@ -18,7 +18,7 @@ import objects_lake as ol  # noqa: E402
 import zone1_draft as z1  # noqa: E402
 import zone4_draft as z4  # noqa: E402
 
-RAW_MD5 = '895531ecd162f1e4a4ceb9c18b71751f'   # zone4_draft.render(raw=True)[0] before the split existed
+RAW_MD5 = 'f6ab90f25414b2565fc24e99ca61b4d0'   # zone4_draft.render(raw=True)[0]: autumn trees in, baked ducks out
 
 
 def recompose(c):

@@ -164,6 +164,10 @@ def render(w, seed=21, raw=False):
         if 16 < x < W - 16 and 4 < y < NEW - 2 and not path[Y(y), int(x)] and not water.mask[int(y), int(x)]:
             things.append(o.Farn(int(x), Y(y), int(rng.integers(0, 999)), int(rng.integers(6, 9))))
 
+    import objects_lake as ol                                    # broadleaf trees out in the grass too, a few turned
+    for k, (x, y) in enumerate([(231, 36), (495, 149), (193, 282), (552, 488), (310, 375)]):
+        things.append(ol.Laubbaum(x, Y(y), seed=70 + k, size=1.0, leaf=['rost', None, 'gold', None, 'orange'][k]))
+
     firs = []
     for y in range(Y3 + 4, H + 30, 13):
         for x in (int(rng.integers(-6, 12)), W - int(rng.integers(-6, 12))):
