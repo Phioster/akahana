@@ -93,7 +93,7 @@ def _line(m, pts, half, dy=0):
             _rect(m, x - half, y - half, x + half, y + half)
 
 
-def solid(t, m, dy):
+def solid(t, m, dy, spr=None):
     """Where a standing thing really stands on the ground: the trunk, the post, the wall's foot - never its
     crown, light pool, shadow or the petals round it. Drawn into m; dy moves draft rows to world rows."""
     import objects_lake as ol
@@ -128,8 +128,11 @@ def solid(t, m, dy):
         _ell(m, x, y - 2, t.r + 1, (t.r + 1) * 0.6)
     elif isinstance(t, os_.Stamm):
         _line(m, [t.a, t.b], t.r - 1, dy)
-    elif isinstance(t, (os_.Mauer, os_.Zaun)):
-        _line(m, [(px, py - 1) for px, py in t.pts], 2 if n == 'Mauer' else 1, dy)
+    elif isinstance(t, (os_.Mauer, os_.Zaun)) and spr is not None:   # only where stones were drawn: it is a ruin
+        a = spr['rgba'][:, :spr['w'], 3] > 0
+        for i in np.nonzero(a.any(0))[0]:
+            j = int(np.nonzero(a[:, i])[0].max())              # the foot of the wall in this column
+            _rect(m, spr['x'] + i, spr['y'] + j - 3, spr['x'] + i, spr['y'] + j)
     elif isinstance(t, os_.Karren):
         _rect(m, x - 16, y - 6, x + 10, y + 1)
     # ducks, birds, candles: nothing to bump into
@@ -193,7 +196,7 @@ def main():
         sprites.append(dict(name=name, x=int(s['x']), y=int(s['y']), w=int(s['w']), h=int(s['rgba'].shape[0]),
                             foot=int(s['foot']), frames=int(s['frames']), fps=FPS))
         if 'thing' in s:
-            solid(s['thing'], blocked, TOP if s.get('draft', True) else 0)
+            solid(s['thing'], blocked, TOP if s.get('draft', True) else 0, s)
 
     # ---------------------------------------------------------------- where one can walk, and on what
     m = {k: np.zeros((H, W), bool) for k in ('path', 'brook', 'lake', 'shallow', 'Bruecke', 'Brett', 'Steg',
