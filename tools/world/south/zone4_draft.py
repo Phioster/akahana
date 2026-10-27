@@ -57,9 +57,12 @@ def render(w, seed=31, raw=False):
 
     # the world's southern edge: reeds ever denser, then marsh, then open water fading into mist
     edge = L.edge(np.arange(W))[None, :] + 4 * fbm(NEW, W, 6, 406)
-    sea_reeds = yy > edge
-    marsh = (yy > edge + 30 + 8 * fbm(NEW, W, 8, 407)) & (fbm(NEW, W, 4, 408) > -0.3)
-    open_w = yy > edge + 52 + 6 * np.sin(xx / 23.0)
+    # the sides likewise: past zone 3's firs the edges turn to reeds and water in the mist, not snowy woods
+    side = np.minimum(xx, W - 1 - xx) - 4 * fbm(NEW, W, 7, 410)
+    grow = np.clip((yy - 20) / 90.0, 0, 1)
+    sea_reeds = (yy > edge) | (side < 26 * grow)
+    marsh = ((yy > edge + 30 + 8 * fbm(NEW, W, 8, 407)) & (fbm(NEW, W, 4, 408) > -0.3)) | (side < 15 * grow)
+    open_w = (yy > edge + 52 + 6 * np.sin(xx / 23.0)) | (side < 9 * grow)
     water = m['lake'] | m['puddles'] | marsh | open_w
     shallow = (m['shallow'] | m['puddles'] | (marsh & ~open_w)) & ~(m['reed_isles'])
     water &= ~m['island']
@@ -197,7 +200,8 @@ def render(w, seed=31, raw=False):
     dshadow = ndi.binary_dilation(m['ditch'], iterations=2)      # the ditch to the backwater stays open: nothing
     for k in range(1, 16):                                       # rooted just below it may grow up over it
         dshadow[k:] |= m['ditch'][:-k]
-    reed_area &= ~dshadow
+    gaps = fbm(NEW, W, 5, 411) > 0.55                            # here and there a clump may stand in it
+    reed_area &= ~(dshadow & ~gaps)
     for t_ in things:
         if isinstance(t_, ol.Steg):                              # the jetties stay clear of reeds
             x0, y0, x1, y1 = t_.box()
@@ -213,8 +217,10 @@ def render(w, seed=31, raw=False):
         things.append(ow.Farn(x, Y(y), int(rng.integers(0, 999)), 7))
 
     firs = []
-    for y in range(Y4 + 4, Y(L.edge(0)), 13):                   # the side fir rows end where the reed sea begins
+    for y in range(Y4 + 4, Y4 + 110, 13):                       # zone 3's side firs thin out and stop
         for x in (int(rng.integers(-6, 12)), W - int(rng.integers(-6, 12))):
+            if rng.random() < (y - Y4) / 110:
+                continue
             firs.append(Fir(x, y + int(rng.integers(-3, 4)), int(rng.integers(36, 48)), int(rng.integers(0, 10 ** 6))))
 
     # the tall grass on all the dry land
@@ -267,8 +273,9 @@ def render(w, seed=31, raw=False):
     band = np.zeros((H, W))
     band[:Y4] = band3
     band[Y4:] = np.clip(ndi.gaussian_filter((m['lake'] | brooks.mask).astype(float), 4) * 1.3, 0, 1)
-    edge_fog = np.zeros(H)
-    edge_fog[Y4:] = np.clip((np.arange(NEW) - 690) / 110.0, 0, 1) ** 1.4 * 0.88
+    edge_fog = np.zeros((H, W))
+    edge_fog[Y4:] = np.maximum(np.clip((yy - 690) / 110.0, 0, 1) ** 1.4 * 0.88,
+                               np.clip((24 - side) / 24.0, 0, 1) ** 1.3 * 0.8 * grow)
     calm = np.zeros((H, W))
     calm[Y4:] = ndi.gaussian_filter(m['lake'].astype(float), 6)
     if raw:
@@ -277,7 +284,7 @@ def render(w, seed=31, raw=False):
                         2.0, grass_mist=z2.GRASS_MIST, water_band=band, calm=calm).astype(float)
     for s_ in sw:
         s_.draw(out, 2.0)
-    out = out * (1 - edge_fog[:, None, None]) + MIST * edge_fog[:, None, None]   # the world fades into mist
+    out = out * (1 - edge_fog[..., None]) + MIST * edge_fog[..., None]   # the world fades into mist
     return np.clip(out, 0, 255).astype(np.uint8)
 
 

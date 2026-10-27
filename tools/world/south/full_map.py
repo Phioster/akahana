@@ -47,13 +47,13 @@ def main(out, scale=2):
     wb[top:] = band
     cm = np.zeros((H, z1.W))
     cm[top:] = calm
-    ef = np.zeros(H)
+    ef = np.zeros((H, z1.W))
     ef[top:] = edge_fog
     a = mood_map.mood(img, dict(w, lights=lit + [l for s_ in sw for l in s_.lights(2.0)]), 2.0,
                       grass_mist=z2.GRASS_MIST, water_band=wb, calm=cm).astype(float)
     for s_ in sw:
         s_.draw(a, 2.0)
-    a = a * (1 - ef[:, None, None]) + z4.MIST * ef[:, None, None]   # the world fades into mist in the south
+    a = a * (1 - ef[..., None]) + z4.MIST * ef[..., None]   # the world fades into mist in the south
     a[:top, z1.OLD_W:] = EMPTY                 # keep the empty strip plain, no mist over nothing
     im = Image.fromarray(np.clip(a, 0, 255).astype(np.uint8))
     im.save(out.replace('.png', '_1x.png'))
