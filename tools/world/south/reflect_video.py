@@ -38,6 +38,7 @@ def main(out):
     W = np.array(Image.open(os.path.join(F, 'water.png')))[y0:y1, x0:x1]
     LOW = np.array(Image.open(os.path.join(F, 'low.png')))[y0:y1, x0:x1]
     water = (W[..., 3] > 0) & (FL[..., 3] == 0)
+    lake = water & (LOW == 0) & (W[..., 3] == 3)               # open lake water for the lantern's light
     sp = [s for s in w['sprites'] if s['x'] < x1 and s['x'] + s['w'] > x0 and s['y'] < y1 and s['y'] + s['h'] > y0]
     pics = {s['name']: np.array(Image.open(os.path.join(A, 'sprites', s['name'] + '.png')).convert('RGBA'))
             for s in sp}
@@ -53,9 +54,12 @@ def main(out):
         i = int(l['x'])
         if not 0 <= i < W.shape[1]:
             continue
-        col = water[max(0, int(l['y'])):int(l['y']) + 70, i]
-        if col.any():
-            mirrored.append((i, int(l['y']) + int(np.argmax(col))))
+        col = lake[max(0, int(l['y'])):int(l['y']) + 70, i]
+        if len(col) < 4:                                       # a light outside this cut
+            continue
+        run = np.convolve(col, np.ones(4), 'valid') == 4       # where the open water really begins: past
+        if run.any():                                          # the jetty's end, not a wet pixel under it
+            mirrored.append((i, int(l['y']) + int(np.argmax(run))))
     frames = os.path.join(out, 'spiegel')
     os.makedirs(frames, exist_ok=True)
     for n in range(FPS * SECONDS):
@@ -90,15 +94,15 @@ def main(out):
             o = mood_map.mood(img, dict(w, lights=lights, wisps=[]), t, grass_mist=z2.GRASS_MIST)
             ph = 2 * np.pi * t / 8.0
             for (lx, ly) in mirrored:                      # glints in rows, swaying, thinning out downwards
-                for d in range(0, 44):
+                for d in range(0, 26):
                     j = ly + d                     # lights are already in the cut's coordinates
                     if not 0 <= j < o.shape[0] or (j * 5 + int(ph * 4)) % 3 == 0:
                         continue
-                    half = 1 + d // 14
+                    half = 1 + d // 9
                     off = int(np.round(1.5 * np.sin(j * 0.9 - ph * 2)))
                     for i in range(lx - half + off, lx + half + off + 1):
-                        if 0 <= i < o.shape[1] and water[j, i] and ((i * 3 + j) % 4 or d < 4):
-                            a_ = min(0.85, keep * 1.2 * (1 - d / 50))
+                        if 0 <= i < o.shape[1] and lake[j, i] and ((i * 3 + j) % 4 or d < 4):
+                            a_ = keep * (1 - d / 30) * 0.9
                             o[j, i] = o[j, i] * (1 - a_) + np.array([236, 190, 110]) * a_
             side.append(np.clip(o, 0, 255).astype(np.uint8))
         im = side[0]

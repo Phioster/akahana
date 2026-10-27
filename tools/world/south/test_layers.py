@@ -18,7 +18,7 @@ import objects_lake as ol  # noqa: E402
 import zone1_draft as z1  # noqa: E402
 import zone4_draft as z4  # noqa: E402
 
-RAW_MD5 = 'f6ab90f25414b2565fc24e99ca61b4d0'   # zone4_draft.render(raw=True)[0]: autumn trees in, baked ducks out
+RAW_MD5 = 'fa6972a9900e876fed4d4aa8091788d3'   # zone4_draft.render(raw=True)[0]: the lantern at the jetty's end
 
 
 def recompose(c):
