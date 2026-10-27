@@ -4,6 +4,8 @@ extends RefCounted
 
 const DIR := "res://assets/audio/"
 
+const SOUTH_Y := 1200.0              # below the old map: the lake's shallow rim and the pools
+
 static var _cache := {}
 
 
@@ -44,7 +46,7 @@ static func step_set(mat: int, y: float) -> String:
 		GroundMat.EARTH: return "schritt_erde"
 		GroundMat.STONE: return "schritt_stein"
 		GroundMat.WOOD: return "schritt_holz"
-		GroundMat.WET: return "schritt_nass"
+		GroundMat.WET: return "schritt_waten" if y >= SOUTH_Y else "schritt_nass"   # lake rim / the old ford
 		GroundMat.SNOW:
 			if y < 150.0:
 				return "schritt_schnee_hart"

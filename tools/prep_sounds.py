@@ -99,6 +99,21 @@ def south():
     ramp = np.linspace(0, 1, f)
     out[:f] = mix[:f] * ramp + mix[m:m + f] * (1 - ramp)
     save('gluehwuermchen', out, 0.08)
+    # wading at the lake rim: single splashes cut from #861369 (CC0), chosen over #612964
+    from scipy import signal as sg
+    x = load(f'{FS}/861369.ogg')
+    env = sg.sosfiltfilt(sg.butter(2, 8, 'low', fs=SR, output='sos'), np.abs(x))
+    peaks, _ = sg.find_peaks(env, distance=int(0.35 * SR), prominence=env.max() * 0.15)
+    k = 0
+    for p in peaks:
+        a = max(0, p - int(0.08 * SR))
+        st = x[a:a + int(0.5 * SR)].copy()
+        if len(st) < int(0.5 * SR) or k >= 10:
+            continue
+        st[:400] *= np.linspace(0, 1, 400)
+        st[-int(0.08 * SR):] *= np.linspace(1, 0, int(0.08 * SR))
+        save(f'schritt_waten_{k:02d}', st, 0.12)
+        k += 1
 
 
 if __name__ == '__main__' and sys.argv[1:] == ['south']:

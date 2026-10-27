@@ -626,6 +626,11 @@ func test_the_view_moves_evenly_while_walking_straight() -> void:
 	assert_true(hi - lo < 0.02, "Schritte schwanken %.3f..%.3f" % [lo, hi])
 	m.queue_free()
 
+func test_wading_at_the_lake_but_wet_pebbles_at_the_old_ford() -> void:
+	assert_eq(SoundBank.step_set(GroundMat.WET, 3000.0), "schritt_waten", "flacher Seerand im Süden")
+	assert_eq(SoundBank.step_set(GroundMat.WET, 680.0), "schritt_nass", "alte Furt")
+	assert_true(SoundBank.variants("schritt_waten").size() >= 8)
+
 func test_tall_grass_rustles_on_every_second_step() -> void:
 	# south of the poppies (from zone 2 on) the grass is tall: a footfall, and every second one a rustle
 	assert_true(Footsteps.rustles(GroundMat.GRASS, 2000.0), "hohes Gras im Süden")
