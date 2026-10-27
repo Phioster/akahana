@@ -1,11 +1,12 @@
-## The game's two fonts, both pre-rasterised by tools/ and rebuilt here as bitmap FontFiles, so one font
+## The game's fonts, both pre-rasterised by tools/ and rebuilt here as bitmap FontFiles, so one font
 ## pixel stays one art pixel: Pixel Operator 8 for short hints, Caveat as pencil handwriting for anything
-## somebody wrote (the book, notes, descriptions). Godot's TTF path would draw both smooth at screen size.
+## somebody wrote (the book, notes, descriptions), Klee One as pencil for the Japanese names. Godot's TTF path would draw both smooth at screen size.
 class_name PixelFont
 extends RefCounted
 
 const SIZE := 8                      # Pixel Operator
 const HAND_SIZE := 16                # Caveat, x-height 6 art px
+const KANJI_SIZE := 15               # Klee One, the place names in Japanese (tools/gen_kanji_font.py)
 const DIR := "res://assets/ui/"
 
 static var _fonts := {}
@@ -17,6 +18,10 @@ static func get_font() -> FontFile:
 
 static func hand() -> FontFile:
 	return _cached("hand", HAND_SIZE)
+
+
+static func kanji() -> FontFile:
+	return _cached("kanji", KANJI_SIZE)
 
 
 static func _cached(name: String, size: int) -> FontFile:

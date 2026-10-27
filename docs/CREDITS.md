@@ -5,6 +5,7 @@ Alles hier ist frei nutzbar. Die Namen stehen trotzdem hier, aus Dank.
 ## Schriften
 - Pixel Operator 8, Jayvee Enaguas (HarvettFox96), CC0 1.0
 - Caveat, The Caveat Project Authors, SIL Open Font License 1.1 (assets/ui/OFL-Caveat.txt)
+- Klee One, Fontworks Inc., SIL Open Font License 1.1 (assets/ui/OFL-KleeOne.txt) — die japanischen Ortsnamen
 
 ## Klänge
 - Nox Sound, „Essentials Series“ (Schritte, Island-Schritte, Nacht, ruhiger Wind), CC0 1.0
