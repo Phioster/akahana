@@ -14,3 +14,9 @@ func test_portrait() -> void:
 func test_runs_at_a_steady_60_frames() -> void:
 	# a fixed frame rate makes the scroll steps predictable, also on a 120 Hz screen
 	assert_eq(int(ProjectSettings.get_setting("application/run/max_fps", 0)), 60)
+
+func test_the_app_icon_is_the_journal() -> void:
+	var f := FileAccess.open("res://export_presets.cfg", FileAccess.READ)
+	var cfg := f.get_as_text()
+	assert_true(cfg.contains('adaptive_foreground_432x432="res://assets/icon/vordergrund.png"'), "kein Godot-Logo mehr")
+	assert_true(FileAccess.file_exists("res://assets/icon/vordergrund.png"))
