@@ -1,4 +1,4 @@
-# Mohnweg
+# Akahana · Poppyveil
 
 Ein ruhiges Wanderspiel im Hochformat: ein kleiner Wanderer in der Welt des Kirschbaum-Hintergrunds.
 Tippen, wohin er gehen soll – stehen bleiben, schauen, Musik hören. Kein Ziel, keine Aufgaben.

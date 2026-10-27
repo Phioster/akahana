@@ -10,6 +10,7 @@ signal volumes_changed(music: float, sounds: float)
 
 enum Mode { START, MAIN, SETTINGS, CLOSED, CAMERA }
 
+const TITLE := "Akahana"                  # the world and the game (docs/namen.md); Poppyveil is the subtitle
 const GRAPHITE := Color(58 / 255.0, 54 / 255.0, 54 / 255.0)
 const FAINT := Color(120 / 255.0, 112 / 255.0, 100 / 255.0)
 const CHALK := Color(236 / 255.0, 230 / 255.0, 216 / 255.0)
@@ -111,7 +112,7 @@ func _build_cover() -> Control:
 	s.position = Vector2(-4, 4)
 	c.add_child(s)
 	c.add_child(_image("buch_deckel"))
-	var title := _label("Mohnweg", 16, BRASS)
+	var title := _label(TITLE, 16, BRASS)
 	title.add_theme_color_override("font_shadow_color", Color(0.12, 0.08, 0.06))
 	title.add_theme_constant_override("shadow_offset_x", 1)
 	title.add_theme_constant_override("shadow_offset_y", 1)
@@ -145,7 +146,7 @@ func _layout() -> void:
 	var cs: Vector2 = _cover.get_child(1).texture.get_size()
 	_cover.position = ((v - cs) * Vector2(0.5, 0.42)).round()
 	var title: Label = _cover.get_node("Titel")
-	var tw := PixelFont.hand().get_string_size("Mohnweg", HORIZONTAL_ALIGNMENT_LEFT, -1, PixelFont.HAND_SIZE).x * 2.0
+	var tw := PixelFont.hand().get_string_size(TITLE, HORIZONTAL_ALIGNMENT_LEFT, -1, PixelFont.HAND_SIZE).x * 2.0
 	title.position = Vector2(13 + (cs.x - 13 - tw) * 0.5, 112).round()
 	var hint: Label = _cover.get_node("Hinweis")
 	var hw := PixelFont.hand().get_string_size(hint.text, HORIZONTAL_ALIGNMENT_LEFT, -1, PixelFont.HAND_SIZE).x
@@ -224,7 +225,7 @@ func _slider(text: String, value: float, y: float, on_change: Callable) -> float
 func _show_main() -> void:
 	_clear()
 	_confirm_restart = false
-	var y := _heading("Mohnweg", 0)
+	var y := _heading(TITLE, 0)
 	y += 4
 	if _in_game:
 		y = _entry(2, "weiterlaufen", y, close)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Builds the walkable world of Mohnweg from the same code that drew the cherry-tree wallpaper.
+"""Builds the walkable world of Akahana from the same code that drew the cherry-tree wallpaper.
 
 One continuous map, generated in a single canvas so nothing has seams:
   bottom middle  the cherry-tree meadow exactly as in the wallpaper (tree, shrine, camp, lanterns)

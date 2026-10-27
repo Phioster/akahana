@@ -22,3 +22,10 @@ func test_the_app_icon_is_the_journal() -> void:
 	assert_true(FileAccess.file_exists("res://assets/icon/vordergrund.png"))
 	# themed launchers (Nothing) tint icons one colour: give them our own drawing, not a washed-out book
 	assert_true(cfg.contains('adaptive_monochrome_432x432="res://assets/icon/einfarbig.png"'))
+
+func test_the_game_is_called_akahana() -> void:
+	assert_eq(ProjectSettings.get_setting("application/config/name"), "Akahana")
+	var cfg := FileAccess.open("res://export_presets.cfg", FileAccess.READ).get_as_text()
+	assert_true(cfg.contains('package/name="Akahana"'), "Name unter dem Symbol")
+	assert_true(cfg.contains('package/unique_name="org.phioster.mohnweg"'), "Paket bleibt, sonst geht der Spielstand verloren")
+	assert_eq(BookUI.TITLE, "Akahana")
