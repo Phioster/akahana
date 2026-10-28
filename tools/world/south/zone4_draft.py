@@ -153,9 +153,10 @@ def render(w, seed=31, raw=False):
     hx_ = xr_
     # the jetty: from the reeds out into the lake at the end of the middle path
     # the jetty sits east of the brook mouths, the path comes to it over a bridge (jx, shore set above)
-    things = [ol.Steg(jx, Y(shore - 20), Y(shore + 60), dry=Y(shore)),   # out over the shallows into the deep (0.8.1)
+    things = [ol.Steg(jx, Y(shore - 20), Y(shore + 65), dry=Y(shore)),   # out over the shallows into the deep; its last
+                                                                        # row odd, so the 2x2 walk cells end ON the planks
                ol.Boot(jx - 19, Y(shore + 20)),
-              z3.Holzlaterne(jx - 4, Y(shore + 58)),                      # at the jetty's end, on the open-water side
+              z3.Holzlaterne(jx - 4, Y(shore + 63)),                      # at the jetty's end, on the open-water side
               ol.Huette(hx_ + 17, Y(hy_ + 6)), ol.Steg(Y(hy_), xl_ - 12, xr_ + 2, width=7, across=True),
               z2.Bank(195, Y(652)),
               ol.Laubbaum(470, Y(388), seed=11, size=0.9)]

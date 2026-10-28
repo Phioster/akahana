@@ -112,7 +112,10 @@ def south():
             continue
         st[:400] *= np.linspace(0, 1, 400)
         st[-int(0.08 * SR):] *= np.linspace(1, 0, int(0.08 * SR))
-        save(f'schritt_waten_{k:02d}', st, 0.12)
+        # a splash has nothing below ~200 Hz: two of the ten cuts were a dull thud there (0.8.1: "a heartbeat
+        # knock by the water"). Filtered, and the loudness taken from what stays, not from the thud.
+        st = sg.sosfiltfilt(sg.butter(4, 200, 'high', fs=SR, output='sos'), st)
+        save(f'schritt_waten_{k:02d}', st, 0.09)
         k += 1
 
 

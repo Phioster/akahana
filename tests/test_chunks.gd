@@ -172,7 +172,7 @@ func test_the_lake_mirrors_what_stands_on_its_shore() -> void:
 	v.queue_free()
 
 func test_the_jetty_lantern_throws_its_light_path_on_the_chunk_below_the_jetty() -> void:
-	# the jetty's end lies at y 3004, on chunk (3, 15): its water gets the lamp (0.8.1: the jetty is longer)
+	# the jetty's end lies at y 3009, on chunk (3, 15): its water gets the lamp
 	var v := _view(Rect2(540, 2960, 120, 120))
 	var c := Vector2i(3, 15)
 	assert_true(v._chunks.has(c), "Kachel unter dem Steg geladen")
@@ -235,7 +235,8 @@ func test_the_jetty_reaches_out_over_deep_water() -> void:
 	s.load_now(Vector2i(3, 15))                          # the jetty's end (y 3004) lies on the chunk below
 	assert_true(s.walkable(Vector2(578, 2965)), "Steg am Ufer")
 	assert_true(s.walkable(Vector2(578, 2990)), "auf den Planken über dem Wasser")
-	assert_true(s.walkable(Vector2(578, 3003)), "am Stegende")
+	assert_true(s.walkable(Vector2(578, 3008)), "am Stegende")
+	assert_true(s.walkable(Vector2(580, 3009)), "bis zur letzten Plankenzeile (0.8.2: 3-4 Pixel fehlten)")
 	assert_false(s.walkable(Vector2(578, 3012)), "hinter dem Ende tiefes Wasser")
 	assert_false(s.walkable(Vector2(566, 2995)), "neben dem Steg kein Waten im Tiefen")
 	assert_false(s.walkable(Vector2(592, 3000)), "neben dem Steg kein Waten im Tiefen")
