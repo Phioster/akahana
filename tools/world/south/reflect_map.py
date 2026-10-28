@@ -9,6 +9,8 @@ import numpy as np
 import bendcode
 import reflect_anim as ra
 
+FLAT_REACH = 16            # a flat thing (jetty, bridge) is mirrored this far below its lower edge, no further
+
 
 def bake(H, W, open_water, flowers, bend, low, ground, sprites):
     """open_water: (H, W) bool; flowers RGBA + bend: the swaying layer and its heights; low + ground: the flat
@@ -26,6 +28,8 @@ def bake(H, W, open_water, flowers, bend, low, ground, sprites):
     key = lab[y, x].astype(np.int64) * W + x
     bottom = np.zeros(key.max() + 1, np.int64)
     np.maximum.at(bottom, key, y)
+    near = bottom[key] + low[y, x].astype(int) - 1 - y <= FLAT_REACH    # a long jetty: its far end is not mirrored 80 px away
+    x, y, key = x[near], y[near], key[near]
     xs.append(x); ys.append(y); cols.append(ground[y, x, :3]); feet.append(bottom[key] + low[y, x].astype(int) - 1)
     for rgba, sx, sy, foot in sprites:
         y, x = np.nonzero(rgba[..., 3] > 0)

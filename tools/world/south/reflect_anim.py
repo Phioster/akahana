@@ -29,7 +29,7 @@ def upright_from_low(ground, low, x0, y0):
         k = (lab[y, x], x)
         bottom[k] = max(bottom.get(k, y), y)
     return [(x0 + x, y0 + y, ground[y, x].astype(float), y0 + bottom[(lab[y, x], x)] + int(low[y, x]) - 1)
-            for y, x in zip(ys, xs)]
+            for y, x in zip(ys, xs) if bottom[(lab[y, x], x)] + int(low[y, x]) - 1 - y <= 16]   # as reflect_map.FLAT_REACH
 
 
 def upright_from_sprite(pic, sx, sy, foot):

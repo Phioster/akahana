@@ -28,5 +28,21 @@ class TestReflectMap(unittest.TestCase):
         self.assertEqual(first, 7, 'lying in the water (stored 1 = height 0): right under its edge')
 
 
+    def test_a_long_jetty_is_mirrored_only_a_short_way(self):
+        # Philip 0.8.4: the jetty's reflection ran down almost the whole lake - each of its 80 rows was
+        # mirrored at the end, so row 80 lay 80 px away. A flat thing's reflection reaches ~16 px.
+        H, W = 120, 7
+        low = np.zeros((H, W), np.uint8)
+        low[10:90, 3] = 3                                       # a jetty: 80 rows, standing 2 px over the water
+        ground = np.full((H, W, 3), 120, np.uint8)
+        water = np.ones((H, W), bool)
+        water[low > 0] = False
+        out = reflect_map.bake(H, W, water, np.zeros((H, W, 4), np.uint8), np.zeros((H, W), np.uint8),
+                               low, ground, [])
+        rows = np.nonzero(out[:, 3, 3] > 0)[0]
+        self.assertGreater(len(rows), 4, 'something is mirrored')
+        self.assertLessEqual(rows.max() - 89, reflect_map.FLAT_REACH + 3, 'the reflection stops near the end')
+
+
 if __name__ == '__main__':
     unittest.main()
