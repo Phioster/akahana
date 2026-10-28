@@ -748,35 +748,21 @@ func test_no_two_book_entries_lie_on_top_of_each_other() -> void:
 							"Seite %d (im Spiel %s): Einträge %d und %d überdecken sich" % [m, in_game, i, j])
 	b.queue_free()
 
-func test_while_walking_the_view_shows_whole_pixels_in_an_even_beat() -> void:
-	# phone 0.7.11 (measured): the view's corner went in 0.25 px steps, but pixel snapping drew the world on
-	# whole pixels and the post shader read it at the fractional spot: for a moment the neighbour pixel
-	var tree := Engine.get_main_loop() as SceneTree
-	var m: Node2D = load("res://scenes/main.gd").new()
-	tree.root.add_child(m)
-	await tree.process_frame
-	if m.world == null:
-		m.queue_free()
-		return
-	m.player.position = Vector2(270.0, 800.0)
-	m._cam_at = Vector2.INF
-	for i in 30:
-		m._process(1.0 / 60.0)
-	m.player.walk_to(PackedVector2Array([m.player.position + Vector2(0, -300)]))
-	var gaps := []
-	var last := INF
-	var since := 0
-	for i in 400:
-		m.player._process(1.0 / 60.0)
-		m._process(1.0 / 60.0)
-		var corner: Vector2 = m.get_viewport().get_canvas_transform().affine_inverse() * Vector2.ZERO
-		assert_eq(corner, corner.round(), "die Welt wird an ganzen Pixeln gezeigt")
-		since += 1
-		if corner.y != last:
-			if i > 200:
-				gaps.append(since)
-			since = 0
-			last = corner.y
-	gaps.sort()
-	assert_true(gaps.size() > 10 and gaps[-1] - gaps[0] <= 1, "gleichmäßiger Takt: %s" % [gaps])
-	m.queue_free()
+
+func test_the_view_glides_in_screen_pixels_not_art_pixels() -> void:
+	# Philip 0.7.12: whole art pixels were far too jerky (a step every fourth frame) - glide in the phone's
+	# screen pixels (about 6 per art pixel), so world, sprites and post shader agree and it stays smooth
+	var main := load("res://scenes/main.gd")
+	var view := Vector2(180, 400.4)
+	var steps := {}
+	var last: Vector2 = main.shown_corner(Vector2(100.0, 1000.0) + view * 0.5, view, 6.0)
+	for i in range(1, 41):
+		var at := Vector2(100.0, 1000.0 - i * 0.25) + view * 0.5       # 0.25 art px a frame, upwards
+		var c: Vector2 = main.shown_corner(at, view, 6.0)
+		assert_eq(c * 6.0, (c * 6.0).round(), "auf einem Bildschirmpixel")
+		assert_true(c.distance_to(at - view * 0.5) <= 1.0 / 12.0 + 0.0001, "kaum neben der wahren Lage")
+		var d := snappedf(last.y - c.y, 0.001)
+		steps[d] = true
+		last = c
+	assert_true(steps.size() <= 2, "gleichmäßig in Bildschirmpixeln: %s" % [steps.keys()])
+	assert_false(steps.has(0.0), "rückt jedes Bild weiter, nicht nur jedes vierte")

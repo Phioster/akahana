@@ -158,6 +158,11 @@ func _start_position() -> Vector2:
 
 # ---------------------------------------------------------------- journal and saving
 
+## The view's corner as it is shown: on the nearest screen pixel (px_per_art screen pixels per art pixel).
+static func shown_corner(at: Vector2, view: Vector2, px_per_art: float) -> Vector2:
+	return ((at - view * 0.5) * px_per_art).round() / px_per_art
+
+
 ## Where the view comes to rest: its top-left corner on a whole pixel. The view's height in art pixels is
 ## rarely whole (180 wide on a tall phone), so a whole-pixel middle would leave the corner on half a pixel.
 ## Rounded toward where the camera comes from would send it back a fraction and then snap: so a whole pixel
@@ -302,9 +307,10 @@ func _process(delta: float) -> void:
 		var left := _cam_at.distance_to(_cam_goal)
 		var go := maxf(left * (1.0 - exp(-CAM_EASE * delta)), CAM_MIN_SPEED * delta)
 		_cam_at = _cam_at.move_toward(_cam_goal, go)
-	# shown on whole pixels: pixel snapping draws the world there anyway, and the post shader must read it at
-	# the same spot (0.7.11: it read at the fractional one - the neighbour pixel for a moment, scrolling up)
-	cam.position = (_cam_at - view * 0.5).round() + view * 0.5
+	# shown on whole SCREEN pixels (about 6 per art pixel): smooth, and world, sprites and post shader all
+	# read the same spot (0.7.11: the post shader read at a spot between - the neighbour pixel for a moment)
+	var scale := get_tree().root.get_final_transform().get_scale().x
+	cam.position = shown_corner(_cam_at, view, maxf(scale, 1.0)) + view * 0.5
 	cam.force_update_scroll()                          # apply now: the shader must snap to THIS frame's view
 	var top_left := get_viewport().get_canvas_transform().affine_inverse() * Vector2.ZERO
 	post.set_shader_parameter("view_world", view)

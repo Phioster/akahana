@@ -10,6 +10,7 @@ signal took_off(bird: Bird)
 var brain: BirdBrain
 var _t := randf() * 3.0
 var _vel := Vector2.ZERO
+var _fly := Vector2.INF              # the true, smooth spot while flying away
 var _was := BirdBrain.PECK
 
 
@@ -46,7 +47,10 @@ func step(delta: float, player: Vector2) -> void:
 		BirdBrain.WATCH:
 			frame = FRAME["stand"]
 		BirdBrain.FLY:
-			position += _vel * delta
+			if _fly == Vector2.INF:
+				_fly = position
+			_fly += _vel * delta
+			position = _fly.round()                # on whole world pixels (snapping is off: the view glides)
 			_vel.y -= 10.0 * delta
 			frame = FRAME["up"] if fmod(_t, 0.16) < 0.08 else FRAME["down"]
 	visible = s != BirdBrain.GONE
