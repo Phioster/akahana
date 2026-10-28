@@ -197,3 +197,22 @@ func test_a_tap_on_a_wall_builds_the_grid_once() -> void:
 	var way := p.find_path_in(s, Vector2(40, 40), Vector2(90, 130))      # inside the block
 	assert_true(way.size() > 0, "Weg bis an den Rand des Blocks")
 	assert_eq(p.builds, 1, "nur einmal gebaut")
+
+func test_one_can_walk_round_the_lake_over_the_brook_mouths() -> void:
+	# Philip 0.8.0: round the lake only by the bridge far up. The brooks' mouths are shallow now (wade)
+	var w := WorldData.load_default()
+	var s := _whole(w)
+	var p := Pathing.new()
+	p.build_from(s, Rect2i(0, 0, w.width / Pathing.CELL, w.height / Pathing.CELL))
+	var west := p.find_path(Vector2(300, 2800), Vector2(540, 2960))       # the west bank to the jetty
+	assert_true(west.size() > 1, "Weg gefunden")
+	var far := 0.0
+	for pt in west:
+		far = maxf(far, pt.y)
+	assert_true(far < 3000.0, "über die Mündungen, nicht durch tiefes Wasser: y bis %.0f" % far)
+	var last: Vector2 = west[west.size() - 1]
+	assert_true(last.distance_to(Vector2(540, 2960)) < 12.0, "kommt am Steg an: %s" % last)
+	var dist := 0.0
+	for i in range(1, west.size()):
+		dist += west[i - 1].distance_to(west[i])
+	assert_true(dist < 600.0, "kein Umweg über die Brücke oben: %.0f px" % dist)

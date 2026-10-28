@@ -173,6 +173,7 @@ def fix_old_blocks(walk, sprites):
 OLD_WAT = [(0x3c, 0x46, 0x50), (0x4e, 0x5a, 0x65), (0x64, 0x71, 0x7c), (0x7f, 0x8c, 0x96), (0xa3, 0xae, 0xb6),
            (0xd6, 0xdd, 0xe1)]                                 # gen_world's brook
 KIND_OLD, KIND_BROOK, KIND_LAKE = 1, 2, 3
+MOUTH = 14                                                     # px: how far from the lake a brook mouth blends and can be waded
 WATER_K = 2 * np.pi * 22 / 256                                 # streak frequency along the stream: whole periods in
 OLD_K = 2 * np.pi * 61 / 256                                   # the 256 px the along channel wraps at, so no seam
 
@@ -222,6 +223,20 @@ def water_map(ground, w, c, m):
     dep = np.clip(ndi.distance_transform_edt(m['lake']) / 40.0, 0, 1)
     out[lake, 1] = (dep[lake] * 255).astype(np.uint8)
     out[lake, 3] = KIND_LAKE
+    # where a brook runs out into the lake there is no hard edge (0.8.1): within MOUTH px of the lake a brook
+    # pixel turns into lake water by chance, more and more towards the lake, and the depth is blended across
+    # the mouth (the lake's rim is light, the brook's middle dark: that was the line)
+    d_lake = ndi.distance_transform_edt(~m['lake'])
+    mouth_b = (out[..., 3] == KIND_BROOK) & (d_lake < MOUTH)
+    near_b = ndi.binary_dilation(out[..., 3] == KIND_BROOK, iterations=MOUTH) & (out[..., 3] == KIND_LAKE)
+    region = mouth_b | near_b
+    wgt = region.astype(float)
+    smooth = ndi.gaussian_filter(out[..., 1].astype(float) * wgt, 4) / np.maximum(ndi.gaussian_filter(wgt, 4), 1e-3)
+    out[region, 1] = np.clip(smooth[region], 0, 255).astype(np.uint8)
+    yy, xx = np.nonzero(mouth_b)
+    chance = 1.0 - d_lake[yy, xx] / MOUTH
+    hsh = (np.sin(xx * 12.9898 + yy * 78.233) * 43758.5453) % 1.0
+    out[yy[hsh < chance], xx[hsh < chance], 3] = KIND_LAKE
     return out
 
 
@@ -286,6 +301,8 @@ def main():
     Image.fromarray(low).save(os.path.join(OUT, 'low.png'))
     stones = m['Trittsteine']
     ford = ndi.binary_dilation(stones, iterations=3) & m['brook']   # between the stones: wade, as the old ford
+    mouths = m['brook'] & (ndi.distance_transform_edt(~m['lake']) < MOUTH)   # where it runs out: shallow, wade
+    ford |= mouths                                             # (0.8.1: round the lake without the bridge)
     wood = m['Bruecke'] | m['Brett'] | m['Steg']
     deep = m['lake'] & ~m['shallow']
     fog = np.zeros((H, W))

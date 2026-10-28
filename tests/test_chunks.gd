@@ -169,6 +169,14 @@ func test_the_lake_mirrors_what_stands_on_its_shore() -> void:
 			if img.get_pixel(x, y).a > 0.0:
 				any += 1
 	assert_true(any > 50, "das Ufer spiegelt sich: %d" % any)
+	v.queue_free()
+
+func test_the_jetty_lantern_throws_its_light_path_on_the_chunk_below_the_jetty() -> void:
+	# the jetty's end lies at y 3004, on chunk (3, 15): its water gets the lamp (0.8.1: the jetty is longer)
+	var v := _view(Rect2(540, 2960, 120, 120))
+	var c := Vector2i(3, 15)
+	assert_true(v._chunks.has(c), "Kachel unter dem Steg geladen")
+	var m := (v._chunks[c][0] as Sprite2D).material as ShaderMaterial
 	var lamps: PackedVector2Array = m.get_shader_parameter("lamps")
 	assert_true(lamps.size() >= 1, "die Laterne am Steg wirft ihren Lichtweg")
 	v.queue_free()
@@ -219,3 +227,15 @@ func test_ground_arriving_before_its_flowers_is_not_lost() -> void:
 	s._images[s._base(c) + "refl.png"] = Image.create(196, 216, false, Image.FORMAT_RGBA8)
 	s.poll()
 	assert_true(s.is_ready(c), "Kachel fertig, als alle Bilder da waren")
+
+func test_the_jetty_reaches_out_over_deep_water() -> void:
+	# phone 0.8.0: the planks ended at the shore, the shallows behind them were walkable - he stood on the water
+	var s := _store()
+	s.load_now(Vector2i(3, 14))
+	s.load_now(Vector2i(3, 15))                          # the jetty's end (y 3004) lies on the chunk below
+	assert_true(s.walkable(Vector2(578, 2965)), "Steg am Ufer")
+	assert_true(s.walkable(Vector2(578, 2990)), "auf den Planken über dem Wasser")
+	assert_true(s.walkable(Vector2(578, 3003)), "am Stegende")
+	assert_false(s.walkable(Vector2(578, 3012)), "hinter dem Ende tiefes Wasser")
+	assert_false(s.walkable(Vector2(566, 2995)), "neben dem Steg kein Waten im Tiefen")
+	assert_false(s.walkable(Vector2(592, 3000)), "neben dem Steg kein Waten im Tiefen")
