@@ -235,6 +235,8 @@ func _show_main() -> void:
 		if has_save:
 			y = _entry(3, "von vorn", y, _restart_tapped)
 	y = _entry(-1, "Einstellungen", y, func(): _turn_to(Mode.SETTINGS))
+	if _in_game and travel_offered():                      # testing aid, under the settings (no room there)
+		y = _entry(-1, "Reisen (Test)", y, func(): _turn_to(Mode.TRAVEL))
 	var poppy := TextureRect.new()                     # the little red poppy in front of "Einstellungen"
 	poppy.texture = _tex("mohn_knopf")
 	poppy.position = Vector2(1, y - 26 + 7)
@@ -269,8 +271,6 @@ func _show_settings() -> void:
 	if _in_game:
 		y = _entry(0, "Kameramodus", y, _camera_on)
 		y = _entry(1, "zum Hauptmenü", y, _to_start)
-		if travel_offered():
-			y = _entry(-1, "Reisen (Test)", y, func(): _turn_to(Mode.TRAVEL))
 		var probe := _label("weiterlaufen", 16, GRAPHITE)
 		var w := probe.get_minimum_size().x
 		probe.free()
@@ -313,7 +313,7 @@ func back() -> bool:
 		Mode.SETTINGS:
 			_turn_to(Mode.MAIN)
 		Mode.TRAVEL:
-			_turn_to(Mode.SETTINGS)
+			_turn_to(Mode.MAIN)
 		Mode.MAIN:
 			if _in_game:
 				close()

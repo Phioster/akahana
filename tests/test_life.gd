@@ -754,3 +754,23 @@ func test_the_book_offers_travel_only_in_test_builds() -> void:
 	var b := BookUI.new()
 	assert_eq(b.travel_offered(), OS.is_debug_build(), "nur in Testversionen")
 	b.free()
+
+func test_no_two_book_entries_lie_on_top_of_each_other() -> void:
+	# phone 0.7.8: "Reisen (Test)" landed on the line of "weiterlaufen" and could not be tapped
+	var tree := Engine.get_main_loop() as SceneTree
+	var b := BookUI.new()
+	tree.root.add_child(b)
+	for m in [BookUI.Mode.MAIN, BookUI.Mode.SETTINGS, BookUI.Mode.TRAVEL]:
+		for in_game in [true, false]:
+			b._in_game = in_game
+			b.mode = m
+			b._apply_mode()
+			var areas := []
+			for c in b._content.get_children():
+				if c is TapArea and not c.is_queued_for_deletion():
+					areas.append(Rect2(c.position, c.size))
+			for i in areas.size():
+				for j in range(i + 1, areas.size()):
+					assert_false(areas[i].grow(-1.0).intersects(areas[j].grow(-1.0)),
+							"Seite %d (im Spiel %s): Einträge %d und %d überdecken sich" % [m, in_game, i, j])
+	b.queue_free()
