@@ -155,3 +155,21 @@ func test_the_duck_s_wings_beat_in_four_positions_and_low_on_the_run() -> void:
 	for i in 40:
 		var e: float = LakeLife.Duck.wing_elevation(i * 0.01, true)
 		assert_true(e >= -30.0 and e <= 40.0, "beim Anlauf flach über dem Wasser: %.0f" % e)
+
+func test_the_swimming_duck_is_a_drawn_picture_of_four_phases() -> void:
+	var tex := TextureLoader.load_texture("res://assets/life/ente.png")
+	assert_true(tex.get_width() >= 4 * 28 and tex.get_height() == 20, "Blatt 28 x 20 je Bild: %dx%d" % [tex.get_width(), tex.get_height()])
+	var img := tex.get_image()
+	var widths := []
+	for k in 4:
+		var x0 := 999
+		var x1 := -1
+		for x in 28:
+			for y in 20:
+				var c := img.get_pixel(k * 28 + x, y)
+				if c.a > 0.0 and absf(c.r - 0.33) < 0.12 and c.g < 0.4 and c.b < 0.3:        # the body's browns, not the wake
+					x0 = mini(x0, x)
+					x1 = maxi(x1, x)
+		widths.append(x1 - x0 + 1)
+	for w in widths:
+		assert_true(w >= 5 and w <= 9, "Körper nicht länglich: %d breit (Philip: zu lang)" % w)

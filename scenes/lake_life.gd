@@ -249,6 +249,7 @@ class Duck:
 	const TIP := Color8(186, 170, 146)
 	const SPLASH := Color8(150, 176, 182)
 	const SHADOW := Color8(22, 30, 36)
+	static var _swim_sheet: Texture2D
 	const RUN := 0.75                            # seconds running over the water before it lifts off
 	const RUN_SPEED := 36.0
 	const ELEVATION := [78.0, 30.0, -55.0, 30.0] # wing: up, half, down, half (degrees, up is positive)
@@ -368,12 +369,9 @@ class Duck:
 					_px(Vector2((i - 6) * d, j - 2 - lift), col)
 			_wing(elev, false)
 			return
-		for t in range(3, 10):                       # the wake: a pale V behind
-			for side in [-1, 1]:
-				draw_rect(Rect2(Vector2(-d * t, 1 + side * (t / 3)), Vector2.ONE), WAKE[0] if t < 6 else WAKE[1])
-		for q in [[0, -1, 2], [-d, -1, 1], [0, 0, 1], [-d, 0, 1], [d, 0, 2], [-2 * d, 0, 1], [-3 * d, 0, 0],
-				[0, 1, 0], [-d, 1, 0], [d, 1, 0], [-2 * d, 1, 0], [2 * d, 0, 1]]:
-			draw_rect(Rect2(Vector2(q[0], q[1]), Vector2.ONE), BODY[q[2]])
-		for q in [[2 * d, -1], [2 * d, -2], [3 * d, -2]]:
-			draw_rect(Rect2(Vector2(q[0], q[1]), Vector2.ONE), HEAD)
-		draw_rect(Rect2(Vector2(4 * d, -2), Vector2.ONE), BILL)
+		# swimming: a drawn picture, 4 phases (the head nods, the wake streams away); the cell is 28 x 20, its
+		# body's middle at (14, 8), mirrored when it looks left
+		if _swim_sheet == null:
+			_swim_sheet = TextureLoader.load_texture("res://assets/life/ente.png")
+		var cell := Rect2(Vector2((-14.0 if d > 0 else -13.0), -7.0), Vector2(28.0 * d, 20.0))
+		draw_texture_rect_region(_swim_sheet, cell, Rect2(float(int(_t * 5.0) % 4) * 28.0, 0.0, 28.0, 20.0))
