@@ -124,6 +124,7 @@ func _ready() -> void:
 	book.start_walking.connect(_on_start_walking)
 	book.volumes_changed.connect(_on_volumes)
 	book.camera_mode_changed.connect(_on_camera_mode)
+	book.travel.connect(_on_travel)                       # testing aid (core/test_travel.gd)
 	book.show_start(save.has_position)
 
 
@@ -178,6 +179,16 @@ func _on_start_walking(fresh: bool) -> void:
 		view_node.load_around(world.start)              # the ground must be there before the jump shows it
 		player.position = world.start
 		_store()
+
+
+## Testing aid: put him at a place at once (debug builds only; there is no fast travel in the game).
+func _on_travel(to: Vector2) -> void:
+	store.load_now(world.grid.chunk_of(to))
+	view_node.load_around(to)
+	player.path = PackedVector2Array()
+	player.position = TestTravel.nearest_open(store, to)
+	_cam_at = Vector2.INF
+	_last_pos = player.position
 
 
 func _on_volumes(music: float, sounds: float) -> void:

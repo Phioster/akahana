@@ -732,3 +732,25 @@ func test_a_view_that_has_stopped_rests_on_a_whole_pixel_even_while_he_walks() -
 	assert_true(m.player.is_walking(), "läuft noch")
 	assert_eq(corner, corner.round(), "Ecke ganz, obwohl er (eben noch) läuft: %s" % corner)
 	m.queue_free()
+
+func test_the_test_travel_list_puts_him_on_open_ground_at_every_place() -> void:
+	# a tool only for testing (Philip): in the game itself there is no fast travel
+	var tree := Engine.get_main_loop() as SceneTree
+	var m: Node2D = load("res://scenes/main.gd").new()
+	tree.root.add_child(m)
+	await tree.process_frame
+	if m.world == null:
+		m.queue_free()
+		return
+	assert_true(TestTravel.PLACES.size() >= 6, "genug Orte")
+	for place in TestTravel.PLACES:
+		m._on_travel(place[1])
+		assert_true(m.store.walkable(m.player.position), "begehbar: %s" % place[0])
+		assert_true(m.player.position.distance_to(place[1]) < 40.0, "nah am Ziel: %s" % place[0])
+		assert_false(m.player.is_walking())
+	m.queue_free()
+
+func test_the_book_offers_travel_only_in_test_builds() -> void:
+	var b := BookUI.new()
+	assert_eq(b.travel_offered(), OS.is_debug_build(), "nur in Testversionen")
+	b.free()

@@ -7,8 +7,9 @@ extends CanvasLayer
 signal start_walking(fresh: bool)
 signal camera_mode_changed(on: bool)
 signal volumes_changed(music: float, sounds: float)
+signal travel(to: Vector2)              # testing aid only (core/test_travel.gd)
 
-enum Mode { START, MAIN, SETTINGS, CLOSED, CAMERA }
+enum Mode { START, MAIN, SETTINGS, CLOSED, CAMERA, TRAVEL }
 
 const TITLE := "Akahana"                  # the world and the game (docs/namen.md); Poppyveil is the subtitle
 const GRAPHITE := Color(58 / 255.0, 54 / 255.0, 54 / 255.0)
@@ -246,6 +247,19 @@ func _show_main() -> void:
 	_content.add_child(tag)
 
 
+## Testing aid: jump to a place. Only in debug builds; the game itself has no fast travel.
+func travel_offered() -> bool:
+	return OS.is_debug_build()
+
+
+func _show_travel() -> void:
+	_clear()
+	var y := _heading("Reisen (Test)", 0)
+	for place in TestTravel.PLACES:
+		var to: Vector2 = place[1]
+		y = _entry(-1, place[0], y - 3, func(): close(); travel.emit(to))   # back: the phone's back key
+
+
 func _show_settings() -> void:
 	_clear()
 	var y := _heading("Einstellungen", 0)
@@ -255,6 +269,8 @@ func _show_settings() -> void:
 	if _in_game:
 		y = _entry(0, "Kameramodus", y, _camera_on)
 		y = _entry(1, "zum Hauptmenü", y, _to_start)
+		if travel_offered():
+			y = _entry(-1, "Reisen (Test)", y, func(): _turn_to(Mode.TRAVEL))
 		var probe := _label("weiterlaufen", 16, GRAPHITE)
 		var w := probe.get_minimum_size().x
 		probe.free()
@@ -296,6 +312,8 @@ func back() -> bool:
 			camera_off()
 		Mode.SETTINGS:
 			_turn_to(Mode.MAIN)
+		Mode.TRAVEL:
+			_turn_to(Mode.SETTINGS)
 		Mode.MAIN:
 			if _in_game:
 				close()
@@ -380,11 +398,11 @@ func _slide_in(n: Control) -> void:
 
 
 func _apply_mode() -> void:
-	var book_open := mode in [Mode.START, Mode.MAIN, Mode.SETTINGS]
+	var book_open := mode in [Mode.START, Mode.MAIN, Mode.SETTINGS, Mode.TRAVEL]
 	_dim.visible = book_open
 	_dim.mouse_filter = Control.MOUSE_FILTER_STOP if book_open else Control.MOUSE_FILTER_IGNORE
 	_cover.visible = mode == Mode.START
-	_page.visible = mode in [Mode.MAIN, Mode.SETTINGS]
+	_page.visible = mode in [Mode.MAIN, Mode.SETTINGS, Mode.TRAVEL]
 	_button.visible = mode == Mode.CLOSED
 	_root.get_node("KnopfSchatten").visible = mode == Mode.CLOSED
 	_hint.visible = mode == Mode.CAMERA
@@ -392,10 +410,12 @@ func _apply_mode() -> void:
 		_show_main()
 	elif mode == Mode.SETTINGS:
 		_show_settings()
+	elif mode == Mode.TRAVEL:
+		_show_travel()
 
 
 func is_blocking() -> bool:
-	return mode in [Mode.START, Mode.MAIN, Mode.SETTINGS]
+	return mode in [Mode.START, Mode.MAIN, Mode.SETTINGS, Mode.TRAVEL]
 
 
 ## Paper sounds stay small: the book is a quiet thing in the hand, not an event.
