@@ -18,7 +18,7 @@ import objects_lake as ol  # noqa: E402
 import zone1_draft as z1  # noqa: E402
 import zone4_draft as z4  # noqa: E402
 
-RAW_MD5 = '741a5cba9a1c12da2b8fa8595b38c9ca'   # zone4_draft.render(raw=True)[0]: the jetty out over the deep (end on a whole walk cell)
+RAW_MD5 = 'a323f01fcbb9332495355764c145047f'   # zone4_draft.render(raw=True)[0]: wooden lanterns sorted by their post
 
 
 def recompose(c):

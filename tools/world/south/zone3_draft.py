@@ -238,6 +238,8 @@ class Holzlaterne:
     """The game's wooden post lantern (extras.WoodLantern, drawn on its own small canvas like gen_world)."""
     def __init__(s, x, y):
         s.x, s.y = x, y
+        s.order = y + 1                       # sorted by the post's foot, not the box's bottom (8 px lower): the
+                                              # sprite holds a disc of lit ground and covered a wanderer in front
 
     def box(s):
         return (s.x - 12, s.y - 22, s.x + 13, s.y + 8)

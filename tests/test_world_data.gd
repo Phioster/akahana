@@ -45,3 +45,22 @@ func test_a_swarm_glows_and_moves() -> void:
 				lit += 1
 	assert_true(lit > 0, "manche glühen auf")
 	f.free()
+
+func test_a_wanderer_in_front_of_a_lantern_is_drawn_over_its_light_disc() -> void:
+	# phone 0.8.2: at the jetty's end the wanderer vanished: the lantern's sprite (a disc of lit ground round
+	# the post) was sorted by its box bottom, 8 px below the post - it was drawn over him
+	var w := WorldData.load_default()
+	var found := 0
+	for s in w.sprites:
+		if int(s["frames"]) != 64 or int(s["w"]) != 73:
+			continue                                       # the wooden lanterns: 25 x 30 art + a 24 px margin
+		var post_x: float = float(s["x"]) + 36.0
+		var post_foot := 0
+		for l in w.lights:
+			if str(l["kind"]) == "lantern" and absf(float(l["x"]) - post_x) < 3.0:
+				post_foot = roundi(float(l["y"]) + 11.5)    # the light sits 10.5 px above the post's foot
+		if post_foot == 0:
+			continue
+		found += 1
+		assert_true(int(s["foot"]) <= post_foot + 2, "Laterne bei x=%d: Fuß %d, Pfosten %d" % [int(post_x), int(s["foot"]), post_foot])
+	assert_true(found >= 2, "die Holzlaternen gefunden: %d" % found)
