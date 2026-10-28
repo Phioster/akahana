@@ -145,8 +145,6 @@ func step(delta: float, view: Rect2) -> void:
 ## One fish: a calm, slightly lighter spindle just under the surface, a faint bow wave at its head.
 class Fish:
 	extends Node2D
-	const BODY := Color8(66, 90, 98)
-	const BOW := Color8(85, 112, 121)
 	const GLINT := Color8(127, 152, 156)
 	const RING := Color8(96, 122, 130)
 	var brain: FishBrain
@@ -162,6 +160,7 @@ class Fish:
 	var radius := 10.0
 	var _a := 0.0
 	var _t := 0.0
+	static var _fish_img: Image
 
 	func setup(l: LakeLife, at: Vector2) -> void:
 		lake = l
@@ -207,28 +206,18 @@ class Fish:
 		var shown := brain.shown()
 		if shown <= 0.0:
 			return
-		var L := length / 2.0
-		var c := heading.normalized()
-		var r := int(L) + 3
+		# a drawn picture: 8 headings x 3 shades (faint, half, full; opaque colours, nothing dissolves), 11 x 11,
+		# the fish's middle at (5, 5); only where the water is deep enough
+		if _fish_img == null:
+			_fish_img = TextureLoader.load_texture("res://assets/life/fisch.png").get_image()
+		var row := 0 if shown < 0.4 else (1 if shown < 0.8 else 2)
+		var col := posmod(roundi(heading.angle() / (PI / 4.0)), 8)
 		var origin := _shown
-		for j in range(-r, r + 1):
-			for i in range(-r, r + 1):
-				var w := Vector2(i, j) + origin
-				if lake.depth_at(w) < 25:
-					continue
-				var u := Vector2(i, j).dot(c)
-				var v := Vector2(i, j).dot(c.orthogonal())
-				var half := 1.5 * sqrt(maxf(0.0, 1.0 - (u / L) * (u / L)))
-				if u > -L and u < -L + 1.5:
-					half += 0.6                          # the tail fin
-				# rising and sinking, the shape comes and goes pixel by pixel (no transparency)
-				if fposmod(sin(w.x * 12.9898 + w.y * 78.233) * 43758.5453, 1.0) > shown:
-					continue
-				var at := Vector2(i, j)
-				if absf(u) <= L and absf(v) <= half:
-					draw_rect(Rect2(at, Vector2.ONE), BODY)
-				elif u > L * 0.3 and absf(u) <= L + 1.0 and absf(v) <= half + 1.0 and (i * 7 + j * 3) % 3 != 0:
-					draw_rect(Rect2(at, Vector2.ONE), BOW)
+		for j in 11:
+			for i in 11:
+				var px := _fish_img.get_pixel(col * 11 + i, row * 11 + j)
+				if px.a > 0.0 and lake.depth_at(origin + Vector2(i - 5, j - 5)) >= 25:
+					draw_rect(Rect2(Vector2(i - 5, j - 5), Vector2.ONE), px)
 		if brain.state == FishBrain.SWIM and absf(heading.angle_to(Vector2.RIGHT.rotated(_t))) < 0.05:
 			draw_rect(Rect2(Vector2.ZERO, Vector2.ONE), GLINT)   # turning, a flank catches the light
 		if brain.state == FishBrain.RISE:                # where it came up, a small ring spreads
@@ -242,19 +231,10 @@ class Fish:
 ## One duck: a small brown body with a dark green head and a pale V of wake behind it.
 class Duck:
 	extends Node2D
-	const BODY := [Color8(59, 51, 44), Color8(94, 82, 70), Color8(138, 122, 104)]
-	const HEAD := Color8(47, 74, 58)
-	const BILL := Color8(201, 162, 78)
-	const WAKE := [Color8(85, 112, 121), Color8(127, 152, 156)]
-	const TIP := Color8(186, 170, 146)
-	const SPLASH := Color8(150, 176, 182)
 	const SHADOW := Color8(22, 30, 36)
-	static var _swim_sheet: Texture2D
+	static var _sheet: Texture2D
 	const RUN := 0.75                            # seconds running over the water before it lifts off
 	const RUN_SPEED := 36.0
-	const ELEVATION := [78.0, 30.0, -55.0, 30.0] # wing: up, half, down, half (degrees, up is positive)
-	# the flying duck, facing right: neck out, pointed tail; the middle of the body is at (6, 1)
-	const FLY_BODY := ["..........HH..", "..01111111HHb.", "...0111111....", "....0111......"]
 	var lift := 0.0                              # how high above the water (art px), 0 while it runs
 	var _fly_t := 0.0
 	var brain: DuckBrain
@@ -323,55 +303,27 @@ class Duck:
 		position = _shown
 		queue_redraw()
 
-	## The wing's lift above the body's line (degrees) at a moment of the beat; low while it runs.
-	static func wing_elevation(t: float, running: bool) -> float:
-		var e: float = ELEVATION[int(t / (0.05 if running else 0.075)) % 4]
-		return clampf(e, -30.0, 40.0) if running else e
-
 	func _px(at: Vector2, col: Color) -> void:
 		draw_rect(Rect2(at.round(), Vector2.ONE), col)
-
-	func _wing(elev_deg: float, far: bool) -> void:
-		var d := float(facing)
-		var a := deg_to_rad(elev_deg)
-		var dir := Vector2(-cos(a) * d, -sin(a))
-		var perp := Vector2(-dir.y, dir.x)
-		var from := Vector2(1.0 * d + (d if far else 0.0), -1.0 - (1.0 if far else 0.0) - lift)   # the shoulder
-		var length := 5.5
-		for k in range(int(length) + 1):
-			var th := maxi(1, roundi(2.4 * (1.0 - k / length) + 0.7))
-			for s in th:
-				var col: Color = BODY[1] if far else (TIP if k > 3 or s == th - 1 else BODY[2])
-				_px(from + dir * k + perp * (s - (th - 1) / 2.0), col)
 
 	func _draw() -> void:
 		var d := facing
 		if brain.state == DuckBrain.FLY:
 			var running := _fly_t < RUN
-			if running:                              # splash and a wake behind it
-				var n := int(_fly_t * 24.0)
-				for k in 3:
-					_px(Vector2(-d * (4 + k * 2) - ((n + k) % 2) * d, 1 + (n * 7 + k * 5) % 3 - 1), SPLASH)
-				for k in range(8, 14):
-					_px(Vector2(-d * (k + 1), 1 + (k % 3 - 1)), WAKE[1] if k % 2 == 1 else WAKE[0])
-			else:                                    # the shadow on the water, smaller the higher it is
+			if not running:                          # the shadow on the water, smaller the higher it is
 				var w := maxi(1, roundi(4.0 * (1.0 - minf(lift, 40.0) / 50.0)))
 				for i in range(-w, w + 1):
 					_px(Vector2(i - 2 * d, 1), SHADOW)
-			var elev := wing_elevation(_fly_t, running)
-			_wing(elev, true)
-			for j in FLY_BODY.size():
-				for i in FLY_BODY[j].length():
-					var ch: String = FLY_BODY[j][i]
-					if ch == ".":
-						continue
-					var col: Color = BODY[0] if ch == "0" else (BODY[1] if ch == "1" else (HEAD if ch == "H" else BILL))
-					_px(Vector2((i - 6) * d, j - 2 - lift), col)
-			_wing(elev, false)
+			# drawn pictures: running 2 (splash and wake in them), flying 4 wing positions; body's middle at (12, 12)
+			if _sheet == null:
+				_sheet = TextureLoader.load_texture("res://assets/life/ente.png")
+			var frame := (4 + int(_fly_t / 0.1) % 2) if running else (6 + int(_fly_t / 0.075) % 4)
+			var cell := Rect2(Vector2((-12.0 if d > 0 else -15.0), -12.0 - roundf(lift)), Vector2(28.0 * d, 20.0))
+			draw_texture_rect_region(_sheet, cell, Rect2(float(frame) * 28.0, 0.0, 28.0, 20.0))
 			return
 		# swimming: a drawn picture, 4 phases (the head nods, the wake streams away); the cell is 28 x 20, its
 		# body's middle at (14, 8), mirrored when it looks left
-		if _swim_sheet == null:
-			_swim_sheet = TextureLoader.load_texture("res://assets/life/ente.png")
+		if _sheet == null:
+			_sheet = TextureLoader.load_texture("res://assets/life/ente.png")
 		var cell := Rect2(Vector2((-14.0 if d > 0 else -13.0), -7.0), Vector2(28.0 * d, 20.0))
-		draw_texture_rect_region(_swim_sheet, cell, Rect2(float(int(_t * 5.0) % 4) * 28.0, 0.0, 28.0, 20.0))
+		draw_texture_rect_region(_sheet, cell, Rect2(float(int(_t * 5.0) % 4) * 28.0, 0.0, 28.0, 20.0))

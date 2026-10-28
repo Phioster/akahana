@@ -146,15 +146,31 @@ func test_a_duck_taking_off_runs_over_the_water_first_then_climbs() -> void:
 	d.free()
 	l.free()
 
-func test_the_duck_s_wings_beat_in_four_positions_and_low_on_the_run() -> void:
-	var beat := []
-	for i in 4:
-		beat.append(LakeLife.Duck.wing_elevation(i * 0.075 + 0.01, false))
-	assert_eq(beat, [78.0, 30.0, -55.0, 30.0], "hoch, halb, runter, halb")
-	assert_eq(LakeLife.Duck.wing_elevation(4 * 0.075 + 0.01, false), 78.0, "und wieder von vorn")
-	for i in 40:
-		var e: float = LakeLife.Duck.wing_elevation(i * 0.01, true)
-		assert_true(e >= -30.0 and e <= 40.0, "beim Anlauf flach über dem Wasser: %.0f" % e)
+func test_the_duck_has_four_flying_and_two_running_pictures_that_differ() -> void:
+	var img := TextureLoader.load_texture("res://assets/life/ente.png").get_image()
+	assert_true(img.get_width() >= 10 * 28, "zehn Bilder im Blatt: %d breit" % img.get_width())
+	var sums := []
+	for k in range(4, 10):                                    # 4, 5 running; 6..9 the wing up, half, down, half
+		var n := 0
+		for y in 20:
+			for x in 28:
+				if img.get_pixel(k * 28 + x, y).a > 0.0:
+					n += x * 31 + y * 17 + 1
+		sums.append(n)
+	assert_true(sums[0] != sums[1], "Anlauf: zwei verschiedene Bilder")
+	assert_true(sums[2] != sums[3] and sums[3] != sums[4] and sums[2] != sums[4], "Flug: Flügel hoch, halb, runter")
+
+func test_the_fish_come_in_eight_headings_and_three_shades() -> void:
+	var img := TextureLoader.load_texture("res://assets/life/fisch.png").get_image()
+	assert_eq([img.get_width(), img.get_height()], [88, 33], "8 Richtungen x 3 Helligkeiten, je 11 x 11")
+	for row in 3:
+		for col in 8:
+			var n := 0
+			for y in 11:
+				for x in 11:
+					if img.get_pixel(col * 11 + x, row * 11 + y).a > 0.0:
+						n += 1
+			assert_true(n >= 8 and n <= 40, "Fisch %d/%d: %d Pixel" % [col, row, n])
 
 func test_the_swimming_duck_is_a_drawn_picture_of_four_phases() -> void:
 	var tex := TextureLoader.load_texture("res://assets/life/ente.png")
