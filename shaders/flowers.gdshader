@@ -4,8 +4,8 @@
 shader_type canvas_item;
 
 const int TRAIL = 24;
-const float R0 = 5.0;                 // half width of the wake right at the feet
-const float R1 = 13.0;                // ... at its far end
+const float R0 = 8.0;                 // half width of the wake right at the feet: widest where he walks
+const float R1 = 2.0;                 // ... at its far end: it closes behind him like a V
 const float PUSH = 4.0;
 const float REED_H = 14.0;              // from this height up a reed leans the whole way out of the wake               // most a flower nods aside, in whole pixels
 
@@ -88,12 +88,12 @@ void fragment() {
 	// darker, short stalks lying along the way; it rises again with the wake (tools/world/south/trail_video.py)
 	{
 		float e = bk * bk * (3.0 - 2.0 * bk);
-		float rw0 = R0 * (0.75 + 0.25 * bk);               // an even lane, narrowing as it rises (not the V:
-		press = best > 0.05 ? clamp(sqrt(e) * clamp(1.2 - abs(bo) / (rw0 * 0.8), 0.0, 1.0), 0.0, 1.0) : 0.0;   // a drop)
+		float rw0 = mix(R1, R0, bk);                       // wide at his feet, closing behind him (a V)
+		press = best > 0.05 ? clamp(sqrt(e) * clamp(1.2 - abs(bo) / (rw0 * 0.8), 0.0, 1.0), 0.0, 1.0) : 0.0;
 	}
 	float h = hash(p);
 	float lean = 0.0;                                      // reeds: how far their tops lean out of the way
-	float rw = mix(R1, R0, bk);                            // the V opens with age
+	float rw = mix(R1, R0, bk);                            // the V closes with age
 	if (best > 0.3 * h && abs(bo) < rw) {                  // frayed: each flower lets go at its own moment
 		float ease = bk * bk * (3.0 - 2.0 * bk);           // swings back slowly
 		float amt = PUSH * ease * clamp(1.0 - abs(bo) / rw, 0.0, 1.0) * 1.6;
