@@ -52,7 +52,10 @@ float bend_of(vec2 p, float h) {
 }
 
 vec4 at(sampler2D t, vec2 w) { return texture(t, (floor(w) - origin + 0.5) / tex_size); }
-float height_at(vec2 w) { return texture(bend_tex, (floor(w) - origin + 0.5) / tex_size).r * 255.0; }
+// the bend map (tools/world/south/bendcode.py): height above the foot, + 128 for reeds; 255 = poppy head
+float raw_at(vec2 w) { return round(texture(bend_tex, (floor(w) - origin + 0.5) / tex_size).r * 255.0); }
+float height_at(vec2 w) { float b = raw_at(w); return b > 254.5 ? 255.0 : mod(b, 128.0); }
+bool reed_at(vec2 w) { float b = raw_at(w); return b > 127.5 && b < 254.5; }
 
 void fragment() {
 	vec2 p = origin + floor(UV * tex_size);              // world pixel: wind and trail line up across chunks
@@ -102,6 +105,7 @@ void fragment() {
 		// grass and reeds bend: which blade pixel lands here (the highest wins where two do)
 		c = vec4(0.0);
 		float best = -1.0;
+		bool reed = false;
 		for (int k = -2; k <= 3; k++) {
 			vec2 s = src - vec2(float(k), 0.0);
 			vec4 cs = at(TEXTURE, s);
@@ -109,10 +113,11 @@ void fragment() {
 			if (cs.a > 0.0 && h < 254.5 && h > best && bend_of(s, h) == float(k)) {
 				c = cs;
 				best = h;
+				reed = reed_at(s);
 			}
 		}
 		// at a gust's front one blade goes and its neighbour not yet: fill that 1-px gap, never ground
-		if (c.a > 0.0 && press > 0.15 && best > 1.0) {
+		if (c.a > 0.0 && press > 0.15 && best > 1.0 && !reed) {   // reeds only step aside
 			c = vec4(0.0);                                 // pressed flat (the lane below fills it with ground)
 			lay_flat = true;
 		}
@@ -126,7 +131,7 @@ void fragment() {
 		vec2 g = p - origin - (tex_size - gs) * 0.5;      // the ground has no apron
 		vec3 ground = texelFetch(ground_tex, ivec2(clamp(g, vec2(0.0), gs - 1.0)), 0).rgb;
 		vec4 lane = c.a > 0.0 ? c : vec4(ground * (lay_flat ? 1.0 - 0.45 * press : 1.0), 1.0);
-		if (hash(vec2(p.x, floor(p.y / 3.0))) < 0.18 && press > 0.3)   // a stalk lying along the way
+		if (hash(vec2(p.x, floor(p.y / 3.0))) < 0.18 && press > 0.3 && (c.a == 0.0 || lay_flat))   // a stalk lying along the way
 			lane.rgb = lane.rgb * 0.5 + vec3(150.0, 150.0, 116.0) / 255.0 * 0.5;
 		COLOR = lane;
 	} else {

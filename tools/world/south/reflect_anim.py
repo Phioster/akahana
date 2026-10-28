@@ -12,13 +12,15 @@ DIM = 0.72
 
 def upright_from_layer(layer, bend, x0, y0):
     """The swaying layer (reeds, grass, flowers): each pixel's foot from the bend map (height above foot)."""
-    ys, xs = np.nonzero((layer[..., 3] > 0) & (bend > 0) & (bend < 255))
-    return [(x0 + x, y0 + y, layer[y, x, :3].astype(float), y0 + y + int(bend[y, x])) for y, x in zip(ys, xs)]
+    import bendcode
+    hb = bendcode.height(bend)
+    ys, xs = np.nonzero((layer[..., 3] > 0) & (hb > 0) & (hb < 255))
+    return [(x0 + x, y0 + y, layer[y, x, :3].astype(float), y0 + y + int(hb[y, x])) for y, x in zip(ys, xs)]
 
 
 def upright_from_low(ground, low, x0, y0):
     """Flat things drawn into the ground (jetty, boat, bridges, stones in the water): low holds how many
-    pixels they stand above the water, so only their edges show mirrored, close under them."""
+    pixels they stand above the water, plus one (0 = nothing there)."""
     from scipy import ndimage as ndi                   # mirrored at each thing's own lower edge, per column
     lab, _ = ndi.label(low > 0)
     ys, xs = np.nonzero(lab > 0)
@@ -26,7 +28,7 @@ def upright_from_low(ground, low, x0, y0):
     for y, x in zip(ys, xs):
         k = (lab[y, x], x)
         bottom[k] = max(bottom.get(k, y), y)
-    return [(x0 + x, y0 + y, ground[y, x].astype(float), y0 + bottom[(lab[y, x], x)] + int(low[y, x]))
+    return [(x0 + x, y0 + y, ground[y, x].astype(float), y0 + bottom[(lab[y, x], x)] + int(low[y, x]) - 1)
             for y, x in zip(ys, xs)]
 
 

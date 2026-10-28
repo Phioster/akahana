@@ -225,8 +225,10 @@ def water_map(ground, w, c, m):
     return out
 
 
-LOW_H = {'Steg': 2, 'Boot': 2, 'Bruecke': 3, 'Brett': 1, 'Trittsteine': 1, 'WasserStein': 2, 'Treibholz': 1,
-         'Seerosen': 2}
+# how far each flat thing stands above the water, + 1 (0 in low.png = nothing): the jetty and bridges stand
+# on posts, stones, lily pads, the boat and driftwood lie in it (their reflection starts right at their edge)
+LOW_H = {'Steg': 3, 'Bruecke': 4, 'Brett': 2, 'Boot': 1, 'Trittsteine': 1, 'WasserStein': 1, 'Treibholz': 1,
+         'Seerosen': 1}
 
 
 def main():

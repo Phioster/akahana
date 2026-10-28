@@ -6,6 +6,7 @@ Out: (H, W, 4) uint8; RGB = the mirrored colour (already dimmed), A = strength i
 and distance below the foot / 6 in the low nibble (0..15). A = 0: nothing mirrored here."""
 import numpy as np
 
+import bendcode
 import reflect_anim as ra
 
 
@@ -13,18 +14,19 @@ def bake(H, W, open_water, flowers, bend, low, ground, sprites):
     """open_water: (H, W) bool; flowers RGBA + bend: the swaying layer and its heights; low + ground: the flat
     things; sprites: [(rgba, x, y, foot)] standing things (frame 0)."""
     xs, ys, cols, feet = [], [], [], []
-    m = (flowers[..., 3] > 0) & (bend > 0) & (bend < 255)
+    hb = bendcode.height(bend)
+    m = (flowers[..., 3] > 0) & (hb > 0) & (hb < bendcode.WHOLE)
     y, x = np.nonzero(m)
-    xs.append(x); ys.append(y); cols.append(flowers[y, x, :3]); feet.append(y + bend[y, x].astype(int))
+    xs.append(x); ys.append(y); cols.append(flowers[y, x, :3]); feet.append(y + hb[y, x])
     # a flat thing mirrors at its own lower edge (its waterline), column by column, plus its height over
-    # the water: the bottom row shows first, the top row furthest down - turned over, not just moved
+    # the water (low stores height + 1): the bottom row shows first, the top row furthest down - turned over
     from scipy import ndimage as ndi
     lab, _ = ndi.label(low > 0)
     y, x = np.nonzero(lab > 0)
     key = lab[y, x].astype(np.int64) * W + x
     bottom = np.zeros(key.max() + 1, np.int64)
     np.maximum.at(bottom, key, y)
-    xs.append(x); ys.append(y); cols.append(ground[y, x, :3]); feet.append(bottom[key] + low[y, x].astype(int))
+    xs.append(x); ys.append(y); cols.append(ground[y, x, :3]); feet.append(bottom[key] + low[y, x].astype(int) - 1)
     for rgba, sx, sy, foot in sprites:
         y, x = np.nonzero(rgba[..., 3] > 0)
         xs.append(x + sx); ys.append(y + sy); cols.append(rgba[y, x, :3]); feet.append(np.full(len(y), foot))

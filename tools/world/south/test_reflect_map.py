@@ -24,6 +24,8 @@ class TestReflectMap(unittest.TestCase):
         self.assertEqual(len(col), 3)
         self.assertGreater(col[0][2], 0, 'the bottom row (blue) comes first under it')
         self.assertGreater(col[2][0], 0, 'the top row (red) lies furthest down')
+        first = min(y for y in range(H) if out[y, 2, 3] > 0)
+        self.assertEqual(first, 7, 'lying in the water (stored 1 = height 0): right under its edge')
 
 
 if __name__ == '__main__':

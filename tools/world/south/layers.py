@@ -18,6 +18,8 @@ import contextlib
 
 import numpy as np
 
+import bendcode
+
 import objects_lake as ol
 import objects_south as os_
 import objects_water as ow
@@ -32,6 +34,7 @@ STAND = (z1.Fir, z2.Bank, z2.Steinlaterne, z3.Holzlaterne, ow.Weide, ol.Laubbaum
          os_.Wegstein, os_.Mauer, os_.Vogelscheuche, os_.Findling, os_.Steinhaufen, os_.Baumstumpf, os_.Stamm,
          os_.Zaun, os_.Voegel, os_.Kirschbaum, os_.Fackel, os_.Kerzen, os_.Karren)
 SENTINEL = np.array([255.0, 0.0, 255.0])
+REEDS = (ow.Schilf, ow.Rohrkolben)                 # tall: on the trail they step aside, they do not lie down
 
 _active = None                     # the Collected of the running pass, None when not collecting
 
@@ -60,7 +63,7 @@ class Collected:
         hh[sw[..., 3] > 0] = 255
         for (y, x), h in s.sway_h.items():
             if 0 <= y < H and 0 <= x < W:
-                hh[y, x] = min(254, h)
+                hh[y, x] = h                                     # already coded (bendcode)
         for m in s.cut_sway:
             sw[:m.shape[0]][m] = 0
         hh[sw[..., 3] == 0] = 0
@@ -116,7 +119,7 @@ def _wrap(cls, kind):
             foot = getattr(t, 'order', None) or t.box()[3]
             for j, i in zip(ys, xs):
                 c.sway[(y0 + j, x0 + i)] = after[j, i].copy()
-                c.sway_h[(y0 + j, x0 + i)] = max(0, foot - (y0 + j))
+                c.sway_h[(y0 + j, x0 + i)] = bendcode.encode(max(0, foot - (y0 + j)), isinstance(t, REEDS))
             return out
         if c.scratch is None or c.scratch.shape != img.shape:   # the sentinel run on a private canvas
             c.scratch = np.zeros(img.shape)

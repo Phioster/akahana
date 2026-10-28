@@ -700,3 +700,35 @@ func test_stopping_never_sends_the_view_back_a_fraction() -> void:
 	assert_true(corner.x >= 100.3, "nicht zurück: %s" % corner)
 	var g2: Vector2 = main.rest_goal(Vector2(271.3, 2955.6), view, Vector2(271.3, 2955.6))
 	assert_eq(g2 - view * 0.5, (g2 - view * 0.5).round())
+
+func test_a_view_that_has_stopped_rests_on_a_whole_pixel_even_while_he_walks() -> void:
+	# phone 0.7.3: walking a little inside the calm box the goal stood still, the view came to rest on half
+	# a pixel and only jumped to the whole one when he stopped: back and forth between whole and half
+	var tree := Engine.get_main_loop() as SceneTree
+	var m: Node2D = load("res://scenes/main.gd").new()
+	tree.root.add_child(m)
+	await tree.process_frame
+	if m.world == null:
+		m.queue_free()
+		return
+	m.player.position = Vector2(270.0, 800.0)
+	m._cam_at = Vector2.INF
+	for i in 30:
+		m._process(1.0 / 60.0)
+	m.player.walk_to(PackedVector2Array([m.player.position + Vector2(0, -300)]))
+	for i in 90:                                        # walk on, the view follows at the box edge
+		m.player._process(1.0 / 60.0)
+		m._process(1.0 / 60.0)
+	var p0: Vector2 = m.player.position                 # then back and forth inside the box, still walking
+	var zig := PackedVector2Array()
+	for k in 40:
+		zig.append(p0 + Vector2(3 if k % 2 == 0 else -3, 7 if k % 2 == 0 else 0))
+	m.player.walk_to(zig)
+	for i in 240:
+		m.player._process(1.0 / 60.0)
+		m._process(1.0 / 60.0)
+	var view: Vector2 = m.get_viewport().get_visible_rect().size
+	var corner: Vector2 = m._cam_at - view * 0.5
+	assert_true(m.player.is_walking(), "läuft noch")
+	assert_eq(corner, corner.round(), "Ecke ganz, obwohl er (eben noch) läuft: %s" % corner)
+	m.queue_free()
