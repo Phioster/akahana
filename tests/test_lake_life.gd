@@ -125,3 +125,33 @@ func test_ducks_keep_off_stones_in_the_water() -> void:
 	assert_true(stone.x >= 0.0, "ein Stein im See gefunden")
 	assert_eq(l.swim_depth(stone), 0, "auf dem Stein schwimmt nichts")
 	l.free()
+
+func test_a_duck_taking_off_runs_over_the_water_first_then_climbs() -> void:
+	# approved flight (step 30): a run over the water (wings beating low, splash), then flat climb, with a shadow
+	var l := _lake()
+	var d := LakeLife.Duck.new()
+	d.setup(l, Vector2(430, 3060), Vector2(900, 3060))
+	d.heading = Vector2.RIGHT
+	d.brain.state = DuckBrain.FLY
+	var start := d.pos
+	var lift_in_run := 0.0
+	for i in 20:                                              # 0.5 s of the run
+		d.live(1.0 / 40.0, Vector2(-999, -999), Rect2(0, 0, 9999, 9999))
+		lift_in_run = maxf(lift_in_run, d.lift)
+	assert_eq(lift_in_run, 0.0, "auf dem Wasser, noch nicht in der Luft")
+	assert_true(d.pos.x > start.x + 1.0, "läuft schon los")
+	for i in 60:                                              # then 1.5 s of climbing
+		d.live(1.0 / 40.0, Vector2(-999, -999), Rect2(0, 0, 9999, 9999))
+	assert_true(d.lift > 8.0, "steigt: %.1f" % d.lift)
+	d.free()
+	l.free()
+
+func test_the_duck_s_wings_beat_in_four_positions_and_low_on_the_run() -> void:
+	var beat := []
+	for i in 4:
+		beat.append(LakeLife.Duck.wing_elevation(i * 0.075 + 0.01, false))
+	assert_eq(beat, [78.0, 30.0, -55.0, 30.0], "hoch, halb, runter, halb")
+	assert_eq(LakeLife.Duck.wing_elevation(4 * 0.075 + 0.01, false), 78.0, "und wieder von vorn")
+	for i in 40:
+		var e: float = LakeLife.Duck.wing_elevation(i * 0.01, true)
+		assert_true(e >= -30.0 and e <= 40.0, "beim Anlauf flach über dem Wasser: %.0f" % e)

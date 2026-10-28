@@ -107,17 +107,17 @@ SHOULDER = (7 - ANCHOR[0], 0 - ANCHOR[1] + 1)                 # where the wing g
 WING_ELEV = [78, 30, -55, 30]                                 # up, half, down, half (degrees, up is positive)
 
 
-def wing(img, x, y, elev, d, far=False, length=8.0):
+def wing(img, x, y, elev, d, far=False, length=5.5):
     a = np.radians(elev)
     dx, dy = -np.cos(a) * d, -np.sin(a)                       # up and back (or down and back)
     px, py = -dy, dx
     sx, sy = x + SHOULDER[0] * d + (d if far else 0), y + SHOULDER[1] - (1 if far else 0)
     for k in range(int(length) + 1):
-        th = max(1, int(round(3.4 * (1 - k / length) + 0.7)))
+        th = max(1, int(round(2.4 * (1 - k / length) + 0.7)))
         cx, cy = sx + dx * k, sy + dy * k
         for s in range(th):
             o = (s - (th - 1) / 2.0)
-            col = BODY[1] if far else (TIP if k > 4 or s == th - 1 else BODY[2])      # lighter: it must show on dark water
+            col = BODY[1] if far else (TIP if k > 3 or s == th - 1 else BODY[2])      # lighter: it must show on dark water
             put(img, cx + px * o, cy + py * o, col)
 
 

@@ -246,6 +246,16 @@ class Duck:
 	const HEAD := Color8(47, 74, 58)
 	const BILL := Color8(201, 162, 78)
 	const WAKE := [Color8(85, 112, 121), Color8(127, 152, 156)]
+	const TIP := Color8(186, 170, 146)
+	const SPLASH := Color8(150, 176, 182)
+	const SHADOW := Color8(22, 30, 36)
+	const RUN := 0.75                            # seconds running over the water before it lifts off
+	const RUN_SPEED := 36.0
+	const ELEVATION := [78.0, 30.0, -55.0, 30.0] # wing: up, half, down, half (degrees, up is positive)
+	# the flying duck, facing right: neck out, pointed tail; the middle of the body is at (6, 1)
+	const FLY_BODY := ["..........HH..", "..01111111HHb.", "...0111111....", "....0111......"]
+	var lift := 0.0                              # how high above the water (art px), 0 while it runs
+	var _fly_t := 0.0
 	var brain: DuckBrain
 	var lake: LakeLife
 	var heading := Vector2.RIGHT
@@ -272,8 +282,21 @@ class Duck:
 		var speed := 3.0
 		match brain.state:
 			DuckBrain.FLY:
-				heading = (pos - player_at).normalized()
-				pos += (heading + Vector2(0, -0.5)) * 40.0 * delta
+				if _fly_t == 0.0:
+					heading = (pos - player_at).normalized()          # away from you, and it keeps that course
+					if absf(heading.x) > 0.3:
+						facing = 1 if heading.x > 0.0 else -1
+				_fly_t += delta
+				var v := RUN_SPEED
+				if _fly_t < RUN:                     # the run: speeding up, on the water
+					v = RUN_SPEED * pow(_fly_t / RUN, 1.4)
+					lift = 0.0
+					if lake.swim_depth(pos + heading * 4.0) < LakeLife.DUCK_DEPTH:
+						_fly_t = RUN                 # land ahead: lifts off right here
+				else:
+					var u := _fly_t - RUN
+					lift = 14.0 * u + 3.0 * u * u
+				pos += heading * v * delta
 				_shown = pos.round()
 				position = _shown
 				queue_redraw()
@@ -299,20 +322,58 @@ class Duck:
 		position = _shown
 		queue_redraw()
 
+	## The wing's lift above the body's line (degrees) at a moment of the beat; low while it runs.
+	static func wing_elevation(t: float, running: bool) -> float:
+		var e: float = ELEVATION[int(t / (0.05 if running else 0.075)) % 4]
+		return clampf(e, -30.0, 40.0) if running else e
+
+	func _px(at: Vector2, col: Color) -> void:
+		draw_rect(Rect2(at.round(), Vector2.ONE), col)
+
+	func _wing(elev_deg: float, far: bool) -> void:
+		var d := float(facing)
+		var a := deg_to_rad(elev_deg)
+		var dir := Vector2(-cos(a) * d, -sin(a))
+		var perp := Vector2(-dir.y, dir.x)
+		var from := Vector2(1.0 * d + (d if far else 0.0), -1.0 - (1.0 if far else 0.0) - lift)   # the shoulder
+		var length := 5.5
+		for k in range(int(length) + 1):
+			var th := maxi(1, roundi(2.4 * (1.0 - k / length) + 0.7))
+			for s in th:
+				var col: Color = BODY[1] if far else (TIP if k > 3 or s == th - 1 else BODY[2])
+				_px(from + dir * k + perp * (s - (th - 1) / 2.0), col)
+
 	func _draw() -> void:
 		var d := facing
-		var o := Vector2.ZERO
-		if brain.state == DuckBrain.FLY:             # wings beating
-			var up := int(_t * 8.0) % 2 == 0
-			for p in [Vector2(-1, -1), Vector2(-2, -2 if up else 0), Vector2(1, -1), Vector2(2, -2 if up else 0)]:
-				draw_rect(Rect2(o + p, Vector2.ONE), BODY[2])
-		else:
-			for t in range(3, 10):                   # the wake: a pale V behind
-				for side in [-1, 1]:
-					draw_rect(Rect2(o + Vector2(-d * t, 1 + side * (t / 3)), Vector2.ONE), WAKE[0] if t < 6 else WAKE[1])
+		if brain.state == DuckBrain.FLY:
+			var running := _fly_t < RUN
+			if running:                              # splash and a wake behind it
+				var n := int(_fly_t * 24.0)
+				for k in 3:
+					_px(Vector2(-d * (4 + k * 2) - ((n + k) % 2) * d, 1 + (n * 7 + k * 5) % 3 - 1), SPLASH)
+				for k in range(8, 14):
+					_px(Vector2(-d * (k + 1), 1 + (k % 3 - 1)), WAKE[1] if k % 2 == 1 else WAKE[0])
+			else:                                    # the shadow on the water, smaller the higher it is
+				var w := maxi(1, roundi(4.0 * (1.0 - minf(lift, 40.0) / 50.0)))
+				for i in range(-w, w + 1):
+					_px(Vector2(i - 2 * d, 1), SHADOW)
+			var elev := wing_elevation(_fly_t, running)
+			_wing(elev, true)
+			for j in FLY_BODY.size():
+				for i in FLY_BODY[j].length():
+					var ch: String = FLY_BODY[j][i]
+					if ch == ".":
+						continue
+					var col: Color = BODY[0] if ch == "0" else (BODY[1] if ch == "1" else (HEAD if ch == "H" else BILL))
+					_px(Vector2((i - 6) * d, j - 2 - lift), col)
+			_wing(elev, false)
+			return
+		for t in range(3, 10):                       # the wake: a pale V behind
+			for side in [-1, 1]:
+				draw_rect(Rect2(Vector2(-d * t, 1 + side * (t / 3)), Vector2.ONE), WAKE[0] if t < 6 else WAKE[1])
 		for q in [[0, -1, 2], [-d, -1, 1], [0, 0, 1], [-d, 0, 1], [d, 0, 2], [-2 * d, 0, 1], [-3 * d, 0, 0],
 				[0, 1, 0], [-d, 1, 0], [d, 1, 0], [-2 * d, 1, 0], [2 * d, 0, 1]]:
-			draw_rect(Rect2(o + Vector2(q[0], q[1]), Vector2.ONE), BODY[q[2]])
+			draw_rect(Rect2(Vector2(q[0], q[1]), Vector2.ONE), BODY[q[2]])
 		for q in [[2 * d, -1], [2 * d, -2], [3 * d, -2]]:
-			draw_rect(Rect2(o + Vector2(q[0], q[1]), Vector2.ONE), HEAD)
-		draw_rect(Rect2(o + Vector2(4 * d, -2), Vector2.ONE), BILL)
+			draw_rect(Rect2(Vector2(q[0], q[1]), Vector2.ONE), HEAD)
+		draw_rect(Rect2(Vector2(4 * d, -2), Vector2.ONE), BILL)
