@@ -150,6 +150,17 @@ def _wrap(cls, kind):
                 a[..., :3] = np.clip(f, 0, 255).astype(np.uint8)
                 a[..., 3] = np.any(np.abs(f - base) > 0.5, axis=2) * 255
                 strip.append(a)
+            if hasattr(t, 'core'):                             # only the lantern itself is a sprite; its glow and light
+                keep = np.zeros((y1 - y0, x1 - x0), bool)      # pool are light: into the ground, under whoever stands there
+                for X, Y in t.core():
+                    if y0 <= Y < y1 and x0 <= X < x1:
+                        keep[Y - y0, X - x0] = True
+                glow = np.zeros((y1 - y0, x1 - x0, 3))
+                for a in strip:
+                    glow += (a[..., :3].astype(float) - base) / frames
+                    a[..., 3] = np.where(keep, a[..., 3], 0)
+                    a[~keep, :3] = 0
+                c.ground[y0:y1, x0:x1][~keep] += glow[~keep]   # the flicker's mean; the post shader animates the light
             rgba = np.concatenate(strip, axis=1)
         c.sprites[id(t)] = dict(thing=t, rgba=rgba, x=x0, y=y0, foot=int(round(foot)), frames=frames,
                                 w=x1 - x0, h=y1 - y0)

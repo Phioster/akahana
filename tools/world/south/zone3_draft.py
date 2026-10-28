@@ -244,6 +244,14 @@ class Holzlaterne:
     def box(s):
         return (s.x - 12, s.y - 22, s.x + 13, s.y + 8)
 
+    def core(s):
+        """The pixels of the lantern itself (post, paper box, roof): the sprite. Its glow and the light pool on
+        the ground are light, not a thing: they go into the ground, under whoever stands there."""
+        px = [(s.x + i, s.y - j) for j in range(0, 9) for i in (0, 1)]
+        px += [(s.x + i, s.y - j) for j in range(9, 13) for i in range(-1, 3)]
+        px += [(s.x + i, s.y - 13) for i in range(-2, 4)] + [(s.x + i, s.y - 14) for i in range(-1, 3)]
+        return px
+
     def lights(s):
         return [{'x': s.x + 0.5, 'y': s.y - 10.5, 'r': 26.0, 'k': 0.6, 'kind': 'lantern'}]
 

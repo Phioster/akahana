@@ -64,3 +64,27 @@ func test_a_wanderer_in_front_of_a_lantern_is_drawn_over_its_light_disc() -> voi
 		found += 1
 		assert_true(int(s["foot"]) <= post_foot + 2, "Laterne bei x=%d: Fuß %d, Pfosten %d" % [int(post_x), int(s["foot"]), post_foot])
 	assert_true(found >= 2, "die Holzlaternen gefunden: %d" % found)
+
+func test_a_lantern_sprite_holds_only_the_lantern_not_its_glow() -> void:
+	# phone 0.8.3: the wanderer at the jetty's end was half hidden. The wooden lantern's sprite held its whole
+	# glow and light pool (216 px, 17 wide, opaque ground colours) and was drawn over him. Only post, box and
+	# roof may be in it; the glow belongs to the ground.
+	var w := WorldData.load_default()
+	var found := 0
+	for s in w.sprites:
+		if int(s["frames"]) != 64 or int(s["w"]) != 73:
+			continue
+		var img := TextureLoader.load_texture("res://assets/world/sprites/%s.png" % s["name"]).get_image()
+		var n := 0
+		var x0 := 999
+		var x1 := -1
+		for y in img.get_height():
+			for x in 73:                                    # frame 0
+				if img.get_pixel(x, y).a > 0.0:
+					n += 1
+					x0 = mini(x0, x)
+					x1 = maxi(x1, x)
+		found += 1
+		assert_true(n >= 25 and n <= 75, "%s: nur die Laterne, %d deckende Pixel" % [s["name"], n])
+		assert_true(x1 - x0 <= 7, "%s: schmal wie Dach und Pfosten, %d breit" % [s["name"], x1 - x0 + 1])
+	assert_true(found >= 2, "Holzlaternen gefunden: %d" % found)
