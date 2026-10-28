@@ -6,8 +6,8 @@ shader_type canvas_item;
 const int TRAIL = 24;
 const float R0 = 8.0;                 // half width of the wake right at the feet: widest where he walks
 const float R1 = 2.0;                 // ... at its far end: it closes behind him like a V
-const float PUSH = 4.0;
-const float REED_H = 14.0;              // from this height up a reed leans the whole way out of the wake               // most a flower nods aside, in whole pixels
+const float PUSH = 6.0;
+const float REED_H = 9.0;               // from this height up a reed leans the whole way out of the wake               // most a flower nods aside, in whole pixels
 
 const float BEND_H = 10.0;            // px above its foot from where a blade goes the whole way with the wind
 const float CALM_B = 1.1;             // grass and reeds stir between the gusts too (poppies keep 0.5)
@@ -96,11 +96,11 @@ void fragment() {
 	float rw = mix(R1, R0, bk);                            // the V closes with age
 	if (best > 0.3 * h && abs(bo) < rw) {                  // frayed: each flower lets go at its own moment
 		float ease = bk * bk * (3.0 - 2.0 * bk);           // swings back slowly
-		float amt = PUSH * ease * clamp(1.0 - abs(bo) / rw, 0.0, 1.0) * 1.6;
+		float amt = PUSH * ease * clamp(1.0 - abs(bo) / rw, 0.0, 1.0) * 2.0;
 		float off = floor(clamp(amt, 0.0, PUSH) + h * 0.6);
 		trampled = abs(bo) < 1.0 && h < 0.5 * ease;        // here and there one bent under his feet
 		src = p - bn * sign(bo) * off;
-		lean = length(bn * off) * 1.8 * sign(abs(bn.x) > 0.2 ? -bn.x * sign(bo) : -sign(bo));
+		lean = clamp(length(bn * off) * 2.6 * sign(abs(bn.x) > 0.2 ? -bn.x * sign(bo) : -sign(bo)), -8.0, 8.0);   // within the chunk's apron
 	}
 	// poppy heads (height 255) move whole, as they always did
 	vec4 c = at(TEXTURE, src - vec2(dx, 0.0));
@@ -121,7 +121,7 @@ void fragment() {
 		}
 		// reeds in the wake bend from their foot like in a gust: the higher, the further they lean aside
 		if (lean != 0.0) {
-			for (int k = -9; k <= 10; k++) {
+			for (int k = -11; k <= 11; k++) {
 				vec2 s = p - vec2(float(k), 0.0);
 				vec4 cs = at(TEXTURE, s);
 				float h = height_at(s);
