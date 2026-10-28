@@ -74,10 +74,12 @@ func steer(p: Vector2, heading: Vector2, min_depth: int, side: float) -> Vector2
 	return -heading
 
 
-## A random point at least min_depth deep inside r, or (-1, -1) if none was found.
-func random_spot(r: Rect2, min_depth: int) -> Vector2:
-	for i in 24:
+## A random point at least min_depth deep inside r (and outside `avoid`, e.g. the view), or (-1, -1).
+func random_spot(r: Rect2, min_depth: int, avoid := Rect2()) -> Vector2:
+	for i in 48:
 		var p := Vector2(randf_range(r.position.x, r.end.x), randf_range(r.position.y, r.end.y))
+		if avoid.has_point(p):
+			continue
 		if swim_depth(p) >= min_depth and swim_depth(p + Vector2(8, 0)) >= min_depth \
 				and swim_depth(p - Vector2(8, 0)) >= min_depth:
 			return p.round()
@@ -110,10 +112,10 @@ func step(delta: float, view: Rect2) -> void:
 				_fish.append(f)
 	_ducks_in -= delta
 	if _ducks_in <= 0.0:
-		_ducks_in = randf_range(14.0, 30.0)
+		_ducks_in = randf_range(8.0, 20.0)
 		if _ducks.is_empty():                        # a small group comes paddling in from out of sight
-			var p := random_spot(view.grow(70.0), DUCK_DEPTH)
-			if p.x >= 0.0 and not view.has_point(p):
+			var p := random_spot(view.grow(70.0), DUCK_DEPTH, view)
+			if p.x >= 0.0:
 				for i in randi_range(1, MAX_DUCKS):
 					var d := Duck.new()
 					d.setup(self, p + Vector2(randf_range(-8, 8), randf_range(-4, 4)), view.get_center())

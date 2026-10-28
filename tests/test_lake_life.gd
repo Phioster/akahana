@@ -189,3 +189,17 @@ func test_the_swimming_duck_is_a_drawn_picture_of_four_phases() -> void:
 		widths.append(x1 - x0 + 1)
 	for w in widths:
 		assert_true(w >= 5 and w <= 9, "Körper nicht länglich: %d breit (Philip: zu lang)" % w)
+
+func test_a_new_duck_spot_lies_outside_the_view_and_is_found_nearly_every_time() -> void:
+	# phone 0.8.7: no duck on a whole round of the lake. random_spot gave the first deep point, mostly one
+	# inside the view; the duck was then dropped and the next try came 14-30 s later.
+	var l := _lake()
+	var view := Rect2(300, 2950, 180, 400)
+	var found := 0
+	for i in 40:
+		var p := l.random_spot(view.grow(70.0), LakeLife.DUCK_DEPTH, view)
+		if p.x >= 0.0:
+			found += 1
+			assert_false(view.has_point(p), "ausserhalb des Bildes: %s" % p)
+	assert_true(found >= 36, "fast immer ein Platz gefunden: %d von 40" % found)
+	l.free()
