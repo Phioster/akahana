@@ -289,15 +289,13 @@ func _process(delta: float) -> void:
 		_cam_goal = c
 	else:
 		# the view only moves on once he leaves the calm box, and then just enough to keep him at its edge
-		var held := true
 		for k in 2:
 			var off: float = c[k] - _cam_goal[k]
 			if absf(off) > CAM_CALM[k]:
 				_cam_goal[k] = c[k] - signf(off) * CAM_CALM[k]
-				held = false
-		# rest on a whole pixel (between two the post shader read on borders) whenever the goal holds still,
-		# also while he walks about inside the calm box; a goal that follows him is not rounded (it wobbled)
-		if held or not player.is_walking():
+		# rest on a whole pixel once he stands. Not while walking: rounding then made the steps uneven
+		# (measured 0.7.10: 0.25 / 0.18 / 0 px a frame, felt as stutter); the half pixels were his sprite
+		if not player.is_walking():
 			_cam_goal = rest_goal(_cam_goal, view, _cam_at)
 		# ease out, but never creep: below a small speed it rolls straight onto the goal and stops there
 		# (the endless creep ended in a visible snap)

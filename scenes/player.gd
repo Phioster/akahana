@@ -108,6 +108,10 @@ func _process(delta: float) -> void:
 	if sprite != null:
 		sprite.frame = dir * COLS + col
 		mirror.frame = sprite.frame
+		# drawn on whole world pixels: the post shader reads the world per art pixel and cut a sprite
+		# between two of them in half (he walks 0.25 px a frame)
+		sprite.position = global_position.round() - global_position
+		mirror.position = sprite.position
 		(mirror.material as ShaderMaterial).set_shader_parameter("foot_y", global_position.y)
 
 

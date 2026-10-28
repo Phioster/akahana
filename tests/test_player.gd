@@ -83,3 +83,17 @@ func test_the_wanderer_shows_mirrored_below_his_feet_on_water() -> void:
 		pl._process(0.05)
 	assert_eq(r.frame, pl.sprite.frame, "er geht im Spiegel mit")
 	pl.free()
+
+func test_the_wanderer_is_drawn_on_whole_world_pixels() -> void:
+	# phone 0.7.10: walking 0.25 px a frame, his sprite sat between two pixels; the post shader reads the
+	# world per art pixel and cut him in half for a moment ("half pixels", "standing in the jetty")
+	var pl := Player.new()
+	pl._ready()
+	pl.position = Vector2(100.0, 200.0)
+	pl.walk_to(PackedVector2Array([Vector2(100.0, 230.0)]))
+	for i in 7:
+		pl._process(1.0 / 60.0)
+		var at: Vector2 = pl.position + pl.sprite.position
+		assert_eq(at, at.round(), "Figur auf ganzem Pixel bei %s" % pl.position)
+		assert_eq(pl.mirror.position, pl.sprite.position, "Spiegelbild mit")
+	pl.free()

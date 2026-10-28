@@ -53,7 +53,9 @@ void fragment() {
 	vec2 world = px + 0.5;
 	vec2 uv = (world - cam_pos) / view_world;              // centre of this art pixel on screen
 	vec3 src = texture(screen_tex, uv).rgb * 255.0;
-	bool em = src.r > 190.0 && src.g > 110.0 && src.b < 140.0 && src.r - src.b > 90.0;
+	// flames glow (kept bright through mist and grade); measured: flames from 240 up, the autumn trees'
+	// highlights 191..208 - they counted as flames, stayed bright while the mist moved round them: flicker
+	bool em = src.r > 212.0 && src.g > 110.0 && src.b < 140.0 && src.r - src.b > 90.0;
 	vec3 a = grade(src);
 
 	float ph = 6.2831853 * TIME / LOOP;
