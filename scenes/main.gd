@@ -20,8 +20,6 @@ var store: ChunkStore
 var view_node: WorldView
 var marker: TapMarker
 var birds: Birds
-var _flog := FrameLog.new()           # diagnosis (half pixels, stutter): remove once found
-var _corner_last := Vector2.ZERO
 var lake: LakeLife
 var _life := Activator.new()         # wisps: made near the view, dropped far from it
 var book: BookUI
@@ -117,7 +115,6 @@ func _ready() -> void:
 	amb.player = player
 	add_child(amb)
 	add_child(Ducker.new())
-	add_child(_flog)
 	add_child(Music.new())
 
 	book = BookUI.new()
@@ -316,10 +313,6 @@ func _process(delta: float) -> void:
 	post.set_shader_parameter("view_world", view)
 	post.set_shader_parameter("cam_pos", top_left)
 	view_node.update(Rect2(top_left, view))
-	var ct := get_viewport().get_canvas_transform()
-	_flog.note(delta, player.is_walking(), top_left, top_left - _corner_last, ct.origin,
-			"ziel %.2f,%.2f" % [_cam_goal.x - view.x * 0.5, _cam_goal.y - view.y * 0.5])
-	_corner_last = top_left
 	birds.update_area(Rect2(top_left, view))
 	lake.step(delta, Rect2(top_left, view))
 	_life.update(Rect2(top_left, view))
