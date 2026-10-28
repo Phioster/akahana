@@ -466,18 +466,23 @@ func test_the_view_settles_without_a_snap() -> void:
 	for i in 30:
 		m._process(1.0 / 60.0)
 	m.player.walk_to(PackedVector2Array([m.player.position + Vector2(-40, 0)]))
-	var prev: Vector2 = m.cam.position
+	var prev: Vector2 = m._cam_at                        # the smooth glide behind the whole-pixel view
+	var shown: Vector2 = m.cam.position
 	var last := 0.0
 	var worst_rise := 0.0
+	var worst_jump := 0.0
 	for i in 300:
 		m.player._process(1.0 / 60.0)
 		m._process(1.0 / 60.0)
-		var d: float = m.cam.position.distance_to(prev)
-		prev = m.cam.position
+		var d: float = m._cam_at.distance_to(prev)
+		prev = m._cam_at
 		if not m.player.is_walking() and d > last + 0.001:     # while settling it may only slow down
 			worst_rise = maxf(worst_rise, d - last)
 		last = d
+		worst_jump = maxf(worst_jump, m.cam.position.distance_to(shown))
+		shown = m.cam.position
 	assert_true(worst_rise < 0.01, "Ruck beim Anhalten: +%.3f px" % worst_rise)
+	assert_true(worst_jump <= 1.0, "gezeigt nie mehr als ein Pixel auf einmal: %.2f" % worst_jump)
 	m.queue_free()
 
 func _birds_at(view: Rect2) -> Birds:
@@ -742,3 +747,36 @@ func test_no_two_book_entries_lie_on_top_of_each_other() -> void:
 					assert_false(areas[i].grow(-1.0).intersects(areas[j].grow(-1.0)),
 							"Seite %d (im Spiel %s): Einträge %d und %d überdecken sich" % [m, in_game, i, j])
 	b.queue_free()
+
+func test_while_walking_the_view_shows_whole_pixels_in_an_even_beat() -> void:
+	# phone 0.7.11 (measured): the view's corner went in 0.25 px steps, but pixel snapping drew the world on
+	# whole pixels and the post shader read it at the fractional spot: for a moment the neighbour pixel
+	var tree := Engine.get_main_loop() as SceneTree
+	var m: Node2D = load("res://scenes/main.gd").new()
+	tree.root.add_child(m)
+	await tree.process_frame
+	if m.world == null:
+		m.queue_free()
+		return
+	m.player.position = Vector2(270.0, 800.0)
+	m._cam_at = Vector2.INF
+	for i in 30:
+		m._process(1.0 / 60.0)
+	m.player.walk_to(PackedVector2Array([m.player.position + Vector2(0, -300)]))
+	var gaps := []
+	var last := INF
+	var since := 0
+	for i in 400:
+		m.player._process(1.0 / 60.0)
+		m._process(1.0 / 60.0)
+		var corner: Vector2 = m.get_viewport().get_canvas_transform().affine_inverse() * Vector2.ZERO
+		assert_eq(corner, corner.round(), "die Welt wird an ganzen Pixeln gezeigt")
+		since += 1
+		if corner.y != last:
+			if i > 200:
+				gaps.append(since)
+			since = 0
+			last = corner.y
+	gaps.sort()
+	assert_true(gaps.size() > 10 and gaps[-1] - gaps[0] <= 1, "gleichmäßiger Takt: %s" % [gaps])
+	m.queue_free()

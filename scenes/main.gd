@@ -302,7 +302,9 @@ func _process(delta: float) -> void:
 		var left := _cam_at.distance_to(_cam_goal)
 		var go := maxf(left * (1.0 - exp(-CAM_EASE * delta)), CAM_MIN_SPEED * delta)
 		_cam_at = _cam_at.move_toward(_cam_goal, go)
-	cam.position = _cam_at
+	# shown on whole pixels: pixel snapping draws the world there anyway, and the post shader must read it at
+	# the same spot (0.7.11: it read at the fractional one - the neighbour pixel for a moment, scrolling up)
+	cam.position = (_cam_at - view * 0.5).round() + view * 0.5
 	cam.force_update_scroll()                          # apply now: the shader must snap to THIS frame's view
 	var top_left := get_viewport().get_canvas_transform().affine_inverse() * Vector2.ZERO
 	post.set_shader_parameter("view_world", view)
