@@ -19,8 +19,15 @@ def upright_from_layer(layer, bend, x0, y0):
 def upright_from_low(ground, low, x0, y0):
     """Flat things drawn into the ground (jetty, boat, bridges, stones in the water): low holds how many
     pixels they stand above the water, so only their edges show mirrored, close under them."""
-    ys, xs = np.nonzero(low > 0)
-    return [(x0 + x, y0 + y, ground[y, x].astype(float), y0 + y + int(low[y, x])) for y, x in zip(ys, xs)]
+    from scipy import ndimage as ndi                   # mirrored at each thing's own lower edge, per column
+    lab, _ = ndi.label(low > 0)
+    ys, xs = np.nonzero(lab > 0)
+    bottom = {}
+    for y, x in zip(ys, xs):
+        k = (lab[y, x], x)
+        bottom[k] = max(bottom.get(k, y), y)
+    return [(x0 + x, y0 + y, ground[y, x].astype(float), y0 + bottom[(lab[y, x], x)] + int(low[y, x]))
+            for y, x in zip(ys, xs)]
 
 
 def upright_from_sprite(pic, sx, sy, foot):

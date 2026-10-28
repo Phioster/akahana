@@ -653,8 +653,8 @@ func test_fireflies_hum_only_close_by() -> void:
 	tree.root.add_child(sw)
 	var hum: AudioStreamPlayer2D = sw.get_node_or_null("Summen")
 	assert_true(hum != null and hum.stream != null, "Summen geladen")
-	assert_true(hum.max_distance <= 60.0, "nur nah zu hören")
-	assert_true(hum.volume_db <= -14.0, "viel leiser")
+	assert_true(hum.max_distance >= 60.0 and hum.max_distance <= 80.0, "nur in der Nähe, aber dort hörbar")
+	assert_true(hum.volume_db >= -12.0 and hum.volume_db <= -4.0, "so leise wie das Knistern des Irrlichts (0.7.2: -18 war unhörbar)")
 	sw.queue_free()
 
 func test_at_rest_the_view_s_corner_lies_on_a_whole_pixel() -> void:
@@ -686,3 +686,17 @@ func test_a_hovering_thing_does_not_hop_between_two_pixels() -> void:
 			steps += 1
 		s = n
 	assert_true(steps >= 8 and steps <= 10, "gleichmäßig weiter: %d" % steps)
+
+func test_stopping_never_sends_the_view_back_a_fraction() -> void:
+	# phone 0.7.2: on stopping the view now and then stood on half a pixel for a moment: the rounded goal lay
+	# behind the camera, which still crept toward the old goal - it went back, then snapped
+	var main := load("res://scenes/main.gd")
+	var view := Vector2(180, 400.4)
+	var at := Vector2(100.3, 1500.0) + view * 0.5           # corner 100.3, moving right toward 100.45
+	var goal := Vector2(100.45, 1500.0) + view * 0.5
+	var g: Vector2 = main.rest_goal(goal, view, at)
+	var corner: Vector2 = g - view * 0.5
+	assert_eq(corner, corner.round(), "ganzer Pixel")
+	assert_true(corner.x >= 100.3, "nicht zurück: %s" % corner)
+	var g2: Vector2 = main.rest_goal(Vector2(271.3, 2955.6), view, Vector2(271.3, 2955.6))
+	assert_eq(g2 - view * 0.5, (g2 - view * 0.5).round())

@@ -16,8 +16,15 @@ def bake(H, W, open_water, flowers, bend, low, ground, sprites):
     m = (flowers[..., 3] > 0) & (bend > 0) & (bend < 255)
     y, x = np.nonzero(m)
     xs.append(x); ys.append(y); cols.append(flowers[y, x, :3]); feet.append(y + bend[y, x].astype(int))
-    y, x = np.nonzero(low > 0)
-    xs.append(x); ys.append(y); cols.append(ground[y, x, :3]); feet.append(y + low[y, x].astype(int))
+    # a flat thing mirrors at its own lower edge (its waterline), column by column, plus its height over
+    # the water: the bottom row shows first, the top row furthest down - turned over, not just moved
+    from scipy import ndimage as ndi
+    lab, _ = ndi.label(low > 0)
+    y, x = np.nonzero(lab > 0)
+    key = lab[y, x].astype(np.int64) * W + x
+    bottom = np.zeros(key.max() + 1, np.int64)
+    np.maximum.at(bottom, key, y)
+    xs.append(x); ys.append(y); cols.append(ground[y, x, :3]); feet.append(bottom[key] + low[y, x].astype(int))
     for rgba, sx, sy, foot in sprites:
         y, x = np.nonzero(rgba[..., 3] > 0)
         xs.append(x + sx); ys.append(y + sy); cols.append(rgba[y, x, :3]); feet.append(np.full(len(y), foot))

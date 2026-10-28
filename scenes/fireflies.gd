@@ -13,8 +13,8 @@ var flies: Array = []
 var _t := randf() * 100.0
 
 
-const HUM_DB := -18.0                # a soft hovering hum, much quieter than anything else
-const HUM_RANGE := 50.0               # only heard when walking through or right beside a swarm
+const HUM_DB := -8.0                 # recording -23 -> about -31 near it, as soft as the wisp's crackle
+const HUM_RANGE := 70.0               # heard walking through or beside a swarm (at -18 / 50 px: inaudible)
 
 
 func setup(d: Dictionary) -> void:

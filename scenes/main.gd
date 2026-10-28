@@ -156,8 +156,18 @@ func _start_position() -> Vector2:
 
 ## Where the view comes to rest: its top-left corner on a whole pixel. The view's height in art pixels is
 ## rarely whole (180 wide on a tall phone), so a whole-pixel middle would leave the corner on half a pixel.
-static func rest_goal(goal: Vector2, view: Vector2) -> Vector2:
-	return (goal - view * 0.5).round() + view * 0.5
+## Rounded toward where the camera comes from would send it back a fraction and then snap: so a whole pixel
+## that is not behind the camera, seen from the goal.
+static func rest_goal(goal: Vector2, view: Vector2, at: Vector2 = Vector2.INF) -> Vector2:
+	var corner := goal - view * 0.5
+	var out := corner.round()
+	if at != Vector2.INF:
+		var from := at - view * 0.5
+		for k in 2:
+			var way := corner[k] - from[k]
+			if absf(way) > 0.001 and (out[k] - from[k]) * way < 0.0:
+				out[k] = ceilf(from[k]) if way > 0.0 else floorf(from[k])
+	return out + view * 0.5
 
 
 func _on_start_walking(fresh: bool) -> void:
@@ -270,7 +280,7 @@ func _process(delta: float) -> void:
 			if absf(off) > CAM_CALM[k]:
 				_cam_goal[k] = c[k] - signf(off) * CAM_CALM[k]
 		if not player.is_walking():                    # rest on a whole pixel (between two the post shader
-			_cam_goal = rest_goal(_cam_goal, view)     # read on borders); walking, round goals wobbled the view
+			_cam_goal = rest_goal(_cam_goal, view, _cam_at)   # read on borders); walking, round goals wobbled
 		# ease out, but never creep: below a small speed it rolls straight onto the goal and stops there
 		# (the endless creep ended in a visible snap)
 		var left := _cam_at.distance_to(_cam_goal)
