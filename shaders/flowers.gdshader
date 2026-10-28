@@ -14,6 +14,7 @@ const float CALM_B = 1.1;             // grass and reeds stir between the gusts 
 uniform sampler2D bend_tex : filter_nearest;   // per pixel: height above its plant's foot, 255 = sways whole
 uniform vec2 tex_size;
 uniform vec2 origin;                  // world position of this picture's top-left texel (chunk minus apron)
+uniform sampler2D ground_tex : filter_nearest;   // the chunk's ground (no apron): the trail darkens it
 uniform vec4 trail[24];               // x, y, walking direction x, y
 uniform float trail_k[24];            // 1 just stepped .. 0 swung back (linear in time)
 
@@ -78,6 +79,14 @@ void fragment() {
 	vec2 src = p;
 	bool trampled = false;
 	float press = 0.0;                                     // in the trail's middle the blades lie pressed down
+	bool lay_flat = false;
+	// the trail through tall grass (approved B): pressed blades lie flat, the ground between them a little
+	// darker, short stalks lying along the way; it rises again with the wake (tools/world/south/trail_video.py)
+	{
+		float e = bk * bk * (3.0 - 2.0 * bk);
+		float rw0 = mix(R1, R0, bk);
+		press = best > 0.05 ? clamp(sqrt(e) * clamp(1.2 - abs(bo) / (rw0 * 0.8), 0.0, 1.0), 0.0, 1.0) : 0.0;
+	}
 	float h = hash(p);
 	float rw = mix(R1, R0, bk);                            // the V opens with age
 	if (best > 0.3 * h && abs(bo) < rw) {                  // frayed: each flower lets go at its own moment
@@ -85,7 +94,6 @@ void fragment() {
 		float amt = PUSH * ease * clamp(1.0 - abs(bo) / rw, 0.0, 1.0) * 1.6;
 		float off = floor(clamp(amt, 0.0, PUSH) + h * 0.6);
 		trampled = abs(bo) < 1.0 && h < 0.5 * ease;        // here and there one bent under his feet
-		press = ease * clamp(1.0 - abs(bo) / (rw * 0.7), 0.0, 1.0);
 		src = p - bn * sign(bo) * off;
 	}
 	// poppy heads (height 255) move whole, as they always did
@@ -103,16 +111,25 @@ void fragment() {
 				best = h;
 			}
 		}
-		// the trail through tall grass: pressed blades show only low (they rise again as he walks on); the
-		// wind's gap filling below must not close the lane again
-		float lie = mix(40.0, 2.0, press);
-		// (else) at a gust's front one blade goes and its neighbour not yet: fill that 1-px gap, never ground
-		if (press > 0.05 && best > lie)
-			c = vec4(0.0);
-		else if (c.a == 0.0 && press < 0.05 && at(TEXTURE, src).a > 0.0 && height_at(src) < 254.5) {
+		// at a gust's front one blade goes and its neighbour not yet: fill that 1-px gap, never ground
+		if (c.a > 0.0 && press > 0.15 && best > 1.0) {
+			c = vec4(0.0);                                 // pressed flat (the lane below fills it with ground)
+			lay_flat = true;
+		}
+		else if (c.a == 0.0 && press < 0.15 && at(TEXTURE, src).a > 0.0 && height_at(src) < 254.5) {
 			vec4 f = at(TEXTURE, src - vec2(bend_of(src, height_at(src)), 0.0));
 			c = f.a > 0.0 ? f : at(TEXTURE, src);
 		}
 	}
-	COLOR = trampled ? vec4(0.0) : c;
+	if (press > 0.15) {
+		vec2 gs = vec2(textureSize(ground_tex, 0));
+		vec2 g = p - origin - (tex_size - gs) * 0.5;      // the ground has no apron
+		vec3 ground = texelFetch(ground_tex, ivec2(clamp(g, vec2(0.0), gs - 1.0)), 0).rgb;
+		vec4 lane = c.a > 0.0 ? c : vec4(ground * (lay_flat ? 1.0 - 0.45 * press : 1.0), 1.0);
+		if (hash(vec2(p.x, floor(p.y / 3.0))) < 0.18 && press > 0.3)   // a stalk lying along the way
+			lane.rgb = lane.rgb * 0.5 + vec3(150.0, 150.0, 116.0) / 255.0 * 0.5;
+		COLOR = lane;
+	} else {
+		COLOR = trampled ? vec4(0.0) : c;
+	}
 }

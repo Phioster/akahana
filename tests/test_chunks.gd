@@ -184,6 +184,8 @@ func test_blades_bend_with_their_height_map() -> void:
 	var code: String = (load("res://shaders/flowers.gdshader") as Shader).code
 	assert_true(code.contains("BEND_H"))
 	assert_true(code.contains("press"), "in der Spur liegen die Halme flach, der Wind schließt die Gasse nicht")
+	var gt: Texture2D = m.get_shader_parameter("ground_tex")
+	assert_true(gt != null and gt.get_size() == Vector2(180, 200), "Boden der Kachel für die Spur")
 	v.queue_free()
 
 func test_water_shader_keeps_its_noise_small() -> void:

@@ -18,10 +18,10 @@ else
 	"${GODOT:-godot}" --headless --script res://tests/run_tests.gd 2>&1 | tee "$OUT"
 fi
 
-if grep -qE "^(SCRIPT ERROR|USER SCRIPT ERROR)" "$OUT"; then
+if grep -qE "^(SCRIPT ERROR|USER SCRIPT ERROR|SHADER ERROR)" "$OUT"; then
 	echo
 	echo "FEHLGESCHLAGEN: Laufzeitfehler im Testlauf -- betroffene Tests haben nichts geprueft."
-	grep -E "^(SCRIPT ERROR|USER SCRIPT ERROR)" "$OUT" | sort -u | head -20
+	grep -E "^(SCRIPT ERROR|USER SCRIPT ERROR|SHADER ERROR)" "$OUT" | sort -u | head -20
 	exit 1
 fi
 if grep -q "SUITE KAPUTT" "$OUT"; then
