@@ -225,7 +225,8 @@ def water_map(ground, w, c, m):
     return out
 
 
-LOW_H = {'Steg': 2, 'Boot': 2, 'Bruecke': 3, 'Brett': 1, 'Trittsteine': 1, 'WasserStein': 2, 'Treibholz': 1}
+LOW_H = {'Steg': 2, 'Boot': 2, 'Bruecke': 3, 'Brett': 1, 'Trittsteine': 1, 'WasserStein': 2, 'Treibholz': 1,
+         'Seerosen': 2}
 
 
 def main():
