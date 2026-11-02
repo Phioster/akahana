@@ -31,7 +31,11 @@ def placement(masks, rng):
     inside = ndi.binary_erosion(np.array(im) > 0, iterations=7)
     off = inside & ~ndi.binary_dilation(masks['path'], iterations=9)
     ys, xs = np.nonzero(off)
-    taken, out = [], []
+    pys, pxs = np.nonzero(masks['path'] & np.array(im) > 0)
+    cx, cy = S.x - X0, S.y - Y0
+    far = int(np.argmax((pxs - cx) ** 2 + (pys - cy) ** 2))
+    ex, ey = int(pxs[far]), int(pys[far])
+    taken, out = [(ex, ey - 8), (ex + 13, ey - 8), (ex - 14, ey)], []         # the entrance's own things come first: nothing crowds them
     wanted = [('stone', 9), ('stele', 2), ('kreuz', 3), ('cairn', 3), ('stab', 4)]
     for kind, n in wanted:
         tries = 0
@@ -42,17 +46,14 @@ def placement(masks, rng):
             gap = 19 if kind in ('stone', 'stele', 'kreuz') else 11               # spread out: more air between them
             if any(abs(x - a) < gap and abs(y - b) < gap * 0.7 for a, b in taken):
                 continue
+            if kind in ('stone', 'stele', 'kreuz') and any((abs(x - a) < 8 and abs(y - b) < 46) or (abs(y - b) < 6 and abs(x - a) < 46) for a, b in taken):
+                continue                                                    # never in a column or a row: it must not look planted
             taken.append((x, y))
             out.append((kind, x, y, int(rng.integers(0, 10 ** 6))))
             n -= 1
     # a bowl belongs to a stone: put the bowls at the foot of the first three stones
     stones = [o for o in out if o[0] == 'stone'][:4]
     out = [o for o in out if o[0] != 'bowl'] + [('bowl', s[1] + int(rng.integers(-4, 5)), s[2] + 6, s[3]) for s in stones]
-    # the entrance: where the path meets the clearing's rim a stone lantern, with a bowl and a stone beside it
-    pys, pxs = np.nonzero(masks['path'] & np.array(im) > 0)
-    cx, cy = S.x - X0, S.y - Y0
-    far = int(np.argmax((pxs - cx) ** 2 + (pys - cy) ** 2))
-    ex, ey = int(pxs[far]), int(pys[far])
     out += [('lantern', ex + 13, ey - 3, 0), ('bowl', ex - 11, ey + 4, 77), ('stone', ex - 16, ey - 2, 78)]
     return out
 
@@ -77,7 +78,7 @@ def render(seed=23):
             lights.extend(t.lights())
             continue
         if kind == 'stone':
-            oe.Grabstein(x, y, sd, lean).draw(img, G)
+            oe.Grabstein(x, y, sd, lean, size=float(rng.uniform(0.8, 1.25))).draw(img, G)
         elif kind == 'kreuz':
             oe.Kreuz(x, y, sd, stone=bool(sd % 2), lean=lean or 1).draw(img, G)
         elif kind == 'stele':
