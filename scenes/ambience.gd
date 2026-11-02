@@ -47,7 +47,7 @@ func _ready() -> void:
 			_spot(size, Vector2(float(b["x"]), float(b["y"])), BROOK_DB[size], BROOK_REACH)
 		if world.places.has("pond"):
 			var pd: Array = world.places["pond"]
-			_spot("tropfen", Vector2(float(pd[0]), float(pd[1])), DROPS_DB, 110.0)
+			_spot("teich", Vector2(float(pd[0]), float(pd[1])), DROPS_DB, 110.0)
 		if not world.fire.is_empty():
 			_spot("feuer", Vector2(float(world.fire["x"]), float(world.fire["y"])), FIRE_DB, FIRE_REACH)
 		for l in world.lights:

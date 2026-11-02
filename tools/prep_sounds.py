@@ -120,9 +120,9 @@ def south():
 
 
 def east():
-    """The Ostwald's sounds: drops at the pond (#177958 Sclolex, CC0), the ritual place's little bell (the far bell,
+    """The Ostwald's sounds: the pond's night lake (#524287 Sheyvan, CC0), the ritual place's little bell (the far bell,
     #266525, an octave up and cut short)."""
-    loop(f'{FS}/177958.ogg', 'tropfen', 4, 30, 0.08, highpass=250.0)
+    loop(f'{FS}/524287.ogg', 'teich', 5, 30, 0.08, highpass=120.0)
     b = load(f'{FS}/266525.ogg')[:int(5.0 * SR)]
     b = np.interp(np.arange(0, len(b) - 1, 1.335), np.arange(len(b)), b)         # a fourth up, still slow
     n = int(3.6 * SR)

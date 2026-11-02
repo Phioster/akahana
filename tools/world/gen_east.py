@@ -51,6 +51,7 @@ CELL = 2
 GRASS, EARTH, STONE, WOOD, SNOW, WET = range(6)
 KIND_BROOK, KIND_LAKE = 2, 3
 FEATHER = 22
+SPOT_FEATHER = 90                    # a spot's own trees fade into the wood's over this many pixels (a hard window edge showed)
 BAND = 520                           # rows of the big forest rendered in one go (the shadows are dicts: keep them small)
 LOW_H = {'Steg': 3, 'Steinbruecke': 4, 'Seerosen': 1, 'WasserStein': 1, 'Treibholz': 1, 'Boot': 1}
 
@@ -113,6 +114,15 @@ def rect_weight(h, w, f=FEATHER):
     yy, xx = np.mgrid[0:h, 0:w]
     d = np.minimum(np.minimum(xx, w - 1 - xx), np.minimum(yy, h - 1 - yy))
     return smooth(d / float(f))
+
+
+def spot_weight(p):
+    """rect_weight with the wide feather, but no fade on a side that lies at the world's edge."""
+    yy, xx = np.mgrid[0:p.h, 0:p.w]
+    d = np.minimum(xx, np.minimum(yy, p.h - 1 - yy))
+    if p.x0 + p.w < WW:
+        d = np.minimum(d, p.w - 1 - xx)
+    return smooth(d / float(SPOT_FEATHER))
 
 
 def hash01(x, y):
@@ -352,6 +362,7 @@ def main(src=None, out=None):
                 pickle.dump((pieces, ZS.render.open_), f, protocol=4)
 
     for p in pieces[3:]:                                        # the spots never reach into the south's ground below zone 1's top
+        p.weight = spot_weight(p)
         gx = np.arange(p.x0, p.x0 + p.w)[None, :]
         gy = np.arange(p.y0, p.y0 + p.h)[:, None]
         p.weight = p.weight * np.where(gy >= TOP, smooth((gx - SOUTH_W) / 24.0), 1.0)
