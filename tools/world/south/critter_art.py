@@ -1,7 +1,7 @@
 """Fish and ducks as drawn pixel sprites, like the small birds (assets/life/vogel_*.png): fixed frames
 instead of shapes worked out afresh every frame (they jagged and flickered when turning).
 
-  fisch.png   16 headings (22.5 deg steps from E, clockwise) x 3 shades x 4 tail phases (row = shade*4 + phase); 3 shades (faint, half, full: opaque colours stepping towards
+  fisch.png   16 headings (22.5 deg steps from E, clockwise) x 3 shades x 4 tail phases x 4x4 quarter-pixel offsets (see fish_sheet_v2); 3 shades (faint, half, full: opaque colours stepping towards
               the water, no dissolving pixels), 11 x 11 each, the fish's middle at (5, 5)
   ente.png    swim (2 frames, the wake moves), run (2), fly (4 wing positions), facing right, 24 x 20 each,
               the duck's middle (waterline) at (12, 12); facing left = flipped
@@ -20,7 +20,7 @@ CELL_F = 11
 CELL_D = (24, 20)
 
 
-def fish_cell(angle_deg, shade, bend=0.0):
+def fish_cell(angle_deg, shade, bend=0.0, dx=0.0, dy=0.0):
     """One fish heading angle_deg (0 = right, 90 = down): a spindle with a forked tail, shaded back to belly,
     rasterised on a half-pixel-centred grid so mirrored headings give mirrored pictures."""
     out = np.zeros((CELL_F, CELL_F, 4), np.uint8)
@@ -28,8 +28,8 @@ def fish_cell(angle_deg, shade, bend=0.0):
     c, s = np.cos(a), np.sin(a)
     ss = 4
     ys, xs = np.mgrid[0:CELL_F * ss, 0:CELL_F * ss]
-    X = (xs + 0.5) / ss - CELL_F / 2
-    Y = (ys + 0.5) / ss - CELL_F / 2
+    X = (xs + 0.5) / ss - CELL_F / 2 - dx                       # dx, dy: the fish's sub-pixel offset inside the cell
+    Y = (ys + 0.5) / ss - CELL_F / 2 - dy
     u = X * c + Y * s                                           # along the fish
     v = -X * s + Y * c                                          # across it (positive: the belly side, "down")
     L = 4.6
@@ -58,10 +58,13 @@ def fish_cell(angle_deg, shade, bend=0.0):
 WAG = [0.0, 1.0, 0.0, -1.0]                                     # tail swing, one swim cycle (v2)
 
 
+SUB = [-0.5, -0.25, 0.0, 0.25]                                  # sub-pixel offsets (quarter pixel) per axis
+
+
 def fish_sheet_v2():
-    """16 headings x (3 shades x 4 tail phases); row = shade * 4 + phase."""
-    return np.concatenate([np.concatenate([fish_cell(h * 22.5, sh, WAG[ph]) for h in range(16)], axis=1)
-                           for sh in range(3) for ph in range(4)], axis=0)
+    """16 headings across; rows = ((shade * 4 + tail phase) * 4 + sub-y) * 4 + sub-x."""
+    return np.concatenate([np.concatenate([fish_cell(h * 22.5, sh, WAG[ph], SUB[ox], SUB[oy]) for h in range(16)], axis=1)
+                           for sh in range(3) for ph in range(4) for oy in range(4) for ox in range(4)], axis=0)
 
 
 def fish_sheet():

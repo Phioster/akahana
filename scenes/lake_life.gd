@@ -157,6 +157,7 @@ class Fish:
 	var circling := false
 	var _side := 1.0                             # which way it turns at an edge, kept for its whole life
 	var _shown := Vector2.ZERO
+	var _sub := Vector2i(2, 2)                   # quarter-pixel offset inside the pixel, 0..3 per axis (2 = centred)
 	var pos := Vector2.ZERO                      # the true, smooth spot; the node stands on _shown
 	var centre := Vector2.ZERO
 	var radius := 10.0
@@ -200,7 +201,9 @@ class Fish:
 			if lake.swim_depth(next) < LakeLife.FISH_DEPTH:
 				next = pos
 		pos = next
-		_shown = PixelSnap.together(_shown, pos)   # whole pixels, both axes in one even tick
+		var q := (pos * 4.0).round() / 4.0          # quarter pixels: the fish is drawn afresh at each, so no hop
+		_shown = (q + Vector2(0.5, 0.5)).floor()
+		_sub = Vector2i(roundi((q.x - _shown.x) * 4.0) + 2, roundi((q.y - _shown.y) * 4.0) + 2)
 		position = _shown
 		queue_redraw()
 
@@ -212,10 +215,10 @@ class Fish:
 		# the fish's middle at (5, 5); only where the water is deep enough
 		if _fish_img == null:
 			_fish_img = TextureLoader.load_texture("res://assets/life/fisch.png").get_image()
-		# sheet: 16 headings across; rows = shade x 4 tail phases (the rear swings: 0, +, 0, -)
+		# sheet: 16 headings across; rows = shade x 4 tail phases x 4x4 quarter-pixel offsets
 		var shade := 0 if shown < 0.4 else (1 if shown < 0.8 else 2)
 		var rate := 12.0 if brain.state == FishBrain.DART else 5.0
-		var row := shade * 4 + int(_t * rate) % 4
+		var row := ((shade * 4 + int(_t * rate) % 4) * 4 + _sub.y) * 4 + _sub.x
 		var col := posmod(roundi(heading.angle() / (PI / 8.0)), 16)
 		var origin := _shown
 		for j in 11:
