@@ -692,6 +692,22 @@ func test_a_hovering_thing_does_not_hop_between_two_pixels() -> void:
 		s = n
 	assert_true(steps >= 8 and steps <= 10, "gleichmäßig weiter: %d" % steps)
 
+func test_a_swimmer_steps_both_axes_together_and_evenly() -> void:
+	var shown := Vector2(12, 0)
+	var times := []
+	for i in 720:                                    # a circle of radius 12 at 6 px/s, 60 fps
+		var a := float(i) / 60.0 * 6.0 / 12.0
+		var n := PixelSnap.together(shown, Vector2(cos(a), sin(a)) * 12.0)
+		if n != shown:
+			times.append(i)
+			assert_true(absf(n.x - shown.x) <= 1.0 and absf(n.y - shown.y) <= 1.0, "ein Schritt ist hoechstens ein Pixel je Achse")
+		shown = n
+	assert_true(times.size() >= 55 and times.size() <= 70, "gleichmaessig: %d Schritte" % times.size())
+	var longest := 0
+	for k in range(1, times.size()):
+		longest = maxi(longest, times[k] - times[k - 1])
+	assert_true(longest <= 16, "kein Stillstand dazwischen: %d Bilder" % longest)
+
 func test_stopping_never_sends_the_view_back_a_fraction() -> void:
 	# phone 0.7.2: on stopping the view now and then stood on half a pixel for a moment: the rounded goal lay
 	# behind the camera, which still crept toward the old goal - it went back, then snapped

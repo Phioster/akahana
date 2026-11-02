@@ -1,7 +1,7 @@
 """Fish and ducks as drawn pixel sprites, like the small birds (assets/life/vogel_*.png): fixed frames
 instead of shapes worked out afresh every frame (they jagged and flickered when turning).
 
-  fisch.png   8 headings (E SE S SW W NW N NE) x 3 shades (faint, half, full: opaque colours stepping towards
+  fisch.png   16 headings (22.5 deg steps from E, clockwise) x 3 shades x 4 tail phases (row = shade*4 + phase); 3 shades (faint, half, full: opaque colours stepping towards
               the water, no dissolving pixels), 11 x 11 each, the fish's middle at (5, 5)
   ente.png    swim (2 frames, the wake moves), run (2), fly (4 wing positions), facing right, 24 x 20 each,
               the duck's middle (waterline) at (12, 12); facing left = flipped
@@ -20,7 +20,7 @@ CELL_F = 11
 CELL_D = (24, 20)
 
 
-def fish_cell(angle_deg, shade):
+def fish_cell(angle_deg, shade, bend=0.0):
     """One fish heading angle_deg (0 = right, 90 = down): a spindle with a forked tail, shaded back to belly,
     rasterised on a half-pixel-centred grid so mirrored headings give mirrored pictures."""
     out = np.zeros((CELL_F, CELL_F, 4), np.uint8)
@@ -33,6 +33,7 @@ def fish_cell(angle_deg, shade):
     u = X * c + Y * s                                           # along the fish
     v = -X * s + Y * c                                          # across it (positive: the belly side, "down")
     L = 4.6
+    v = v - bend * np.clip((-u + 0.5) / (L + 1.5), 0.0, 1.0) ** 1.6 * 1.7    # tail swing: the rear bends sideways
     body = (u / L) ** 2 + (v / 1.55) ** 2 <= 1.0
     body &= u > -L + 0.4
     t = (-u - L + 0.4)                                          # the tail: two small flukes behind the body
@@ -52,6 +53,15 @@ def fish_cell(angle_deg, shade):
         out[j, i, :3] = np.clip(col, 0, 255).astype(np.uint8)
         out[j, i, 3] = 255
     return out
+
+
+WAG = [0.0, 1.0, 0.0, -1.0]                                     # tail swing, one swim cycle (v2)
+
+
+def fish_sheet_v2():
+    """16 headings x (3 shades x 4 tail phases); row = shade * 4 + phase."""
+    return np.concatenate([np.concatenate([fish_cell(h * 22.5, sh, WAG[ph]) for h in range(16)], axis=1)
+                           for sh in range(3) for ph in range(4)], axis=0)
 
 
 def fish_sheet():
@@ -152,6 +162,6 @@ def duck_sheet():
 if __name__ == '__main__':
     import os
     out = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'assets', 'life')
-    Image.fromarray(fish_sheet()).save(os.path.join(out, 'fisch.png'))
+    Image.fromarray(fish_sheet_v2()).save(os.path.join(out, 'fisch.png'))
     Image.fromarray(duck_sheet()).save(os.path.join(out, 'ente.png'))
     print('ok')

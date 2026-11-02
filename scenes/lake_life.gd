@@ -200,7 +200,7 @@ class Fish:
 			if lake.swim_depth(next) < LakeLife.FISH_DEPTH:
 				next = pos
 		pos = next
-		_shown = PixelSnap.sticky(_shown, pos)   # whole pixels, without shaking round a pixel's middle
+		_shown = PixelSnap.together(_shown, pos)   # whole pixels, both axes in one even tick
 		position = _shown
 		queue_redraw()
 
@@ -212,8 +212,11 @@ class Fish:
 		# the fish's middle at (5, 5); only where the water is deep enough
 		if _fish_img == null:
 			_fish_img = TextureLoader.load_texture("res://assets/life/fisch.png").get_image()
-		var row := 0 if shown < 0.4 else (1 if shown < 0.8 else 2)
-		var col := posmod(roundi(heading.angle() / (PI / 4.0)), 8)
+		# sheet: 16 headings across; rows = shade x 4 tail phases (the rear swings: 0, +, 0, -)
+		var shade := 0 if shown < 0.4 else (1 if shown < 0.8 else 2)
+		var rate := 12.0 if brain.state == FishBrain.DART else 5.0
+		var row := shade * 4 + int(_t * rate) % 4
+		var col := posmod(roundi(heading.angle() / (PI / 8.0)), 16)
 		var origin := _shown
 		for j in 11:
 			for i in 11:

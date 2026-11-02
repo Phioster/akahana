@@ -160,17 +160,23 @@ func test_the_duck_has_four_flying_and_two_running_pictures_that_differ() -> voi
 	assert_true(sums[0] != sums[1], "Anlauf: zwei verschiedene Bilder")
 	assert_true(sums[2] != sums[3] and sums[3] != sums[4] and sums[2] != sums[4], "Flug: Flügel hoch, halb, runter")
 
-func test_the_fish_come_in_eight_headings_and_three_shades() -> void:
+func test_the_fish_come_in_sixteen_headings_three_shades_and_four_tail_phases() -> void:
 	var img := TextureLoader.load_texture("res://assets/life/fisch.png").get_image()
-	assert_eq([img.get_width(), img.get_height()], [88, 33], "8 Richtungen x 3 Helligkeiten, je 11 x 11")
-	for row in 3:
-		for col in 8:
+	assert_eq([img.get_width(), img.get_height()], [176, 132], "16 Richtungen x (3 Helligkeiten x 4 Schwanzphasen), je 11 x 11")
+	for row in 12:
+		for col in 16:
 			var n := 0
 			for y in 11:
 				for x in 11:
 					if img.get_pixel(col * 11 + x, row * 11 + y).a > 0.0:
 						n += 1
 			assert_true(n >= 8 and n <= 40, "Fisch %d/%d: %d Pixel" % [col, row, n])
+	var diff := 0                                    # the tail really moves: phase 1 differs from phase 0
+	for y in 11:
+		for x in 11:
+			if img.get_pixel(x, 8 * 11 + 11 * 0 + y).a != img.get_pixel(x, 9 * 11 + y).a:
+				diff += 1
+	assert_true(diff >= 1, "Schwanzphasen unterscheiden sich")
 
 func test_the_swimming_duck_is_a_drawn_picture_of_four_phases() -> void:
 	var tex := TextureLoader.load_texture("res://assets/life/ente.png")
