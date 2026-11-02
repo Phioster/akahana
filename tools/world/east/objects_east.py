@@ -49,9 +49,10 @@ class Riesenbaum:
         rng = np.random.default_rng(s.seed + 7)
         sz = s.size
         h, w = img.shape[:2]
-        th = int(24 * sz)                                                # the trunk's length: the crown sits on its top
+        # seen from above at an angle (like the cherry tree): a HUGE crown, a short, massive trunk with buttress roots
+        th = int(10 * sz)                                                # the visible trunk, ground to the crown's underside
         topx = s.x + s.lean
-        crown_base = s.y - th
+        crown_base = s.y + int(6 * sz)                                   # the crown's own foot lies below the ground: it sits low
         tmp = img.copy()                                                  # the crown only: its own trunk and limbs are dropped,
         ol.Laubbaum(topx, crown_base, s.seed, sz, 'moos').draw(tmp, G)    # the one trunk below carries it
         changed = (np.abs(tmp - img).sum(-1) > 0)
@@ -75,13 +76,13 @@ class Riesenbaum:
         # the trunk: a thick, gnarled column. Vertical bark furrows (lit ridges, dark gaps), swelling at the roots like buttresses,
         # a couple of knots, patches of moss on the north side, lit from the upper left. It tapers into the crown's limbs.
         seed = s.seed
-        tr = th + int(15 * sz)                                             # up to the crown's underside, over the crown's own thin trunk
+        tr = th + int(2 * sz)                                              # a little into the crown, hidden by its leaves
 
         def centre(t):
-            return s.x + s.lean * t ** 1.6 + 2.4 * np.sin(t * 3.4 + seed) * (1 - 0.5 * t)
+            return s.x + s.lean * 0.25 * t ** 1.6 + 1.2 * np.sin(t * 3.4 + seed) * (1 - 0.5 * t)
 
         def half_w(k, t):
-            return 3.4 * sz * (1 - 0.5 * t) + 5.8 * sz * (1 - t) ** 3.5 + 1.1 * np.sin(k * 0.31 + seed) * (1 - t) + 0.6
+            return 3.0 * sz * (1 - 0.35 * t) + 4.2 * sz * (1 - t) ** 3.0 + 1.0 * np.sin(k * 0.31 + seed) * (1 - t) + 0.6
 
         knots = [(int(rng.uniform(0.25, 0.7) * tr), rng.uniform(-0.5, 0.5)) for _ in range(2)]
         for k in range(tr + 3):
@@ -117,7 +118,7 @@ class Riesenbaum:
                         put(img, xx, yy - d, BARK[2 if d == 0 else 1] if k % 4 else BARK[0])
         # the limbs: three thick arms leaving the top of the trunk into the crown
         topc, topy = centre(1.0), s.y - tr
-        for a_ in (-0.85, 0.05, 0.9):
+        for a_ in ():                                                      # the limbs are inside the crown now
             x_, y_ = topc, topy
             ang = -np.pi / 2 + a_
             for k in range(int(11 * sz)):
