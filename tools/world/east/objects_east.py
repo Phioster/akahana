@@ -14,7 +14,7 @@ from objects_lake import hx, put  # noqa: E402
 # dark crowns for the wood: blue-green, one cool light (the moon), a touch of moss yellow in the highlights
 ol.AUTUMN['nacht'] = ([hx(c) * 0.9 for c in ['#101c1c', '#1a2c2a', '#26403a', '#355a4c', '#4a7662']], hx('#8fb8a0'))
 ol.AUTUMN['moos'] = ([hx(c) * 0.92 for c in ['#131c14', '#202e1c', '#2f4426', '#455f33', '#637e45']], hx('#a8bb72'))
-STRAND = [hx(c) for c in ['#1e2a20', '#2c3d2a', '#41573a', '#5c7650']]
+STRAND = [hx(c) for c in ['#2a3a2a', '#3e5538', '#587a48', '#83a468']]
 RIM = hx('#7f9a96')
 WOODC = [hx(c) for c in ['#2e2724', '#4a3f3a', '#76695f', '#a39689']]      # weathered grey wood, light enough to read in the dark
 BARK = [hx(c) for c in ['#1b1917', '#322b29', '#4e4340', '#6d5f58']]      # grey with a little warmth (Philip: some brown again)
@@ -36,8 +36,8 @@ class Nachtbaum:
 class Riesenbaum:
     """A giant old tree: a broad crown of moss-green clumps, a thick leaning trunk with roots, and long strands of
     hanging moss under the crown (the moodboard's tree at the water)."""
-    def __init__(s, x, y, seed=3, size=2.1):
-        s.x, s.y, s.seed, s.size = x, y, seed, size
+    def __init__(s, x, y, seed=3, size=2.1, lean=0):
+        s.x, s.y, s.seed, s.size, s.lean = x, y, seed, size, lean
 
     def box(s):
         r = int(20 * s.size)
@@ -50,7 +50,7 @@ class Riesenbaum:
         # trunk: thick, slightly leaning, widening to roots
         for k in range(int(26 * sz)):
             t = k / (26 * sz)
-            cx = s.x + 3 * sz * t * t + 1.2 * np.sin(t * 5 + s.seed)
+            cx = s.x + 3 * sz * t * t + s.lean * t * t + 1.2 * np.sin(t * 5 + s.seed)
             half = max(2, 2.6 * sz * (1 - 0.35 * t) + (2.2 * sz * (1 - t) ** 3))
             y = s.y - k
             for i in range(int(cx - half), int(cx + half) + 1):
@@ -61,12 +61,12 @@ class Riesenbaum:
                 x_, y_ = int(s.x + a * (3 + k * 1.1)), int(s.y + 1 + k * 0.12 * abs(a))
                 if 0 <= y_ < h and 0 <= x_ < w:
                     put(img, x_, y_, BARK[1 + (k % 3 == 0)])
-        ol.Laubbaum(s.x + 2, s.y - int(22 * sz) + 4, s.seed, sz, 'moos').draw(img, G)
+        ol.Laubbaum(s.x + 2 + s.lean, s.y - int(22 * sz) + 4, s.seed, sz, 'moos').draw(img, G)
         # hanging strands under the crown, longer towards the middle, lighter at the tips
-        for _ in range(int(34 * sz)):
-            x_ = int(s.x + rng.normal(0, 13 * sz))
+        for _ in range(int(60 * sz)):
+            x_ = int(s.x + s.lean + rng.normal(0, 13 * sz))
             top = int(s.y - 24 * sz + rng.uniform(0, 10 * sz))
-            ln = int(rng.uniform(5, 15) * sz ** 0.7)
+            ln = int(rng.uniform(7, 22) * sz ** 0.7)
             for k in range(ln):
                 xx = x_ + int(np.round(np.sin(k * 0.55 + x_) * 0.8))
                 if 0 <= top + k < h and 0 <= xx < w:
