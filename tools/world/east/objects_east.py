@@ -16,6 +16,7 @@ ol.AUTUMN['nacht'] = ([hx(c) * 0.9 for c in ['#101c1c', '#1a2c2a', '#26403a', '#
 ol.AUTUMN['moos'] = ([hx(c) * 0.92 for c in ['#131c14', '#202e1c', '#2f4426', '#455f33', '#637e45']], hx('#a8bb72'))
 STRAND = [hx(c) for c in ['#1e2a20', '#2c3d2a', '#41573a', '#5c7650']]
 RIM = hx('#7f9a96')
+WOODC = [hx(c) for c in ['#2e2724', '#4a3f3a', '#76695f', '#a39689']]      # weathered grey wood, light enough to read in the dark
 BARK = [hx(c) for c in ['#1b1917', '#322b29', '#4e4340', '#6d5f58']]      # grey with a little warmth (Philip: some brown again)
 
 
@@ -352,3 +353,45 @@ class Stab:
             for j in (0, 1):
                 if 0 <= y + j < h and 0 <= x + 1 + i < w:
                     put(img, x + 1 + i, y + j, np.array(c))
+
+
+class Kreuz:
+    """A worn cross, wooden (grey, split, one arm broken off) or stone (chipped), leaning, moss at the foot."""
+    def __init__(s, x, y, seed=6, stone=False, lean=1):
+        s.x, s.y, s.seed, s.stone, s.lean = x, y, seed, stone, lean
+
+    def box(s):
+        return (s.x - 8, s.y - 20, s.x + 9, s.y + 4)
+
+    def draw(s, img, G):
+        rng = np.random.default_rng(s.seed)
+        h, w = img.shape[:2]
+        ht = int(rng.integers(13, 17))
+        pal = STONE if s.stone else WOODC
+        broken = int(rng.integers(0, 2))                                  # which arm is gone
+        for k in range(ht):
+            x = s.x + int(round(s.lean * k / ht * 2))
+            y = s.y - k
+            for dx in (0, 1):
+                if 0 <= y < h and 0 <= x + dx < w:
+                    lit = 3 - 2 * dx - (1 if k % 5 == 0 else 0) - (1 if rng.random() < 0.15 else 0)
+                    put(img, x + dx, y, pal[int(np.clip(lit, 0, 3))] if not (s.stone and dx == 0 and k > 2) else RIM)
+        by = s.y - int(ht * 0.68)
+        bx = s.x + int(round(s.lean * 0.68 * 2))
+        for side in (-1, 1):
+            reach = 3 if (side == (-1 if broken else 1)) else 5
+            if side == (-1 if broken else 1):
+                reach = 2                                                  # the broken one: a stub
+            for i in range(1, reach + 1):
+                xx = bx + side * i + (1 if side > 0 else 0)
+                yy = by + (1 if i > 3 else 0)
+                if 0 <= yy < h and 0 <= xx < w:
+                    put(img, xx, yy, pal[2 if side < 0 else 1])
+                    if 0 <= yy - 1 < h:
+                        put(img, xx, yy - 1, pal[3 if side < 0 else 2] if i % 2 == 0 else pal[2])
+        for i in range(-2, 4):                                            # moss at the foot
+            xx = s.x + i
+            if 0 <= s.y + 1 < h and 0 <= xx < w and rng.random() < 0.85:
+                put(img, xx, s.y, MOSSC[1])
+                if rng.random() < 0.6 and s.y - 1 >= 0:
+                    put(img, xx, s.y - 1, MOSSC[0])
