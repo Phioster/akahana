@@ -215,7 +215,7 @@ class Pilzring:
                 put(img, x + 1, y - 1, np.array([172, 170, 150]))
 
 
-STONE = [hx(c) for c in ['#2c3436', '#434e50', '#5f6c6b', '#85928b']]       # dark .. lit, cool grey
+STONE = [hx(c) for c in ['#3b4547', '#5a676a', '#88989a', '#bccac6']]       # dark .. lit, cool grey
 MOSSC = [hx(c) for c in ['#27382a', '#3d5a36', '#5d8048']]
 
 
@@ -254,7 +254,9 @@ class Grabstein:
                     put(img, xx, yy, MOSSC[1 if rng.random() < 0.7 else 0])
 
         def pal(i, span, j, n):
-            lit = 0.8 - 0.55 * (i / max(span, 1)) - 0.25 * (j / n) + rng.normal(0, 0.1)
+            lit = 0.95 - 0.5 * (i / max(span, 1)) - 0.2 * (j / n) + rng.normal(0, 0.1)
+            if i == 0 and j > 1:
+                return RIM                                                     # the moon's edge light on the left
             if j < 2 and rng.random() < 0.75 or j > n - 3 and rng.random() < 0.55:
                 return MOSSC[int(np.clip(1 + (lit > 0.6), 0, 2))]
             return STONE[int(np.clip(lit * 3.2, 0, 3))]
