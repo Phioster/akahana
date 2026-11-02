@@ -65,24 +65,63 @@ class Riesenbaum:
                 xx = x_ + int(np.round(np.sin(k * 0.55 + x_) * 0.7))
                 if 0 <= top + k < h and 0 <= xx < w and top + k < s.y - 8 * sz:
                     put(img, xx, top + k, STRAND[min(3, int(k / ln * 3.2))])
-        # roots over the ground
-        for a in (-1, 1, 0.5, -0.5, 0.2, -0.2):
-            for k in range(int(11 * sz)):
-                x_, y_ = int(s.x + a * (3 + k * 1.15)), int(s.y + 1 + k * 0.15 * abs(a))
-                if 0 <= y_ < h and 0 <= x_ < w:
-                    put(img, x_, y_, BARK[1 + (k % 3 == 0)])
-                    if 0 <= y_ - 1 < h and k < 6 * sz:
-                        put(img, x_, y_ - 1, BARK[2])
-        # the trunk: one curve from the roots to the crown, widest at the foot
-        for k in range(th + 2):
-            t = min(1.0, k / th)
-            cx = s.x + s.lean * t * t + 1.5 * np.sin(t * 4.2 + s.seed) * (1 - t)
-            half = 1.3 * sz + 2.4 * sz * (1 - t) ** 2.2
+        # the trunk: a thick, gnarled column. Vertical bark furrows (lit ridges, dark gaps), swelling at the roots like buttresses,
+        # a couple of knots, patches of moss on the north side, lit from the upper left. It tapers into the crown's limbs.
+        seed = s.seed
+        tr = th + int(15 * sz)                                             # up to the crown's underside, over the crown's own thin trunk
+
+        def centre(t):
+            return s.x + s.lean * t ** 1.6 + 2.4 * np.sin(t * 3.4 + seed) * (1 - 0.5 * t)
+
+        def half_w(k, t):
+            return 3.4 * sz * (1 - 0.5 * t) + 5.8 * sz * (1 - t) ** 3.5 + 1.1 * np.sin(k * 0.31 + seed) * (1 - t) + 0.6
+
+        knots = [(int(rng.uniform(0.25, 0.7) * tr), rng.uniform(-0.5, 0.5)) for _ in range(2)]
+        for k in range(tr + 3):
+            t = min(1.0, k / tr)
+            cx, hw = centre(t), half_w(k, t)
             y = s.y - k
-            for i in range(int(cx - half), int(cx + half) + 1):
-                v = (i - cx) / (half + 0.5)
-                if 0 <= y < h and 0 <= i < w:
-                    put(img, i, y, RIM2 if v < -0.8 and k > 3 and k % 2 == 0 else BARK[int(np.clip(2.4 - 1.6 * v + rng.normal(0, 0.35), 0, 3))])
+            for i in range(int(np.floor(cx - hw)), int(np.ceil(cx + hw)) + 1):
+                if not (0 <= y < h and 0 <= i < w):
+                    continue
+                u = (i - cx) / max(hw, 1.0)
+                if abs(u) > 1.0:
+                    continue
+                ridge = 0.5 + 0.5 * np.sin((i - cx) * 1.35 + 2.2 * np.sin(k * 0.12 + i * 0.4 + seed))
+                lit = 0.95 - 0.6 * (u + 1) / 2 + 0.55 * (ridge - 0.5) + rng.normal(0, 0.07)
+                if abs(u) > 0.86:
+                    lit -= 0.35                                            # the edge is darker: it rounds
+                c = BARK[int(np.clip(lit * 3.4, 0, 3))]
+                if u < -0.72 and ridge > 0.5 and rng.random() < 0.6:
+                    c = RIM2                                                # the moon's edge, broken up
+                if u < 0.15 and np.sin(k * 0.19 + seed * 2.0 + u * 5) > 0.45 and rng.random() < 0.8 and k > 5:
+                    c = MOSSC[int(np.clip(1 + (lit > 0.55), 0, 2))]        # moss on the shaded north-west side
+                for kk, ku in knots:
+                    if abs(k - kk) < 3 and abs(u - ku) < 0.28 * (4 - abs(k - kk)) / 3 + 0.05:
+                        c = BARK[0]
+                put(img, i, y, c)
+        # roots running out over the ground, flat and broad at the foot
+        for a_, ln_ in ((-1.0, 12), (1.0, 13), (0.45, 9), (-0.5, 8), (1.5, 7), (-1.6, 6)):
+            for k in range(int(ln_ * sz * 0.6)):
+                xx = int(s.x + a_ * (4 * sz * 0.7 + k * 1.1))
+                yy = int(s.y + 1 + k * 0.18 * abs(a_) - max(0, 3 - k * 0.5))
+                for d in range(max(1, 3 - k // 4)):
+                    if 0 <= yy - d < h and 0 <= xx < w:
+                        put(img, xx, yy - d, BARK[2 if d == 0 else 1] if k % 4 else BARK[0])
+        # the limbs: three thick arms leaving the top of the trunk into the crown
+        topc, topy = centre(1.0), s.y - tr
+        for a_ in (-0.85, 0.05, 0.9):
+            x_, y_ = topc, topy
+            ang = -np.pi / 2 + a_
+            for k in range(int(11 * sz)):
+                ang += rng.normal(0, 0.1) * (1 if k > 3 else 0.2)
+                x_, y_ = x_ + np.cos(ang), y_ + np.sin(ang) * 0.95
+                r = max(0.9, 3.0 * sz * 0.55 * (1 - k / (11 * sz)))
+                for j in range(int(y_ - r), int(y_ + r) + 1):
+                    for i in range(int(x_ - r), int(x_ + r) + 1):
+                        if (i - x_) ** 2 + (j - y_) ** 2 <= r * r and 0 <= j < h and 0 <= i < w:
+                            v = ((i - x_) * 0.7 + (j - y_) * 0.7) / (r + 0.5)
+                            put(img, i, j, BARK[int(np.clip(1.5 - 1.3 * v, 0, 3))])
 
 
 class Kahlbaum:
