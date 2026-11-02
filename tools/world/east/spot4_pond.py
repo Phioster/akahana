@@ -21,7 +21,7 @@ import objects_lake as ol  # noqa: E402
 import objects_water as ow  # noqa: E402
 
 S = L.SPOTS['4']
-X0, Y0, X1, Y1 = int(S.x) - 135, int(S.y) - 125, int(S.x) + 135, int(S.y) + 125
+X0, Y0, X1, Y1 = int(S.x) - 135, int(S.y) - 160, int(S.x) + 135, int(S.y) + 125
 W, H = X1 - X0, Y1 - Y0
 
 
@@ -69,7 +69,7 @@ def render(seed=29):
     # the giant tree first, then what stands in front of it: sitting stones, the jetty
     trow = int(S.y - Y0 - 6)
     tshore = int(np.nonzero(lake[trow])[0].min())
-    tx, ty = tshore - 30, trow + 36
+    tx, ty = tshore - 30, trow - 10                                          # up on the bank, clear of the jetty
     oe.Riesenbaum(tx, ty, 11, 2.7, lean=16, avoid=ndi.binary_dilation(water, iterations=2)).draw(img, G)
     oe.MoosStein(tx + 26, ty + 4, 6.5, 5).draw(img, G)                      # sitting stones at the foot of the tree
     oe.MoosStein(tx + 38, ty + 8, 5.0, 6).draw(img, G)
