@@ -454,3 +454,88 @@ class Kreuz:
                 put(img, xx, s.y, MOSSC[1])
                 if rng.random() < 0.6 and s.y - 1 >= 0:
                     put(img, xx, s.y - 1, MOSSC[0])
+
+
+class Steinbruecke:
+    """An old stone bridge with two round arches, seen from the south at an angle: the pale pavers of the deck on top (moss
+    in the joints), low parapets along both edges, the front wall of laid blocks with two arches the river runs through,
+    a pier between them, moss and ferns on the stones. Centre of the deck's front edge: (x, y); about 68 px wide.
+    The river under it must be about 40 px wide there (the spot's draft widens it)."""
+    L = 74
+    FACE = 25                                                     # front wall height, waterline to deck edge
+    DECK = 13                                                     # how deep the deck seems (seen from above)
+
+    def __init__(s, x, y, seed=4):
+        s.x, s.y, s.seed = x, y, seed
+
+    def box(s):
+        return (s.x - s.L // 2 - 6, s.y - s.FACE - s.DECK - 8, s.x + s.L // 2 + 7, s.y + 8)
+
+    def draw(s, img, G):
+        rng = np.random.default_rng(s.seed)
+        h, w = img.shape[:2]
+        x0, x1 = s.x - s.L // 2, s.x + s.L // 2
+        yb = s.y + s.FACE                                         # the waterline at the front wall's foot
+        arch = [(s.x - 19, 11.0), (s.x + 19, 11.0)]
+
+        def ok(i, j):
+            return 0 <= j < h and 0 <= i < w
+
+        def block(i, j, shade):
+            row = (j - (yb - s.FACE)) // 4                         # courses of blocks, 4 px high, joints offset per course
+            off = (row % 2) * 4
+            joint = ((i + off) % 8 == 0) or ((j - (yb - s.FACE)) % 4 == 3)
+            lit = 0.82 - 0.5 * (((i - x0) / s.L) * 0.7 + ((j - (yb - s.FACE)) / s.FACE) * 0.3) + 0.25 * shade + rng.normal(0, 0.09)
+            if joint:
+                lit -= 0.35
+            c = STONE[int(np.clip(lit * 3.2, 0, 3))]
+            if j < yb - s.FACE + 5 and rng.random() < 0.18 or (j > yb - 5 and rng.random() < 0.3):
+                c = MOSSC[int(np.clip(0 + 2 * rng.random(), 0, 2))]
+            return c
+        # the front wall: blocks, with the two arches cut out (dark vault, a pale rim of voussoir stones)
+        for j in range(yb - s.FACE, yb + 1):
+            for i in range(x0, x1 + 1):
+                inarch = False
+                for (cx, r) in arch:
+                    dx, dy = i - cx, yb - j
+                    inside = abs(dx) <= r and (dy <= r * 0.2 + 2 or dx * dx + (dy - (r * 0.2 + 2)) ** 2 <= r * r * 0.8)
+                    if inside and dy < r * 0.2 + 2 + r * 0.9:
+                        inarch = True
+                        rim = abs(abs(dx) - r) < 1.6 or (dx * dx + (dy - (r * 0.2 + 2)) ** 2 > (r - 1.6) ** 2 * 0.8 and dy > r * 0.2 + 2)
+                        if ok(i, j):
+                            put(img, i, j, STONE[3] if rim and dx < 3 else (STONE[2] if rim else (np.array([40, 64, 72]) if dy < 4 else np.array([12, 20, 24]) + 10 * (dy < 9))))
+                if not inarch and ok(i, j):
+                    put(img, i, j, block(i, j, 0.0))
+        # the deck seen from above: pavers with moss in the joints
+        for j in range(yb - s.FACE - s.DECK, yb - s.FACE):
+            for i in range(x0 - 3, x1 + 4):
+                if not ok(i, j):
+                    continue
+                paver = ((i // 6) + ((j // 4) % 2) * 3) % 2
+                lit = 0.78 - 0.4 * ((i - x0) / s.L) - 0.12 * paver + rng.normal(0, 0.07)
+                c = STONE[int(np.clip(lit * 3.2, 0, 3))]
+                if (i + (j // 4) * 3) % 6 == 0 and rng.random() < 0.7:
+                    c = MOSSC[1]
+                put(img, i, j, c)
+        # parapets: back (a plain wall, seen from the front) and front (a low wall, its top face lit)
+        for (top, hgt) in ((yb - s.FACE - s.DECK - 3, 4), (yb - s.FACE - 4, 4)):
+            for j in range(top, top + hgt):
+                for i in range(x0 - 3, x1 + 4):
+                    if ok(i, j):
+                        lit = 0.9 - 0.45 * ((i - x0) / s.L) - 0.2 * ((j - top) / hgt) + rng.normal(0, 0.06)
+                        put(img, i, j, STONE[int(np.clip(lit * 3.2, 0, 3))] if j > top else STONE[3])
+                        if (i + 3 * (top % 2)) % 7 == 0 and j > top:
+                            put(img, i, j, STONE[0])
+        # moss and a few ferns at the foot and on the abutments
+        for _ in range(26):
+            i = int(rng.integers(x0 - 4, x1 + 5))
+            j = yb - int(rng.integers(0, 4))
+            if ok(i, j):
+                put(img, i, j, MOSSC[int(rng.integers(0, 3))])
+        for dx in (-s.L // 2 - 2, s.L // 2 + 3):
+            for k in range(7):
+                a = -np.pi / 2 + (k - 3) * 0.45
+                for r in range(5):
+                    i, j = int(s.x + dx + np.cos(a) * r), int(yb - 6 + np.sin(a) * r * 0.9)
+                    if ok(i, j):
+                        put(img, i, j, MOSSC[2 if r > 2 else 1])
