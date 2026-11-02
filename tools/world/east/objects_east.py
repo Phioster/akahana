@@ -16,7 +16,7 @@ ol.AUTUMN['nacht'] = ([hx(c) * 0.9 for c in ['#101c1c', '#1a2c2a', '#26403a', '#
 ol.AUTUMN['moos'] = ([hx(c) * 0.92 for c in ['#131c14', '#202e1c', '#2f4426', '#455f33', '#637e45']], hx('#a8bb72'))
 STRAND = [hx(c) for c in ['#1e2a20', '#2c3d2a', '#41573a', '#5c7650']]
 RIM = hx('#7f9a96')
-BARK = [hx(c) for c in ['#1e1816', '#382c2c', '#5a4a44', '#86756a']]
+BARK = [hx(c) for c in ['#161a1a', '#272d2c', '#3f4746', '#5a6563']]      # cool grey: less brown (Philip)
 
 
 class Nachtbaum:
@@ -185,7 +185,7 @@ class Knorrbaum:
             s._stroke(img, pos[0], pos[1], (3.8 * (1 - 0.4 * t) + 1.6 * (1 - t) ** 4) * sz, 0.0)
         for a in (-1.1, 0.0, 1.15):                                      # the crown's limbs, sprawling wide
             limb(pos, -np.pi / 2 + a + rng.uniform(-0.25, 0.25), rng.uniform(11, 16) * sz, 4.6 * sz, 4)
-        # a few dark leaf clumps at the tips, and pale threads of web between two tips
+        # a few dark leaf clumps at the tips
         for tp in tips:
             if rng.random() < s.leaves:
                 r = rng.uniform(2.2, 3.4) * sz ** 0.5
@@ -193,16 +193,3 @@ class Knorrbaum:
                     for i in range(int(tp[0] - r), int(tp[0] + r) + 1):
                         if (i - tp[0]) ** 2 + (j - tp[1]) ** 2 <= r * r and 0 <= j < h and 0 <= i < w and G[j % G.shape[0], i % G.shape[1]] < 0.75:
                             put(img, i, j, np.array(ol.AUTUMN['nacht'][0])[int(rng.integers(0, 3))])
-        for _ in range(3 if sz > 0.8 else 0):
-            if len(tips) < 2:
-                break
-            a_, b_ = tips[int(rng.integers(0, len(tips)))], tips[int(rng.integers(0, len(tips)))]
-            n = int(np.hypot(*(np.array(a_) - np.array(b_))))
-            if n > 22 * sz or n < 4:
-                continue                                                       # webs only between near tips
-            for k in range(0, n, 2):                                             # a dotted pale thread
-                p = np.array(a_) + (np.array(b_) - np.array(a_)) * k / max(n, 1)
-                p[1] += 3 * np.sin(k / max(n, 1) * np.pi)
-                i, j = int(p[0]), int(p[1])
-                if 0 <= j < h and 0 <= i < w:
-                    put(img, i, j, np.array([120, 134, 130]))

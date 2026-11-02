@@ -23,7 +23,7 @@ import zone1_draft as z1  # noqa: E402
 ROOT = z1.ROOT
 TINT = np.array([0.74, 0.98, 0.92])
 MOSS = np.array([[40, 56, 40], [58, 80, 54], [78, 104, 66]], float)
-PATH = np.array([[52, 56, 50], [70, 74, 64], [90, 92, 80]], float)
+PATH = np.array([[72, 74, 66], [96, 98, 86], [124, 124, 108]], float)      # pale enough to read in the dark
 
 
 def smooth(t):
@@ -58,7 +58,7 @@ def floor(h, w, masks, rng):
     soft = ndi.gaussian_filter(clr.astype(float), 3) > 0.5
     lush = soft & (rng.random((h, w)) < 0.75)
     g[lush] = MOSS[np.clip((fbm(h, w, 3, rng)[lush] * 1.2 + 1).astype(int), 0, 2)] * 1.05
-    p = masks['path']
+    p = ndi.binary_dilation(masks['path'], iterations=1)                  # painted a little wider than it is walked: it must read
     idx = np.digitize(ndi.gaussian_filter(rng.random((h, w)), 0.8), [0.46, 0.56])
     g[p] = PATH[idx][p]
     edge = p & ~ndi.binary_erosion(p)
@@ -69,7 +69,7 @@ def floor(h, w, masks, rng):
 def scatter(h, w, masks, rng, density=1.0):
     """Trees as (kind, x, y, size, seed) in window pixels; none on paths/clearings, thick elsewhere, species in patches."""
     keep = ndi.binary_dilation(masks['path'] | masks['clearing'] | masks['river'], iterations=1)
-    margin = {'fir': 7, 'dead': 10, 'leaf': 17, 'knorr': 16, 'giant': 26}       # a broad crown needs room: its trunk stands this far off
+    margin = {'fir': 9, 'dead': 12, 'leaf': 20, 'knorr': 23, 'giant': 30}       # a broad crown needs room: its trunk stands this far off
     free_by = {k: ndi.distance_transform_edt(~keep) < m for k, m in margin.items()}
     free = free_by['fir']
     near_clear = ndi.binary_dilation(masks['clearing'], iterations=34) & ~free_by['giant']
