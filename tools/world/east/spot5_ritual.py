@@ -65,10 +65,10 @@ def render(seed=61):
     for dx, dy in ((-26, -12), (-9, -14), (10, -13), (27, -11)):
         pass
     things += [('bowl', CX - 9, CY - 1, 11, 1), ('bowl', CX + 4, CY - 3, 12, 1), ('bowl', CX + 15, CY, 13, 1)]
-    for dx, dy in ((-96, 22), (-52, -56), (56, -58)):                         # lanterns outside the ring, none on the way
+    for dx, dy in ((-52, -56), (56, -58), (-30, 52)):                         # lanterns outside the ring, none on the way
         things.append(('lantern', CX + dx, CY + dy, 0, 1))
-    things.append(('halle', CX + 112, CY - 52, 3, 1))
-    things.append(('lantern', CX + 84, CY - 36, 0, 1)); things.append(('lantern', CX + 140, CY - 36, 0, 1))
+    things.append(('halle', CX + 112, CY - 74, 3, 1))
+    things.append(('lantern', CX + 84, CY - 58, 0, 1)); things.append(('lantern', CX + 140, CY - 58, 0, 1))
     for dx, dy in ((-38, 32), (34, 36), (-62, -14), (68, -16), (4, 48)):      # staffs with faded cloth, bowls at the foot of the stones
         things.append(('stab', CX + dx, CY + dy, int(rng.integers(0, 10 ** 6)), 1))
     for x, y, a in ring[::3]:
@@ -117,7 +117,7 @@ def preview(out, scale=3):
     half = 11 + 9 * t
     col = np.exp(-(((xx - CX) / half) ** 2) * 1.6) * (yy < CY - 4) * (1 - 0.82 * t) ** 1.2
     pool = np.exp(-(((xx - CX) / 46.0) ** 2 + ((yy - CY - 4) / 17.0) ** 2))
-    g += col[..., None] * 70 * TURQ + pool[..., None] * 42 * TURQ
+    g += col[..., None] * 48 * TURQ + pool[..., None] * 30 * TURQ
     g = np.clip(g, 0, 255)
     Image.fromarray(g.astype(np.uint8)).resize((W * scale, H * scale), Image.NEAREST).save(out)
 
