@@ -462,34 +462,38 @@ class Steinbruecke:
     right (the way), the river under it along the other diagonal. Every pixel looks for the nearest part of the solid;
     faces get their light from the upper left, blocks and pavers are textured in the faces' own coordinates, so the deck
     is a real parallelogram, the front wall slants, the arches are cut at an angle. x, y: the middle of the deck's top."""
-    LH = 30                                                       # half length along the way
-    WH = 10                                                       # half width of the deck
-    FACE = 24                                                     # the wall's height, deck top to the water
-    ARCH = (-15.0, 15.0)
-    R = 10.0
+    LH = 22                                                       # half length along the way
+    WH = 8                                                        # half width of the deck
+    FACE = 13                                                     # the wall's height, deck top to the water
+    ARCH = (-11.0, 11.0)
+    R = 6.5
+    RAMP = 12
     SLOPE = 0.5
 
     def __init__(s, x, y, seed=4):
         s.x, s.y, s.seed = x, y, seed
 
     def box(s):
-        e = s.LH + s.WH + 6
+        e = s.LH + s.RAMP + s.WH + 6
         return (s.x - e, s.y - e // 2 - 14, s.x + e, s.y + e // 2 + s.FACE + 8)
 
     def solid(s, u, v, z):
         """Is the point inside the bridge? (u along the way, v across, z up from the deck's top; the water is at -FACE)"""
         body = (np.abs(u) <= s.LH) & (np.abs(v) <= s.WH) & (z <= 0) & (z >= -s.FACE)
-        zc = -s.FACE + 4.0
+        zc = -s.FACE + 2.5
         for ua in s.ARCH:
             open_ = (np.abs(u - ua) <= s.R) & ((z <= zc) | ((u - ua) ** 2 + (z - zc) ** 2 <= s.R ** 2)) & (z < zc + s.R)
             body &= ~(open_ & (z <= zc + np.sqrt(np.clip(s.R ** 2 - (u - ua) ** 2, 0, None))))
+        au = np.abs(u) - s.LH
+        ramp = (au > 0) & (au <= s.RAMP) & (np.abs(v) <= s.WH) & (z <= -au * s.FACE / s.RAMP) & (z >= -s.FACE)
+        body = body | ramp
         para = (np.abs(u) <= s.LH + 1) & (z > 0) & (z <= 4.5) & ((np.abs(v) >= s.WH - 2.0) & (np.abs(v) <= s.WH))
         return body | para
 
     def draw(s, img, G):
         rng = np.random.default_rng(s.seed)
         h, w = img.shape[:2]
-        e = s.LH + s.WH + 6
+        e = s.LH + s.RAMP + s.WH + 6
         xs = np.arange(-e, e + 1)
         ys = np.arange(-e // 2 - 14, e // 2 + s.FACE + 8)
         SX, SY = np.meshgrid(xs, ys)
@@ -511,8 +515,8 @@ class Steinbruecke:
         end = ~sol(0.9, 0, 0)                                    # open on the +u side: the end facing the lower right
         inner = ~sol(-0.9, 0, 0) | ~sol(0, -0.9, 0)              # arch insides and the like: dark
         bay = np.array([[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]) / 16.0
-        TINT = [np.array(t) for t in ((1.0, 1.0, 1.0), (1.06, 1.01, 0.94), (0.94, 1.02, 1.0), (0.97, 0.99, 1.05))]
-        LICH = [np.array(c, float) for c in ((56, 76, 46), (82, 102, 58), (116, 132, 78))]
+        TINT = [np.array(t) for t in ((1.0, 1.0, 1.0), (1.02, 1.0, 0.98), (0.98, 1.0, 1.0), (1.0, 1.0, 1.02))]
+        LICH = [np.array(c, float) for c in ((52, 64, 46), (66, 80, 52), (86, 98, 64))]
         NO = np.random.default_rng(s.seed + 5).random((64, 64))
         for r in range(len(ys)):
             for c in range(len(xs)):
@@ -548,10 +552,11 @@ class Steinbruecke:
                     lit = 0.08
                 v3 = np.clip(lit, 0, 0.999) * 3 + (bay[Y % 4, X % 4] - 0.5)
                 col = np.clip(STONE[int(np.clip(round(v3), 0, 3))].astype(float) * tint * 0.9, 0, 255)
+                col = col * 0.55 + col.mean() * 0.45                      # calmer: pull toward grey
                 lich = NO[int(abs(u * 1.3 + z * 0.7)) % 64, int(abs(v * 1.7 - z * 1.1)) % 64]
-                if face != 'in' and not joint and ((lich > 0.86) or (face == 'front' and z < -s.FACE + 5 and lich > 0.62) or (face == 'top' and lich > 0.8)):
+                if face != 'in' and not joint and ((lich > 0.93) or (face == 'front' and z < -s.FACE + 3 and lich > 0.8)):
                     col = LICH[int(np.clip(rng.integers(0, 3) + (lit > 0.7), 0, 2))]
-                if face == 'top' and joint and rng.random() < 0.5:
+                if face == 'top' and joint and rng.random() < 0.15:
                     col = LICH[int(rng.integers(0, 2))]
                 if face == 'front' and rng.random() < 0.012 * (1 + (-z) / 6):
                     col = col * 0.7                                      # water stains
@@ -573,7 +578,7 @@ class Steinbruecke:
                 elif abs(u) <= s.LH + 3 and s.WH < v <= s.WH + 5:
                     img[Y, X] = img[Y, X] * 0.74                          # shadow on the ground/water at the wall's foot
         # ivy hanging from the front parapet
-        for _ in range(7):
+        for _ in range(3):
             u = rng.uniform(-s.LH + 3, s.LH - 3)
             ln = int(rng.integers(7, 16))
             for k in range(ln):

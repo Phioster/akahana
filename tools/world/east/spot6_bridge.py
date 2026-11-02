@@ -37,7 +37,7 @@ def render(seed=37):
     v = (yy - by) - br.FACE - (xx - bx) / 2.0
     near = [(x - X0, y - Y0) for x, y in river if np.hypot(x - S.x, y - S.y) < 48]
     pim = Image.new('L', (W, H), 0)
-    ImageDraw.Draw(pim).line(near, fill=1, width=34, joint='curve')           # the river is wider under the bridge, then narrows
+    ImageDraw.Draw(pim).line(near, fill=1, width=26, joint='curve')           # the river is wider under the bridge, then narrows
     pool = np.array(pim) > 0
     water = (np.array(im) > 0) | pool
     masks = F.window_masks(X0, Y0, X1, Y1)
