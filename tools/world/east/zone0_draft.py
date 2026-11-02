@@ -57,33 +57,37 @@ def render(seed=41):
     g = floor.copy()
     old_cols = min(W, 540 - X0)
     g[:, :old_cols] = og[Y0:Y1, X0:X0 + old_cols]
-    ext = og[Y0:Y1, 500:540]                                    # the meadow's last columns carry on, shifted: no repeat
-    for k in range(old_cols, W):
-        g[:, k] = ext[:, (k - old_cols) % 40]
+    for k in range(old_cols, W):                                # the meadow's ground carries on, mirrored at its edge and
+        j = k - old_cols                                         # rolled a little each time: no jump at 540, no stripes
+        t = j % 120
+        src = 539 - (t if t < 60 else 119 - t)
+        g[:, k] = np.roll(og[Y0:Y1, src], 23 * (j // 60), axis=0)
     keep_old = smooth((RAMP1 - gx) / (RAMP1 - 440.0))           # 1 = still meadow ground
     beside = smooth((gx - 500) / 90.0)                           # beside the tongue the wood turns dark sooner, but only inside the wood
     keep_old = np.clip(keep_old * (1 - beside * (1 - open_) * 0.75), 0, 1)
     take_old = rng.random((H, W)) < keep_old
     g = np.where(take_old[..., None], g, floor)
-    # --- the old poppies thin out: whole blossoms leave with a probability that grows towards the wood
+    # --- poppies: the old blossoms stay up to column 420, then hand over smoothly to freshly drawn ones whose
+    # density runs on from the old coverage (0.237) and thins out into the wood. No seam: both fade across 420..550.
     heads = np.zeros((H, W, 4), np.uint8)
     fl = ofl[Y0:Y1, X0:X0 + old_cols]
     lab, n = ndi.label(fl[..., 3] > 0, structure=np.ones((3, 3)))
     cx = ndi.center_of_mass(np.ones_like(lab), lab, range(1, n + 1))
     drop = np.zeros(n + 1, bool)
     for i, (cy_, cx_) in enumerate(cx, 1):
-        o_ = open_[min(int(cy_), H - 1), min(int(cx_), W - 1)]       # along the wood's rim more of them stay (Philip: lightly, no line)
-        p_keep = 1 - smooth((cx_ + X0 - RAMP0) / (540 - RAMP0 + 60.0)) * (0.55 + 0.42 * o_)
-        drop[i] = rng.random() > p_keep
+        drop[i] = rng.random() < smooth((cx_ + X0 - 420) / 130.0)
     gone = drop[lab]
     sub = heads[:, :old_cols]
     sub[:] = np.where(((fl[..., 3] > 0) & ~gone)[..., None], fl, 0)
-    # --- a few new blossoms inside the wood, rarer and rarer
     field6.HEADS[:] = field6.make_heads(np.random.default_rng(31))
-    rim = np.clip(1 - np.abs(gx - 560) / 110.0, 0, 1) * (1 - open_)   # a loose band of blossoms along the rim, soft at both sides
-    flow = 0.32 * np.clip(1 - (gx - 540) / 220.0, 0, 1) * open_ + 0.22 * rim * (0.6 + 0.4 * ndi.gaussian_filter(rng.random((H, W)), 6) / 0.25).clip(0, 1.4)
-    for (x, y, kk, ph) in patches(H, W, flow, np.zeros((H, W), bool), rng, 20000):
-        if x + X0 < 540:
+    rim = np.clip(1 - np.abs(gx - 570) / 130.0, 0, 1) * (1 - open_)        # a loose band along the wood's rim
+    rim *= 0.55 + 0.45 * np.clip(ndi.gaussian_filter(rng.random((H, W)), 7) / 0.25 - 0.5, 0, 1)
+    profile = (1 - smooth((gx - 460) / 270.0)) + 0.3 * open_ * (1 - smooth((gx - 690) / 170.0))    # a few more in the tongue, none deep in
+    keep = np.clip(np.maximum(profile, 0.45 * rim), 0, 1)
+    handover = smooth((gx - 420) / 130.0)
+    for (x, y, kk, ph) in patches(H, W, np.full((H, W), 0.5), np.zeros((H, W), bool), rng, 40000):
+        xc, yc = min(x + 2, W - 1), min(y + 2, H - 1)
+        if x + X0 < 420 or rng.random() > handover[yc, xc] * keep[yc, xc] * 0.79:
             continue
         head = field6.HEADS[kk]
         for j, row in enumerate(head):
