@@ -75,7 +75,7 @@ def paths():
             b = _spline(c, 100 + i, wig=0.0)
             s = SPOTS['6']
             w = np.clip((np.hypot(b[:, 0] - s.x, b[:, 1] - s.y) - 40) / 80.0, 0, 1)[:, None]
-            a = b + (a - b) * w + np.array([0.0, 7.0]) * (1 - w)    # the deck's middle lies a little below the spot's point
+            a = b + (a - b) * w + np.array([0.0, 15.0]) * (1 - w)    # the deck's middle lies a little below the spot's point
         out[k] = a
     return out
 
