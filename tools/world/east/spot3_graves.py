@@ -54,7 +54,7 @@ def placement(masks, rng):
     # a bowl belongs to a stone: put the bowls at the foot of the first three stones
     stones = [o for o in out if o[0] == 'stone'][:4]
     out = [o for o in out if o[0] != 'bowl'] + [('bowl', s[1] + int(rng.integers(-4, 5)), s[2] + 6, s[3]) for s in stones]
-    out += [('lantern', ex + 13, ey - 3, 0), ('bowl', ex - 11, ey + 4, 77), ('stone', ex - 16, ey - 2, 78)]
+    out += [('lantern', ex + 13, ey - 3, 0), ('bowl', ex - 11, ey + 4, 77), ('stone', int(cx + 62), int(cy + 24), 78)]               # (Philip: that one up to the right)
     return out
 
 
