@@ -66,10 +66,10 @@ def floor(h, w, masks, rng):
     return g
 
 
-def scatter(h, w, masks, rng, density=1.0):
+def scatter(h, w, masks, rng, density=1.0, green=None):
     """Trees as (kind, x, y, size, seed) in window pixels; none on paths/clearings, thick elsewhere, species in patches."""
     keep = ndi.binary_dilation(masks['path'] | masks['clearing'] | masks['river'], iterations=1)
-    margin = {'fir': 9, 'dead': 12, 'leaf': 20, 'knorr': 23, 'giant': 30}       # a broad crown needs room: its trunk stands this far off
+    margin = {'fir': 9, 'dead': 12, 'leaf': 20, 'leafg': 20, 'knorr': 23, 'giant': 30}       # a broad crown needs room: its trunk stands this far off
     free_by = {k: ndi.distance_transform_edt(~keep) < m for k, m in margin.items()}
     free = free_by['fir']
     near_clear = ndi.binary_dilation(masks['clearing'], iterations=34) & ~free_by['giant']
@@ -84,6 +84,8 @@ def scatter(h, w, masks, rng, density=1.0):
             k, sz, hit = 'giant', rng.uniform(1.7, 2.1), 20
         elif kind_n[yc, xc] > 0.7 and r < 0.8:
             k, sz, hit = 'dead', rng.uniform(0.9, 1.3), 8
+        elif green is not None and green[yc, xc] > 0.25 and r < 0.1 + 0.55 * green[yc, xc]:
+            k, sz, hit = 'leafg', rng.uniform(0.8, 1.2), 12                 # green broadleaf near the meadow
         elif kind_n[yc, xc] < -0.9 and r < 0.8:
             k, sz, hit = 'leaf', rng.uniform(0.7, 1.0), 12
         elif r < 0.55:                                          # the twisted, overgrown ones (Hobbit's dark wood) are the wood's face
@@ -113,6 +115,8 @@ def draw(img, items, G):
                 z1.Fir(x - a0, y - b0, sz, sd, snow=0.0).draw(img[b0:b1, a0:a1])
         elif k == 'leaf':
             oe.Nachtbaum(x, y, sd, sz).draw(img, G)
+        elif k == 'leafg':
+            oe.Nachtbaum(x, y, sd, sz, leaf='moos').draw(img, G)
         elif k == 'giant':
             oe.Riesenbaum(x, y, sd, sz).draw(img, G)
         elif k == 'knorr':

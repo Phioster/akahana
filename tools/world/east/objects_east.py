@@ -193,3 +193,23 @@ class Knorrbaum:
                     for i in range(int(tp[0] - r), int(tp[0] + r) + 1):
                         if (i - tp[0]) ** 2 + (j - tp[1]) ** 2 <= r * r and 0 <= j < h and 0 <= i < w and G[j % G.shape[0], i % G.shape[1]] < 0.75:
                             put(img, i, j, np.array(ol.AUTUMN['nacht'][0])[int(rng.integers(0, 3))])
+
+
+class Pilzring:
+    """A ring of small pale mushrooms in the moss."""
+    def __init__(s, x, y, r=9, seed=3):
+        s.x, s.y, s.r, s.seed = x, y, r, seed
+
+    def box(s):
+        return (s.x - s.r - 3, s.y - s.r - 4, s.x + s.r + 4, s.y + s.r + 3)
+
+    def draw(s, img, G):
+        rng = np.random.default_rng(s.seed)
+        h, w = img.shape[:2]
+        for a in np.linspace(0, 2 * np.pi, 11, endpoint=False) + rng.uniform(0, 0.5):
+            x = int(round(s.x + np.cos(a) * s.r * rng.uniform(0.85, 1.15)))
+            y = int(round(s.y + np.sin(a) * s.r * 0.6 * rng.uniform(0.85, 1.15)))
+            if 1 <= x < w - 2 and 3 <= y < h - 1:
+                put(img, x, y, np.array([150, 150, 134]))
+                put(img, x - 1, y - 1, np.array([196, 192, 170])); put(img, x, y - 1, np.array([214, 210, 188]))
+                put(img, x + 1, y - 1, np.array([172, 170, 150]))

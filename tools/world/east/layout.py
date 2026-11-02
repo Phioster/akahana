@@ -7,7 +7,7 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 OX, OY = 540, 300                           # plan origin in the world
-X0, Y0, X1, Y1 = 540, 300, 1740, 2900       # the window the masks cover
+X0, Y0, X1, Y1 = 540, 300, 1740, 3100       # the window the masks cover
 PATH_W = 8
 RIVER_W = 14
 
@@ -25,7 +25,7 @@ SPOTS = {
     'd': Spot(980, 950, 24, 14, 'small'), 'e': Spot(940, 840, 26, 15, 'small'), 'f': Spot(640, 2150, 22, 16, 'small'),
     'g': Spot(740, 1560, 26, 17, 'small'),
 }
-HUT = (260 + OX, 2570 + OY)                 # the fisher's hut (Task 5 snaps this to the real one)
+HUT = (252 + OX, 2600 + OY)                 # where the new branch leaves the south's east-shore path (792, 2900: on its EARTH ground)
 
 # edge name -> (from, to, control points in plan coordinates); nodes: spot keys, 'W' (gate from the poppies),
 # 'H' (hut), 'J1'/'J2' (junctions of the moss path)
@@ -39,11 +39,11 @@ _EDGES = {
     'bruecke_o': ('6', '5', [(800, 320), (910, 390), (950, 520), (880, 610), (1020, 690), (1090, 780)]),
     'jizo': ('4', '7', [(430, 1050), (520, 1130), (620, 1060), (700, 1170), (780, 1100), (850, 1150)]),
     'ritual_s': ('7', '5', [(850, 1150), (900, 1000), (1010, 950), (1060, 860), (1090, 780)]),
-    'saum_h': ('H', '9', [(260, 2570), (380, 2480), (500, 2400), (620, 2200), (700, 2050)]),
+    'saum_h': ('H', '9', [(252, 2600), (340, 2570), (430, 2500), (520, 2400), (620, 2230), (700, 2050)]),
     'saum_n': ('9', '7', [(700, 2050), (760, 1850), (700, 1700), (790, 1500), (830, 1330), (850, 1150)]),
 }
 _RIVER = [(720, 0), (760, 160), (800, 320), (860, 520), (800, 720), (700, 900), (560, 1010), (430, 1050)]
-_BACH = [(430, 1050), (470, 1300), (430, 1650), (380, 1950), (360, 2150)]
+_BACH = [(430, 1050), (470, 1300), (430, 1650), (380, 1950), (350, 2200)]       # ends at the east edge of the south's brook B (890, 2500)
 
 
 def _spline(pts, seed, wig=26.0, n=40):

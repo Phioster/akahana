@@ -70,6 +70,19 @@ class EastLayout(unittest.TestCase):
         self.assertFalse((m.river & m.path & away).any(), 'no path crosses the river except at the bridge')
         self.assertFalse((m.river & m.clearing & away).any(), 'no clearing lies in the river')
 
+    def test_the_branch_leaves_the_south_path_and_the_bach_meets_brook_b(self):
+        import os
+        from PIL import Image
+        d = os.path.join(os.path.dirname(__file__), '..', '..', 'assets', 'world', 'chunks')
+        hx, hy = L.HUT
+        mat = np.fromfile(os.path.join(d, f'c_{hx // 180}_{hy // 200}_mat.bin'), np.uint8).reshape(100, 90)
+        near = mat[(hy % 200) // 2 - 2:(hy % 200) // 2 + 3, (hx % 180) // 2 - 3:(hx % 180) // 2 + 4]
+        self.assertTrue((near == 1).any(), 'the branch starts on the south path (EARTH ground)')
+        bx, by = (int(v) for v in L.bach()[-1])
+        w = np.array(Image.open(os.path.join(d, f'c_{bx // 180}_{by // 200}_water.png')).convert('RGBA'))
+        win = w[max(0, by % 200 - 12):by % 200 + 13, max(0, bx % 180 - 12):bx % 180 + 13, 3]
+        self.assertTrue((win == 2).any(), 'the bach ends at brook B (water kind 2) of the south')
+
 
 if __name__ == '__main__':
     unittest.main()
