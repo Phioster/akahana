@@ -25,8 +25,8 @@ def smooth(t):
 def build():
     gy, gx = np.mgrid[0:H // 2, 0:W // 2] * 2.0 + 1.0
     dark = smooth((gx - 470) / 380.0)                                   # the poppies run out into the wood
-    south = np.where(gx >= 900, 1.0, 1.0 - smooth((gy - (TOP - 40)) / 110.0))     # the south below keeps its own light
-    south = np.where(gy >= TOP, south * smooth((gx - 880) / 40.0), south)
+    yb = 1.0 - smooth((gy - (TOP - 40)) / 110.0)
+    south = np.where(gx >= 900, 1.0, np.maximum(yb, smooth((gx - 660) / 240.0)))    # like the wood's own mix: no edge at x=900 or y=TOP
     along = (900 + 600 - gx) / 600.0 * 0.45 + (gy - 2350) / 650.0 * 0.75          # warm and green near the meadow's tongue
     warm = smooth(along + 0.25) * smooth((gy - 2250) / 80.0)
     r = dark * south * (1 - warm)

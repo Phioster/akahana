@@ -45,7 +45,7 @@ ROOT = os.path.abspath(os.path.join(HERE, '..', '..'))
 H, WW = 3600, 1800
 OW, OH = z1.OLD_W, z1.OLD_H
 TOP = OH - z1.CTX                    # from this world row down the south's zone 1 begins
-MIX = 150                            # width of the poppy-to-wood dither east of zone 1
+MIX = 240                            # width of the poppy-to-wood dither east of zone 1
 SOUTH_W = 900                        # the south's own width; east of it the wood has the whole height
 CELL = 2
 GRASS, EARTH, STONE, WOOD, SNOW, WET = range(6)
@@ -101,6 +101,8 @@ F.draw = draw_items
 class Piece:
     """One rendered window laid into the world: ground, sway layer, sprites, flat masks, lights; `weight` says
     how much of it is shown at each pixel (1 inside, 0 outside, a dithered ramp between)."""
+    sw = None                                                   # optional own weight for the sprites (the ground keeps `weight`)
+
     def __init__(self, name, x0, y0, c, weight, lights=()):
         self.name, self.x0, self.y0 = name, x0, y0
         self.ground, self.sway, self.sway_h = c.ground, c.sway, c.sway_h
@@ -138,8 +140,20 @@ def spot_piece(name, mod, adapt):
     return Piece(name, mod.X0, mod.Y0, c, rect_weight(mod.H, mod.W), lights_of(c.result, 2))
 
 
+def forest_weight(x0, y0, h, w):
+    """How much of the wood shows at each pixel: everywhere east of the south, a wide mix over zone 1's firs and the
+    poppies, the old fir block's place filled with wood, and the west edge running out into the poppy field."""
+    gx = np.arange(w)[None, :] + x0
+    gy = np.arange(h)[:, None] + y0
+    yr = 1.0 - smooth((gy - (TOP - 40)) / 110.0)                  # blends into zone 1's own firs
+    xr = smooth((gx - (SOUTH_W - MIX)) / float(MIX))              # the poppies thin out into the wood
+    blob = smooth((gx - (OW + 10)) / 70.0) * smooth((gy - (TOP - 60)) / 60.0) * (1.0 - smooth((gy - (TOP + 110)) / 80.0))   # where the south's block of firs stood
+    wt = np.where(gx >= SOUTH_W, 1.0, np.maximum(np.maximum(yr, xr), blob))
+    return wt * smooth((gx - (OW - 140)) / 140.0)                 # west edge: the poppy field runs out into the wood
+
+
 def forest_piece(rows=None):
-    """The whole wood (x 540..1800, y 300..3100): floor, river and brook, trees in bands, reeds along the water."""
+    """The whole wood (x 380..1800, y 0..3600): floor, river and brook, trees in bands, reeds along the water."""
     x0, y0, x1, y1 = L.X0, L.Y0, L.X1, L.Y1
     h, w = y1 - y0, x1 - x0
     rng = np.random.default_rng(7)
@@ -192,10 +206,7 @@ def forest_piece(rows=None):
             sprites.append(dict(sp, y=sp['y'] + a0, foot=sp['foot'] + a0))
         print('  forest rows', y0 + b0, y0 + b1, len(c.sprites), 'sprites', flush=True)
     ground = np.clip(ground * fac[..., None], 0, 255)
-    gx = np.arange(w)[None, :] + x0
-    gy = np.arange(h)[:, None] + y0
-    yr = 1.0 - smooth((gy - (TOP - 40)) / 110.0)                  # blends into zone 1's own firs
-    wt = np.where(gx >= SOUTH_W, 1.0, np.maximum(yr, smooth((gx - (SOUTH_W - MIX)) / float(MIX))))   # and the poppies thin out into the wood
+    wt = forest_weight(x0, y0, h, w)
     p = Piece.__new__(Piece)
     p.name, p.x0, p.y0, p.h, p.w = 'forest', x0, y0, h, w
     p.ground, p.sway, p.sway_h, p.sprites, p.masks = ground, sway, sway_h, sprites, {}
@@ -246,7 +257,14 @@ def saum_piece():
         return g, green
 
     c = collect.collect_window(render, w)
-    return Piece('saum', x0, y0, c, rect_weight(h, w, 24))
+    yy, xx = np.mgrid[0:h, 0:w]
+    d = np.minimum(np.minimum(yy, h - 1 - yy), w - 1 - xx)                # wide feather on three sides, the south's seam stays narrow
+    wt = np.minimum(smooth(d / float(SPOT_FEATHER)), smooth(xx / 24.0))
+    bach = L.masks().bach[y0 - L.Y0:y0 - L.Y0 + h, x0 - L.X0:x0 - L.X0 + w]           # the wood's brook runs on through the meadow tongue to brook B
+    wt = wt * (1.0 - np.clip(ndi.gaussian_filter(ndi.binary_dilation(bach, iterations=5).astype(float), 2.0) * 1.6, 0, 1))
+    pc = Piece('saum', x0, y0, c, wt)
+    pc.sw = wt * smooth((np.arange(x0, x0 + w)[None, :] - (ZS.SEAM - 20)) / 130.0)          # the leaf mass fades in from the meadow, the ground stays
+    return pc
 
 
 # ------------------------------------------------------------------ putting the pieces together
@@ -306,7 +324,7 @@ def place(pieces, ground, flowers, bend, low, masks, rng):
             r = float(hash01(fx, fy))
             if any(0 <= fx - q.x0 < q.w and 0 <= fy - q.y0 < q.h and q.weight[fy - q.y0, fx - q.x0] > r for q in later):
                 continue
-            if not (0 <= fx - p.x0 < p.w and 0 <= fy - p.y0 < p.h) or p.weight[min(max(fy - p.y0, 0), p.h - 1), min(max(fx - p.x0, 0), p.w - 1)] <= r:
+            if not (0 <= fx - p.x0 < p.w and 0 <= fy - p.y0 < p.h) or (p.weight if p.sw is None else p.sw)[min(max(fy - p.y0, 0), p.h - 1), min(max(fx - p.x0, 0), p.w - 1)] <= r:
                 continue
             kept.append(dict(sp, x=sp['x'] + p.x0, x_win=sp['x'], y=sp['y'] + p.y0, foot=sp['foot'] + p.y0))
     return kept
@@ -361,6 +379,7 @@ def main(src=None, out=None):
             with open(cache, 'wb') as f:
                 pickle.dump((pieces, ZS.render.open_), f, protocol=4)
 
+    pieces[0].weight = forest_weight(pieces[0].x0, pieces[0].y0, pieces[0].h, pieces[0].w)   # cheap: tunable without re-rendering the wood
     for p in pieces[3:]:                                        # the spots never reach into the south's ground below zone 1's top
         p.weight = spot_weight(p)
         gx = np.arange(p.x0, p.x0 + p.w)[None, :]
@@ -460,12 +479,13 @@ def finish(r):
                                           TOP <= s['foot'] < 1300 and near_path[min(s['foot'], H - 1), s['x'] + s['w'] // 2])]
     sprites = [s for s in sprites if not (re.fullmatch(r's\d+', s['name']) and s['foot'] >= TOP + 70 and
                                           float(hash01(s['x'], s['foot'])) < smooth((s['x'] + s['w'] // 2 - (SOUTH_W - MIX)) / float(MIX)))]
-    gate_rows = (Z0.Y0 - 30, Z0.Y1 + 30)
-    have = {s['name'] for s in sprites}
-    for s in w_old['sprites']:
-        if s['name'].startswith('tanne') and s['x'] + s['w'] >= OW and s['y'] + s['h'] < OH and \
-                not (gate_rows[0] <= s['foot'] <= gate_rows[1]) and s['name'] not in have:
-            sprites.append(s)
+    sprites = [s for s in sprites if not (re.fullmatch(r's\d+', s['name']) and TOP - 60 <= s['foot'] < TOP + 190 and
+                                          OW <= s['x'] + s['w'] // 2 < SOUTH_W)]             # the south's block of firs makes way for the wood's own trees
+    sprites = [s for s in sprites if not (s['name'].startswith('tanne') and OW - 60 <= s['x'] + s['w'] // 2 < OW + 80)]   # the old closed wall of firs at the east edge is gone: the poppies run into the wood
+    cells = np.fromfile(os.path.join(src, 'ground_mat.bin'), np.uint8).reshape(H // CELL, WW // CELL)
+    earth = ndi.binary_dilation(cells == EARTH, iterations=5)
+    kept = [s for s in kept if not (s['x'] + s['w'] // 2 < SOUTH_W and s['foot'] >= TOP and
+                                    earth[min(s['foot'] // CELL, H // CELL - 1), min((s['x'] + s['w'] // 2) // CELL, WW // CELL - 1)])]   # no wood tree on the south's paths
     clipped = []
     for s in kept:                                              # nothing hangs over the world's edge
         if s['x'] >= WW or s['x'] + s['w'] <= 0 or not 0 <= s['foot'] < H:
@@ -489,7 +509,7 @@ def finish(r):
     lm = L.masks()
     gx = np.arange(x0, x1)[None, :]
     gy = np.arange(y0, y1)[:, None]
-    own = (gx >= SOUTH_W) | (gy < TOP)                            # the south's own ground below zone 1's top stays as it is
+    own = ((gx >= SOUTH_W) | (gy < TOP)) & (gx >= OW)                            # the south's own ground below zone 1's top stays as it is
     wm = water_east(gu8, masks, r['pieces'])
     wat = wm[reg][..., 3] > 0
     wE = ndi.binary_dilation(lm.path, iterations=2) | lm.clearing
@@ -565,7 +585,7 @@ def write(r):
     cells = np.fromfile(os.path.join(src, 'ground_mat.bin'), np.uint8).reshape(H // CELL, WW // CELL)
     gx = np.arange(x0, x1)[None, :]
     gy = np.arange(y0, y1)[:, None]
-    own = (gx >= SOUTH_W) | (gy < TOP)
+    own = ((gx >= SOUTH_W) | (gy < TOP)) & (gx >= OW)
     mat = east_materials(r, own)
     cm = cells[y0 // CELL:y1 // CELL, x0 // CELL:x1 // CELL]
     cm[own[::CELL, ::CELL]] = mat[::CELL, ::CELL][own[::CELL, ::CELL]]
