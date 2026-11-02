@@ -78,7 +78,10 @@ class EastWorld(unittest.TestCase):
     def test_the_wood_opens_only_along_its_paths_and_clearings(self):
         lm = L.masks()
         ok = np.zeros((self.cells.shape[0] * 2, self.cells.shape[1] * 2), bool)
-        from scipy import ndimage as ndi                         # local only: the CI has no scipy
+        try:
+            from scipy import ndimage as ndi
+        except ImportError:
+            self.skipTest('scipy fehlt (CI)')
         ok[L.Y0:L.Y1, L.X0:L.X1] = ndi.binary_dilation(lm.path | lm.clearing, iterations=6)
         east = np.zeros_like(self.cells)
         east[:, 450:] = self.cells[:, 450:]                      # x >= 900
