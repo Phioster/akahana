@@ -7,7 +7,7 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 OX, OY = 540, 300                           # plan origin in the world
-X0, Y0, X1, Y1 = 540, 300, 1740, 3100       # the window the masks cover
+X0, Y0, X1, Y1 = 540, 300, 1800, 3100       # the window the masks cover
 PATH_W = 8
 RIVER_W = 14
 

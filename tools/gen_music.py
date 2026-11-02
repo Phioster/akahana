@@ -42,6 +42,24 @@ def repitch(x, ratio):
     pos = np.cumsum(r); pos = pos[pos < len(x) - 1]
     return np.interp(pos, np.arange(len(x)), x)
 
+SHAKU = {}
+for f in glob.glob(f'{HOME}/shakuhachi/wav/PVCshaku_*.wav'):
+    x = decode(f); SHAKU[int(f[-7:-4])] = x / np.abs(x).max()
+
+def shaku(m, dur, amp=0.3):
+    """A breathy flute held for dur: the sample's steady middle looped with crossfades, a slow breath in and out."""
+    root = min(SHAKU, key=lambda k: abs(k - m)); x = repitch(SHAKU[root], 2 ** ((m - root) / 12))
+    a, b = int(0.10 * SR), int(len(x) * 0.92); seg = x[a:b]; xf = int(0.08 * SR)
+    n = int((dur + 0.5) * SR); y = np.zeros(n + len(seg)); pos = 0; first = True
+    w = np.hanning(2 * xf)[:xf]
+    while pos < n:
+        s_ = seg.copy()
+        if not first: s_[:xf] *= w
+        s_[-xf:] *= w[::-1]
+        y[pos:pos + len(s_)] += s_; pos += len(seg) - xf; first = False
+    y = y[:n]; t = np.arange(n) / SR
+    return y * np.clip(t / 0.3, 0, 1) * np.clip((dur + 0.5 - t) / 0.6, 0, 1) * amp
+
 def gay(m, dur=6.0, amp=0.5, bend=0.0, bend_at=0.5):
     root = min(GAY, key=lambda k: abs(k - m)); x = GAY[root]
     n = int(dur * SR); t = np.arange(n) / SR
@@ -89,7 +107,9 @@ def koto_bar(fig, b, scale=1.0):
 for b in range(4): koto_bar(FIG[b], bar, 0.8); bar += 1                     # alone first
 a0 = bar
 for b in range(8): koto_bar(FIG[b % 4], bar); bar += 1
-for (bo, be, d, m) in THEME: add(piano(m - 12 * DARK, d * BEAT, 0.42 - 0.06 * DARK), starts[a0 + bo] + be * BEAT + rng.normal(0, 0.01), 0.6)
+for (bo, be, d, m) in THEME:
+    add(piano(m - 12 * DARK, d * BEAT, 0.42 - 0.06 * DARK), starts[a0 + bo] + be * BEAT + rng.normal(0, 0.01), 0.6)
+    if DARK: add(shaku(m, d * BEAT, 0.22), starts[a0 + bo] + be * BEAT + 0.05, 0.55)
 m0 = bar
 # the middle part keeps a steady pulse: the left hand walks every beat, the koto marks each one,
 # the melody lands on the ones (and a quiet pickup on the last beat) - no loose timing here
@@ -100,16 +120,20 @@ MID_BARS = [[0], [1, 2], [3], [4], [5], [6, 7], [8], [9]]
 for b in range(8):
     lo, hi = FIFTHS[b % 4]; t0 = starts[bar]; nb = bar_beats[bar]
     walk = [lo + 12, hi + 12, lo + 24, hi + 12][:nb]
+    if DARK: walk = [v - 12 for v in walk]
     for k, m in enumerate(walk):
         add(piano(m, BEAT * 0.95, 0.2 if k == 0 else 0.13, 0.9), t0 + k * BEAT, 0.4)
     add(gay(lo, 6.0, 0.35), t0, 0.35)
     for i in MID_BARS[b]:
         be, d, m = MID_MEL[i]
-        add(piano(m - 12 * DARK, d * BEAT, 0.38 if be == 0 else 0.26, 1.0), t0 + be * BEAT, 0.6)
+        add(piano(m, d * BEAT, 0.38 if be == 0 else 0.26, 1.0), t0 + be * BEAT, 0.6)
+        if DARK: add(shaku(m, d * BEAT, 0.2), t0 + be * BEAT + 0.05, 0.55)
     bar += 1
 r0 = bar                                          # the theme once more, an octave up, lighter
 for b in range(8): koto_bar(FIG[b % 4], bar, 0.85); bar += 1
-for (bo, be, d, m) in THEME: add(piano(m + 12 * (not DARK) - 12 * DARK, d * BEAT, 0.32), starts[r0 + bo] + be * BEAT + rng.normal(0, 0.01), 0.62)
+for (bo, be, d, m) in THEME:
+    add(piano(m + 12 * (not DARK) - 12 * DARK, d * BEAT, 0.32), starts[r0 + bo] + be * BEAT + rng.normal(0, 0.01), 0.62)
+    if DARK: add(shaku(m, d * BEAT, 0.2), starts[r0 + bo] + be * BEAT + 0.05, 0.55)
 for b in range(4): koto_bar(FIG[b], bar, 0.8 - 0.12 * b); bar += 1
 add(gay(D3, 7.0, 0.4), starts[bar], 0.4)
 

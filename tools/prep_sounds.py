@@ -123,9 +123,10 @@ def east():
     """The Ostwald's sounds: drops at the pond (#177958 Sclolex, CC0), the ritual place's little bell (the far bell,
     #266525, an octave up and cut short)."""
     loop(f'{FS}/177958.ogg', 'tropfen', 4, 30, 0.08, highpass=250.0)
-    b = load(f'{FS}/266525.ogg')[:int(4.0 * SR)]
-    b = np.interp(np.arange(0, len(b) - 1, 2.0), np.arange(len(b)), b)          # an octave up, half as long
-    b = b[:int(2.4 * SR)] * np.minimum(1, np.linspace(2.4, 0, int(2.4 * SR))[:len(b)] / 0.5)
+    b = load(f'{FS}/266525.ogg')[:int(5.0 * SR)]
+    b = np.interp(np.arange(0, len(b) - 1, 1.335), np.arange(len(b)), b)         # a fourth up, still slow
+    n = int(3.6 * SR)
+    b = b[:n] * np.minimum(1, np.linspace(3.6, 0, n)[:len(b)] / 1.2)
     save('glockchen', b, 0.1)
 
 

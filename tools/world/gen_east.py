@@ -45,6 +45,7 @@ ROOT = os.path.abspath(os.path.join(HERE, '..', '..'))
 H, WW = 3600, 1800
 OW, OH = z1.OLD_W, z1.OLD_H
 TOP = OH - z1.CTX                    # from this world row down the south's zone 1 begins
+MIX = 150                            # width of the poppy-to-wood dither east of zone 1
 SOUTH_W = 900                        # the south's own width; east of it the wood has the whole height
 CELL = 2
 GRASS, EARTH, STONE, WOOD, SNOW, WET = range(6)
@@ -128,7 +129,7 @@ def spot_piece(name, mod, adapt):
 
 
 def forest_piece(rows=None):
-    """The whole wood (x 540..1740, y 300..3100): floor, river and brook, trees in bands, reeds along the water."""
+    """The whole wood (x 540..1800, y 300..3100): floor, river and brook, trees in bands, reeds along the water."""
     x0, y0, x1, y1 = L.X0, L.Y0, L.X1, L.Y1
     h, w = y1 - y0, x1 - x0
     rng = np.random.default_rng(7)
@@ -183,7 +184,8 @@ def forest_piece(rows=None):
     ground = np.clip(ground * fac[..., None], 0, 255)
     gx = np.arange(w)[None, :] + x0
     gy = np.arange(h)[:, None] + y0
-    wt = np.where(gx >= SOUTH_W, 1.0, 1.0 - smooth((gy - (TOP - 40)) / 110.0))   # blends into zone 1's own firs
+    yr = 1.0 - smooth((gy - (TOP - 40)) / 110.0)                  # blends into zone 1's own firs
+    wt = np.where(gx >= SOUTH_W, 1.0, np.maximum(yr, smooth((gx - (SOUTH_W - MIX)) / float(MIX))))   # and the poppies thin out into the wood
     p = Piece.__new__(Piece)
     p.name, p.x0, p.y0, p.h, p.w = 'forest', x0, y0, h, w
     p.ground, p.sway, p.sway_h, p.sprites, p.masks = ground, sway, sway_h, sprites, {}
@@ -445,6 +447,8 @@ def finish(r):
                                           abs(s['foot'] - path_y) < 95 and s['x'] < ZS.SEAM + 40)]
     sprites = [s for s in sprites if not (re.fullmatch(r's\d+', s['name']) and 540 <= s['x'] + s['w'] // 2 < SOUTH_W and
                                           TOP <= s['foot'] < 1300 and near_path[min(s['foot'], H - 1), s['x'] + s['w'] // 2])]
+    sprites = [s for s in sprites if not (re.fullmatch(r's\d+', s['name']) and s['foot'] >= TOP + 70 and
+                                          float(hash01(s['x'], s['foot'])) < smooth((s['x'] + s['w'] // 2 - (SOUTH_W - MIX)) / float(MIX)))]
     gate_rows = (Z0.Y0 - 30, Z0.Y1 + 30)
     have = {s['name'] for s in sprites}
     for s in w_old['sprites']:
@@ -488,6 +492,7 @@ def finish(r):
     walk = np.fromfile(os.path.join(src, 'walk.bin'), np.uint8).reshape(H, WW).astype(bool)
     sub = walk[reg]
     sub[own] = wE[own]
+    sub[~own] &= ~blocked[reg][~own]                              # trees that stand in the poppy-to-wood mix
     gz = ndi.binary_dilation(Z0.path_mask(), iterations=2)       # the poppy gate: the old map's closed strip opens
     zs = (slice(Z0.Y0, Z0.Y0 + Z0.H), slice(Z0.X0, Z0.X0 + Z0.W))
     gx0 = np.arange(Z0.X0, Z0.X0 + Z0.W)[None, :]

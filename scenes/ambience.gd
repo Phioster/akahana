@@ -124,7 +124,7 @@ func _process(delta: float) -> void:
 		_play_once("glocke", RUIN + Vector2(0, -40), -8.5, 700.0, 1.0, 2.0)   # steeper: soft from afar
 	_chime_in -= delta
 	if _chime_in <= 0.0:
-		_chime_in = randf_range(25.0, 55.0)
+		_chime_in = randf_range(70.0, 130.0)
 		if world != null and world.places.has("ritual"):
 			var rt: Array = world.places["ritual"]
 			_play_once("glockchen", Vector2(float(rt[0]), float(rt[1])) + Vector2(randf_range(-30, 30), -10), CHIME_DB,
