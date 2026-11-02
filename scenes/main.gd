@@ -5,7 +5,7 @@ extends Node2D
 const MAX_LIGHTS := 16
 const MAX_FLIES := 40
 const KINDS := {"fire": 0.0, "lantern": 1.0, "wood": 2.0, "candle": 3.0, "wisp": 4.0, "kerze": 3.0}
-const GLOW := {"fire": 40.0, "lantern": 6.0, "wood": 8.0, "candle": 4.0, "wisp": 4.0, "kerze": 1.2}   # glowing pixels, for bloom
+const GLOW := {"fire": 22.0, "lantern": 6.0, "wood": 8.0, "candle": 4.0, "wisp": 4.0, "kerze": 1.2}   # glowing pixels, for bloom
 const SAVE_EVERY := 5.0
 const CAM_EASE := 5.0                # how quickly the view catches up: starting and stopping glide
 const CAM_MIN_SPEED := 4.0           # art px/s: the slowest it glides before arriving
@@ -348,6 +348,10 @@ func _feed_lights(view: Rect2) -> void:
 	while pos.size() < MAX_LIGHTS:
 		pos.append(Vector4.ZERO)
 		info.append(Vector4.ZERO)
+	var near: Array = []                               # everything that lights him, for robe and shadow
+	for l in all:
+		if Vector2(float(l["x"]), float(l["y"])).distance_to(player.position) < float(l["r"]) + 4.0:
+			near.append(l)
 	var flies: Array[Vector4] = []                     # the fireflies' tiny lights: their own list, so the
 	for sw in get_tree().get_nodes_in_group("fireflies"):  # lamps keep their 16 slots
 		for l in sw.lights():
@@ -356,6 +360,11 @@ func _feed_lights(view: Rect2) -> void:
 	var nf := flies.size()
 	while flies.size() < MAX_FLIES:
 		flies.append(Vector4.ZERO)
+	for sw in get_tree().get_nodes_in_group("fireflies"):
+		for l in sw.lights():
+			if Vector2(l.x, l.y).distance_to(player.position) < l.z + 4.0:
+				near.append({"x": l.x, "y": l.y, "r": l.z, "k": l.w})
+	player.set_light(PlayerLight.at(near, player.position))
 	post.set_shader_parameter("flies", flies)
 	post.set_shader_parameter("fly_count", nf)
 	post.set_shader_parameter("lights", pos)

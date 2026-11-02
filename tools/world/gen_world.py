@@ -442,7 +442,7 @@ walk[:44, :] = False
 
 # ------------------------------------------------------------------ lights (world coordinates)
 lights = [
-    dict(x=fsx, y=fsy - 5, r=46, k=1.25, kind='fire'),
+    dict(x=fsx, y=fsy - 5, r=46, k=0.9, kind='fire'),
     dict(x=lx, y=ly - 15.5, r=30, k=0.70, kind='lantern'),
     dict(x=S(110.5, 236)[0], y=S(110.5, 236)[1], r=20, k=0.55, kind='wood'),
     dict(x=S(122, 116)[0], y=S(122, 116)[1], r=24, k=0.65, kind='candle'),

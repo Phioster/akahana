@@ -19,6 +19,7 @@ var mirror: Sprite2D                 # his reflection on the water (shaders/refl
 var _t := 0.0
 var _last_col := -1
 var _heading := Vector2.ZERO
+var _shade := {"dim": 1.0, "dir": Vector2.DOWN, "len": 6.0, "a": 0.0}
 
 
 func _ready() -> void:
@@ -53,6 +54,16 @@ func _ready() -> void:
 	add_child(ear)
 	ear.make_current()
 	queue_redraw()
+
+
+## Main feeds the light on him (PlayerLight.at): robe darker in the glow, shadow away from the lamp.
+func set_light(r: Dictionary) -> void:
+	sprite.modulate = Color(r["dim"], r["dim"], r["dim"])
+	mirror.modulate = sprite.modulate
+	if absf(float(r["a"]) - float(_shade["a"])) > 0.02 or (r["dir"] - _shade["dir"]).length() > 0.03 \
+			or absf(float(r["len"]) - float(_shade["len"])) > 0.4:
+		_shade = r
+		queue_redraw()
 
 
 ## A soft shadow on the ground under the feet: it is what makes him stand ON the meadow.
@@ -120,3 +131,17 @@ func _face(v: Vector2) -> void:
 		dir = Dir.RIGHT if v.x > 0.0 else Dir.LEFT
 	else:
 		dir = Dir.DOWN if v.y > 0.0 else Dir.UP
+	# the cast shadow: a tapering smear from the feet away from the strongest light, on whole pixels
+	var a: float = _shade["a"]
+	if a > 0.0:
+		var dir: Vector2 = _shade["dir"]
+		var ln: float = _shade["len"]
+		var steps := int(ln)
+		for i in steps:
+			var s := float(i) / maxf(1.0, ln)
+			var c := Vector2(roundf(dir.x * ln * s), roundf(dir.y * ln * s * 0.6))
+			var hw := int(roundf(3.4 - 1.2 * s))
+			var hh := 1 if s < 0.6 else 0
+			for y in range(-hh, hh + 1):
+				for x in range(-hw, hw + 1):
+					draw_rect(Rect2(c.x + x, c.y + y, 1, 1), Color(0.05, 0.04, 0.06, a * 0.5 * (1.0 - 0.5 * s)))
