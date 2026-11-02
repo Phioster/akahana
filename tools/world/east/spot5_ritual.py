@@ -21,10 +21,11 @@ import objects_east as oe  # noqa: E402
 import zone2_draft as z2  # noqa: E402
 
 S = L.SPOTS['5']
-X0, Y0, X1, Y1 = int(S.x) - 160, int(S.y) - 190, int(S.x) + 130, int(S.y) + 110
+X0, Y0, X1, Y1 = int(S.x) - 120, int(S.y) - 190, int(S.x) + 270, int(S.y) + 110
 W, H = X1 - X0, Y1 - Y0
-CX, CY = int(S.x - X0), int(S.y - Y0)
-TURQ = np.array([0.40, 1.0, 0.92])
+SX, SY = int(S.x - X0), int(S.y - Y0)
+CX, CY = SX + 92, SY - 2                                   # the ring stands to the right: the way runs past on its left
+TURQ = np.array([0.80, 1.0, 0.90])                           # the shaft's colour: pale moon-white with a little green
 
 
 def turquoise_flame(img, box):
@@ -38,7 +39,14 @@ def turquoise_flame(img, box):
 
 def render(seed=61):
     rng = np.random.default_rng(seed)
-    img, masks = F.render_window(X0, Y0, X1, Y1, seed=43)
+    r2 = np.random.default_rng(43)
+    masks = F.window_masks(X0, Y0, X1, Y1)
+    yy, xx = np.mgrid[0:H, 0:W]
+    own = (((xx - (CX + 56)) / 160.0) ** 2 + ((yy - (CY - 22)) / 92.0) ** 2) < 1       # the open ground of the ring and the hall
+    own = ndi.binary_opening(own | ndi.binary_dilation(own, iterations=3), iterations=2)
+    masks = dict(masks, clearing=masks['clearing'] | own)
+    img = F.floor(H, W, masks, r2)
+    F.draw(img, F.scatter(H, W, masks, r2), r2.random((H, W)))
     G = rng.random((H, W))
     lights = []
     # a ring of standing stones: an ellipse (we look from above at an angle), irregular angles and heights, open toward the two paths
@@ -57,8 +65,10 @@ def render(seed=61):
     for dx, dy in ((-26, -12), (-9, -14), (10, -13), (27, -11)):
         pass
     things += [('bowl', CX - 9, CY - 1, 11, 1), ('bowl', CX + 4, CY - 3, 12, 1), ('bowl', CX + 15, CY, 13, 1)]
-    for dx, dy in ((-96, 20), (96, 22), (-52, -56), (56, -54)):               # four lanterns outside the ring
+    for dx, dy in ((-96, 22), (-52, -56), (56, -58)):                         # lanterns outside the ring, none on the way
         things.append(('lantern', CX + dx, CY + dy, 0, 1))
+    things.append(('halle', CX + 112, CY - 52, 3, 1))
+    things.append(('lantern', CX + 84, CY - 36, 0, 1)); things.append(('lantern', CX + 140, CY - 36, 0, 1))
     for dx, dy in ((-38, 32), (34, 36), (-62, -14), (68, -16), (4, 48)):      # staffs with faded cloth, bowls at the foot of the stones
         things.append(('stab', CX + dx, CY + dy, int(rng.integers(0, 10 ** 6)), 1))
     for x, y, a in ring[::3]:
@@ -75,6 +85,8 @@ def render(seed=61):
                         img[yy, xx] *= 0.62
         if kind == 'stele':
             oe.Stele(x, y, sd, size).draw(img, G)
+        elif kind == 'halle':
+            oe.Halle(x, y, sd).draw(img, G)
         elif kind == 'altar':
             oe.Altar(x, y, sd).draw(img, G)
         elif kind == 'bowl':
@@ -86,7 +98,6 @@ def render(seed=61):
         elif kind == 'lantern':
             t = z2.Steinlaterne(x, y)
             t.draw(img, None)
-            turquoise_flame(img, t.box())
             lights.append(t.lights()[0])
     return img, masks, lights
 
@@ -99,14 +110,14 @@ def preview(out, scale=3):
     yy, xx = np.mgrid[0:H, 0:W]
     for l in lights:                                                         # cool glow of the lanterns
         d = np.hypot(xx - l['x'], yy - l['y']) / 26.0
-        g += (np.exp(-d * d * 2.2)[..., None] * 95 * TURQ)
+        g += (np.exp(-d * d * 2.2)[..., None] * 80 * np.array([1.0, 0.62, 0.22]))
     # the shaft of light: a tall, slightly widening column above the altar, brightest at the altar, with a pool on the ground
     top = 0
     t = np.clip((CY - 8 - yy) / max(CY - 8 - top, 1), 0, 1)
     half = 11 + 9 * t
     col = np.exp(-(((xx - CX) / half) ** 2) * 1.6) * (yy < CY - 4) * (1 - 0.82 * t) ** 1.2
     pool = np.exp(-(((xx - CX) / 46.0) ** 2 + ((yy - CY - 4) / 17.0) ** 2))
-    g += col[..., None] * 120 * TURQ + pool[..., None] * 70 * TURQ
+    g += col[..., None] * 70 * TURQ + pool[..., None] * 42 * TURQ
     g = np.clip(g, 0, 255)
     Image.fromarray(g.astype(np.uint8)).resize((W * scale, H * scale), Image.NEAREST).save(out)
 

@@ -741,3 +741,54 @@ class Altar:
         for i in range(-6, 6):                                        # a dark stain of old offerings on top
             if rng.random() < 0.7:
                 put(img, x + i, y - 7, STONE[1])
+
+
+class Halle:
+    """A small old prayer hall of grey weathered wood: a stone plinth with two steps, plank walls, a dark open doorway with a
+    red cloth, two small window slits, a deep roof of dark slabs with up-turned eaves. About 44 px wide, 36 high."""
+    def __init__(s, x, y, seed=2):
+        s.x, s.y, s.seed = x, y, seed
+
+    def box(s):
+        return (s.x - 26, s.y - 40, s.x + 26, s.y + 4)
+
+    def draw(s, img, G):
+        rng = np.random.default_rng(s.seed)
+        x, y = s.x, s.y
+        for j in range(-5, 1):                                        # plinth with steps
+            hw = 21 if j > -3 else 19
+            for i in range(-hw, hw + 1):
+                lit = 2.1 - 1.2 * (i + hw) / (2 * hw) - 0.25 * (j == -5) + rng.normal(0, 0.15)
+                put(img, x + i, y + j, STONE[int(np.clip(lit, 0, 3))] if abs(i) < hw else STONE[0])
+        for i in range(-5, 6):                                        # steps in front of the door
+            put(img, x + i, y, STONE[3] if i < 1 else STONE[2])
+            put(img, x + i, y - 1, STONE[2])
+        for j in range(-19, -5):                                      # plank walls
+            for i in range(-16, 17):
+                plank = (i + 16) % 4 == 0
+                lit = 1.9 - 1.2 * (i + 16) / 32.0 + (-0.55 if plank else 0.1 * ((i + j) % 2)) + rng.normal(0, 0.12)
+                put(img, x + i, y + j, WOODC[int(np.clip(lit, 0, 3))])
+        for j in range(-19, -5):                                      # posts at the corners
+            for i in (-17, -16, 16, 17):
+                put(img, x + i, y + j, WOODC[1 if i < 0 else 0])
+        for j in range(-17, -6):                                      # the open doorway, a red cloth across its top
+            for i in range(-4, 5):
+                put(img, x + i, y + j, np.array([8, 12, 14]) if j > -13 else RED[2 if (i + j) % 3 else 1])
+        for j in range(-16, -12):                                     # window slits
+            for i in (-12, -11, 11, 12):
+                put(img, x + i, y + j, np.array([10, 14, 16]))
+        for j in range(-21, -19):                                     # the beam under the roof
+            for i in range(-19, 20):
+                put(img, x + i, y + j, WOODC[1])
+        for k in range(11):                                           # the roof: wide, deep eaves, curved up at the ends
+            hw = 23 - k * 1.6
+            for i in range(int(-hw), int(hw) + 1):
+                lit = 2.2 - 1.4 * (i + hw) / (2 * hw) - 0.1 * k + rng.normal(0, 0.12)
+                c = STONE[int(np.clip(lit, 0, 3))]
+                if k % 2 == 0 and (i + 30) % 5 == 0:
+                    c = STONE[0]
+                lift = 1 if abs(i) > hw - 3 and k < 3 else 0
+                put(img, x + i, y - 22 - k - lift, c)
+        for i in range(-4, 5):
+            put(img, x + i, y - 33, STONE[3] if i < 1 else STONE[2])
+        put(img, x - 5, y - 34, STONE[3]); put(img, x + 5, y - 34, STONE[2])
