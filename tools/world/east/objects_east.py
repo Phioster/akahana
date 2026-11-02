@@ -591,3 +591,93 @@ class Steinbruecke:
                         img[Y, X] = np.array([36, 56, 36])
                         if k % 3 == 1 and X + 1 < w:
                             img[Y, X + 1] = LICH[2] if rng.random() < 0.5 else LICH[1]
+
+
+RED = [hx(c) for c in ['#3a1614', '#6b2622', '#9a3a32', '#c0584a']]        # faded red cloth: bibs, caps, rope
+
+
+class Jizo:
+    """A small stone Jizo: a round-headed, bell-shaped figure on a low base, a faded red bib, often a red cap."""
+    def __init__(s, x, y, seed=1, cap=True, lean=0):
+        s.x, s.y, s.seed, s.cap, s.lean = x, y, seed, cap, lean
+
+    def box(s):
+        return (s.x - 7, s.y - 17, s.x + 8, s.y + 2)
+
+    def draw(s, img, G):
+        rng = np.random.default_rng(s.seed)
+        x, y = s.x, s.y
+
+        def px(i, j, c):
+            put(img, x + i + int(round(s.lean * (-j) / 14.0)), y + j, c)
+        for i in range(-5, 6):                                       # base stone
+            for j in range(-2, 1):
+                px(i, j, STONE[1 + (i < 0) + (j == -2)] if abs(i) < 5 or j == 0 else STONE[0])
+        for j in range(-12, -2):                                     # the body: narrow at the shoulders, wider at the foot
+            hw = 2 + int(round((j + 12) * 0.32))
+            for i in range(-hw, hw + 1):
+                lit = 2.2 - 1.8 * (i + hw) / max(2 * hw, 1) + rng.normal(0, 0.25)
+                c = STONE[int(np.clip(lit, 0, 3))]
+                if i in (-hw, hw):
+                    c = STONE[0] if i > 0 else STONE[2]
+                px(i, j, c)
+        for j in range(-9, -6):                                      # the bib
+            for i in range(-2, 3):
+                px(i, j, RED[2 if (i + j) % 3 else 1])
+        for j in range(-17, -11):                                    # the head, a ball
+            for i in range(-3, 4):
+                if i * i + (j + 14.5) ** 2 * 1.1 <= 9.5:
+                    lit = 2.4 - 1.7 * (i + 3) / 6.0 + rng.normal(0, 0.2)
+                    px(i, j, STONE[int(np.clip(lit, 0, 3))])
+        if s.cap:                                                    # a red knitted cap
+            for j in range(-18, -14):
+                for i in range(-3, 4):
+                    if i * i + (j + 15.6) ** 2 * 1.2 <= 9.5:
+                        px(i, j, RED[3 if i < 0 and j == -17 else (2 if i < 1 else 1)])
+        else:
+            px(0, -13, STONE[0])
+        px(-1, -14, STONE[0]); px(1, -14, STONE[0])                  # eyes: two dark dashes
+        px(-1, -6, STONE[3]); px(0, -6, STONE[3])                    # hands held together, lit
+
+
+class Schrein:
+    """A tiny wayside shrine (hokora): a stone plinth, a small grey wooden box with a dark door and a red cloth, a pitched
+    roof of dark stone slabs, a little rope. About 26 px wide, 24 high."""
+    def __init__(s, x, y, seed=1):
+        s.x, s.y, s.seed = x, y, seed
+
+    def box(s):
+        return (s.x - 16, s.y - 28, s.x + 16, s.y + 3)
+
+    def draw(s, img, G):
+        rng = np.random.default_rng(s.seed)
+        x, y = s.x, s.y
+        for j in range(-4, 1):                                       # two steps of the plinth
+            hw = 12 if j > -2 else 10
+            for i in range(-hw, hw + 1):
+                lit = 2.1 - 1.2 * (i + hw) / (2 * hw) - 0.3 * (j == -4) + rng.normal(0, 0.15)
+                put(img, x + i, y + j, STONE[int(np.clip(lit, 0, 3))] if abs(i) < hw else STONE[0])
+        for j in range(-16, -4):                                     # the box
+            for i in range(-8, 9):
+                lit = 2.0 - 1.3 * (i + 8) / 16.0 + 0.4 * ((i + 8) % 4 == 0) + rng.normal(0, 0.15)
+                put(img, x + i, y + j, WOODC[int(np.clip(lit, 0, 3))])
+        for j in range(-14, -6):                                     # the dark door, a cloth hanging in front
+            for i in range(-3, 4):
+                put(img, x + i, y + j, np.array([10, 14, 16]) if j > -12 else np.array([20, 26, 28]))
+        for j in range(-14, -10):
+            for i in range(-4, 5):
+                put(img, x + i, y + j, RED[2 if (i + j) % 3 else 1] if abs(i) > 0 or j < -12 else RED[0])
+        for j in range(-17, -15):                                    # the beam under the roof
+            for i in range(-10, 11):
+                put(img, x + i, y + j, WOODC[1])
+        for k in range(8):                                           # the roof: a pitched cap of slabs, eaves reaching out
+            hw = 15 - k * 1.7
+            for i in range(int(-hw), int(hw) + 1):
+                lit = 2.2 - 1.4 * (i + hw) / (2 * hw) - 0.15 * k + rng.normal(0, 0.12)
+                c = STONE[int(np.clip(lit, 0, 3))]
+                if k % 2 == 0 and (i + 20) % 5 == 0:
+                    c = STONE[0]
+                put(img, x + i, y - 18 - k, c)
+        for i in (-2, -1, 0, 1, 2):
+            put(img, x + i, y - 26, STONE[3] if i < 1 else STONE[2])
+        put(img, x, y - 27, STONE[3])
