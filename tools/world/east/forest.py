@@ -84,12 +84,14 @@ def scatter(h, w, masks, rng, density=1.0, green=None):
             k, sz, hit = 'giant', rng.uniform(1.7, 2.1), 20
         elif kind_n[yc, xc] > 0.7 and r < 0.8:
             k, sz, hit = 'dead', rng.uniform(0.9, 1.3), 8
-        elif green is not None and green[yc, xc] > 0.25 and r < 0.1 + 0.55 * green[yc, xc]:
-            k, sz, hit = 'leafg', rng.uniform(0.8, 1.2), 12                 # green broadleaf near the meadow
+        elif green is not None and green[yc, xc] > 0.25 and r < 0.1 + 0.45 * green[yc, xc]:
+            k, sz, hit = 'leafg', rng.uniform(0.8, 1.2), 17                 # green broadleaf near the meadow
         elif kind_n[yc, xc] < -0.9 and r < 0.8:
             k, sz, hit = 'leaf', rng.uniform(0.7, 1.0), 12
         elif r < 0.55:                                          # the twisted, overgrown ones (Hobbit's dark wood) are the wood's face
             k, sz, hit = 'knorr', rng.uniform(0.9, 1.35), 17
+        elif green is not None and rng.random() < green[yc, xc] ** 0.7:
+            k, sz, hit = 'leafg', rng.uniform(0.75, 1.15), 17             # warm side: no firs yet, broadleaf instead
         else:
             k, sz, hit = 'fir', int(rng.integers(26, 48)), 7
         if free_by[k][yc, xc] or taken[y, x + 6]:

@@ -99,7 +99,9 @@ def render(seed=19):
     dark = smooth((gx - SEAM) / 450.0)[..., None]
     g[pp] = (col[idx] * (1 - 0.4 * dark))[pp]
     # --- trees: more and more twisted the further in, broadleaf green near the meadow
-    green = np.clip(1 - smooth((gx - SEAM) / 520.0) * 1.1, 0, 1)
+    # warm below, cool above: the dark firs only begin well up in the north-east (Philip), the green holds longer in the south
+    along = (SEAM + 600 - gx) / 600.0 * 0.45 + (gy - 2350) / 650.0 * 0.75
+    green = np.clip(smooth(along + 0.25), 0, 1)
     masks = {'path': pm, 'clearing': glade | (open_ > 0.45), 'river': np.zeros((H, W), bool)}
     items = F.scatter(H, W, masks, rng, green=green)
     items = [t for t in items if not (t[1] + X0 < SEAM + 6 and t[1] + X0 > SEAM - 14 and open_[min(t[2], H - 1), min(max(t[1], 0), W - 1)] > 0.5)]
