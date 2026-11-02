@@ -58,9 +58,12 @@ func test_lake_life_keeps_a_few_animals_near_the_view_only() -> void:
 	l.player = Node2D.new()
 	l.add_child(l.player)
 	l.player.position = Vector2(100, 900)
+	var most := 0
 	for i in 400:
 		l.step(0.05, Rect2(300, 2900, 180, 400))
-	assert_true(l.fish_count() >= 1 and l.fish_count() <= LakeLife.MAX_FISH, "ein paar Fische: %d" % l.fish_count())
+		most = maxi(most, l.fish_count())                # not just the last frame: a fish may just have sunk away (CI flake 2026-11-02)
+		assert_true(l.fish_count() <= LakeLife.MAX_FISH, "nicht zu viele Fische: %d" % l.fish_count())
+	assert_true(most >= 1, "ein paar Fische: %d" % most)
 	assert_true(l.duck_count() <= LakeLife.MAX_DUCKS)
 	for i in 40:
 		l.step(0.05, Rect2(100, 700, 180, 400))

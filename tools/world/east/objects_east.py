@@ -213,3 +213,140 @@ class Pilzring:
                 put(img, x, y, np.array([150, 150, 134]))
                 put(img, x - 1, y - 1, np.array([196, 192, 170])); put(img, x, y - 1, np.array([214, 210, 188]))
                 put(img, x + 1, y - 1, np.array([172, 170, 150]))
+
+
+STONE = [hx(c) for c in ['#2c3436', '#434e50', '#5f6c6b', '#85928b']]       # dark .. lit, cool grey
+MOSSC = [hx(c) for c in ['#27382a', '#3d5a36', '#5d8048']]
+
+
+def _rows(img, x, y, rows, pal_of):
+    h, w = img.shape[:2]
+    for j, (a, b, lean) in enumerate(rows):
+        for i in range(a, b + 1):
+            xx, yy = x + i + lean, y - len(rows) + 1 + j
+            if 0 <= yy < h and 0 <= xx < w:
+                put(img, xx, yy, pal_of(i - a, b - a, j, len(rows)))
+
+
+class Grabstein:
+    """A worn gravestone seen from the front and a little above: a rounded slab, lit from the upper left, moss on top and
+    at the foot, a faint carved mark, leaning a little; a low moss mound before it."""
+    def __init__(s, x, y, seed=1, lean=0, size=1.0):
+        s.x, s.y, s.seed, s.lean, s.size = x, y, seed, lean, size
+
+    def box(s):
+        return (s.x - 9, s.y - 18, s.x + 10, s.y + 5)
+
+    def draw(s, img, G):
+        rng = np.random.default_rng(s.seed)
+        wd = int(7 * s.size) + rng.integers(0, 2)
+        ht = int(12 * s.size) + rng.integers(0, 3)
+        rows = []
+        for j in range(ht):
+            inset = 0 if j > 1 else (2 if j == 0 else 1)                  # rounded top
+            lean = int(round(s.lean * (1 - j / ht)))
+            rows.append((-wd // 2 + inset, wd // 2 - inset, lean))
+        h, w = img.shape[:2]
+        for j in range(-1, 3):                                            # the mound at its foot
+            for i in range(-wd // 2 - 3, wd // 2 + 4):
+                xx, yy = s.x + i, s.y + 1 + j
+                if 0 <= yy < h and 0 <= xx < w and (i / (wd / 2 + 3.5)) ** 2 + (j / 2.2) ** 2 < 1:
+                    put(img, xx, yy, MOSSC[1 if rng.random() < 0.7 else 0])
+
+        def pal(i, span, j, n):
+            lit = 0.8 - 0.55 * (i / max(span, 1)) - 0.25 * (j / n) + rng.normal(0, 0.1)
+            if j < 2 and rng.random() < 0.75 or j > n - 3 and rng.random() < 0.55:
+                return MOSSC[int(np.clip(1 + (lit > 0.6), 0, 2))]
+            return STONE[int(np.clip(lit * 3.2, 0, 3))]
+        _rows(img, s.x, s.y, rows, pal)
+        mk = int(rng.integers(0, 3))                                      # a carved mark, darker
+        cx, cy = s.x + int(round(s.lean * 0.5)), s.y - ht // 2 - 1
+        pts = [[(0, 0), (0, 1), (0, -1), (-1, 0), (1, 0)], [(0, 0), (-1, 1), (1, 1), (0, -1)], [(-1, -1), (-1, 0), (0, 1), (1, 0), (1, -1)]][mk]
+        for dx, dy in pts:
+            if 0 <= cy + dy < h and 0 <= cx + dx < w:
+                put(img, cx + dx, cy + dy, STONE[0])
+
+
+class Stele:
+    """A tall slender carved slab."""
+    def __init__(s, x, y, seed=2, size=1.0):
+        s.x, s.y, s.seed, s.size = x, y, seed, size
+
+    def box(s):
+        return (s.x - 6, s.y - 28, s.x + 7, s.y + 4)
+
+    def draw(s, img, G):
+        rng = np.random.default_rng(s.seed)
+        ht = int(19 * s.size) + rng.integers(0, 4)
+        rows = [(-2 + (j == 0), 2 - (j == 0), 0) for j in range(ht)]
+
+        def pal(i, span, j, n):
+            lit = 0.85 - 0.6 * (i / max(span, 1)) - 0.2 * (j / n) + rng.normal(0, 0.08)
+            if j > n - 3 and rng.random() < 0.6:
+                return MOSSC[1]
+            if i == 2 and 3 < j < n - 4 and j % 3 == 0:                      # a column of carved marks
+                return STONE[0]
+            return STONE[int(np.clip(lit * 3.2, 0, 3))]
+        _rows(img, s.x, s.y, rows, pal)
+
+
+class Steinhaufen:
+    """A little cairn of stacked flat stones."""
+    def __init__(s, x, y, seed=3, n=6):
+        s.x, s.y, s.seed, s.n = x, y, seed, n
+
+    def box(s):
+        return (s.x - 8, s.y - 10, s.x + 9, s.y + 3)
+
+    def draw(s, img, G):
+        rng = np.random.default_rng(s.seed)
+        h, w = img.shape[:2]
+        levels = [(3, 0), (2, -2), (2, -4), (1, -6)] if s.n > 4 else [(2, 0), (1, -2)]
+        for k, (half, dy) in enumerate(levels):
+            for j in range(0, 2 + (k == 0)):
+                for i in range(-half - 1, half + 2):
+                    xx, yy = s.x + i + int(rng.integers(-1, 2)) * (k > 0), s.y + dy - j
+                    if 0 <= yy < h and 0 <= xx < w:
+                        lit = 0.9 - 0.2 * j - 0.5 * ((i + half) / (2 * half + 2)) + rng.normal(0, 0.1)
+                        put(img, xx, yy, STONE[int(np.clip(lit * 3.2, 0, 3))])
+
+
+class Opferschale:
+    """A small bowl with an offering (a mound of pale rice)."""
+    def __init__(s, x, y, seed=4):
+        s.x, s.y, s.seed = x, y, seed
+
+    def box(s):
+        return (s.x - 5, s.y - 6, s.x + 6, s.y + 2)
+
+    def draw(s, img, G):
+        for i in range(-3, 4):
+            put(img, s.x + i, s.y, STONE[0])
+            put(img, s.x + i, s.y - 1, STONE[1] if abs(i) < 3 else STONE[0])
+        for i in range(-2, 3):
+            put(img, s.x + i, s.y - 2, np.array([196, 196, 182]) if i < 1 else np.array([150, 152, 140]))
+        for i in range(-1, 2):
+            put(img, s.x + i, s.y - 3, np.array([224, 222, 206]))
+        put(img, s.x, s.y - 4, np.array([232, 230, 214]))
+
+
+class Stab:
+    """A thin staff pushed into the ground, a strip of faded cloth tied round it."""
+    def __init__(s, x, y, seed=5, lean=1, height=17):
+        s.x, s.y, s.seed, s.lean, s.height = x, y, seed, lean, height
+
+    def box(s):
+        return (s.x - 5, s.y - s.height - 3, s.x + 8, s.y + 3)
+
+    def draw(s, img, G):
+        h, w = img.shape[:2]
+        for k in range(s.height):
+            x = s.x + int(round(s.lean * k / s.height * 3))
+            y = s.y - k
+            if 0 <= y < h and 0 <= x < w:
+                put(img, x, y, BARK[2] if k % 4 else BARK[3])
+        x, y = s.x + int(round(s.lean * 0.7 * 3 * (s.height - 5) / s.height)), s.y - s.height + 5
+        for i, c in enumerate([(120, 52, 48), (150, 66, 58)]):
+            for j in (0, 1):
+                if 0 <= y + j < h and 0 <= x + 1 + i < w:
+                    put(img, x + 1 + i, y + j, np.array(c))
