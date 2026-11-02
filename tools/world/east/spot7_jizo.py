@@ -42,13 +42,28 @@ def along(path, rng):
 
 def render(seed=51):
     rng = np.random.default_rng(seed)
-    img, masks = F.render_window(X0, Y0, X1, Y1, seed=41)
+    r2 = np.random.default_rng(41)
+    masks = F.window_masks(X0, Y0, X1, Y1)
+    img = F.floor(H, W, masks, r2)
+    items = F.scatter(H, W, masks, r2)
     G = rng.random((H, W))
     cx, cy = int(S.x - X0), int(S.y - Y0)
+    # the shrine stands beside the path, not on it: the nearest free spot to the clearing's middle
+    from scipy import ndimage as ndi
+    pth = ndi.binary_dilation(masks['path'], iterations=14)
+    sy = cy - 22
+    sx = next(cx + d for d in sorted(range(-60, 61), key=abs) if not pth[sy - 8:sy + 6, cx + d - 15:cx + d + 16].any())
     things = [('jizo',) + j for j in along(L.paths()['jizo'], rng)]
-    things += [('schrein', cx + 6, cy - 22, 7, True), ('lantern', cx - 22, cy - 14, 0, True), ('lantern', cx + 36, cy - 14, 0, True),
-               ('bowl', cx + 4, cy - 12, 5, True), ('stone', cx - 38, cy + 26, 9, True), ('jizo', cx + 44, cy + 14, 21, True),
-               ('jizo', cx - 14, cy + 30, 22, False)]
+    things += [('schrein', sx, sy, 7, True), ('lantern', sx - 28, sy + 8, 0, True), ('lantern', sx + 28, sy + 8, 0, True),
+               ('bowl', sx + 2, sy + 10, 5, True), ('stone', cx - 44, cy + 26, 9, True), ('jizo', cx + 50, cy + 18, 21, True),
+               ('jizo', cx - 20, cy + 34, 22, False)]
+    # no tree grows over a figure or the shrine: drop the trees whose crowns would reach them
+    items = [t for t in items if not any(abs(t[1] - x) < 30 and y - 6 < t[2] < y + 78 for k, x, y, *_ in things if k in ('jizo', 'schrein'))]
+    F.draw(img, items, rng.random((H, W)))
+    jz = [i for i, t in enumerate(things) if t[0] == 'jizo']
+    for n, i in enumerate(jz):                                              # only one figure keeps the red bib
+        t = things[i]
+        things[i] = (t[0], t[1], t[2], t[3], (t[4], n == 2))
     lights = []
     for kind, x, y, sd, flag in sorted(things, key=lambda t: t[2]):
         if kind == 'lantern':
@@ -56,7 +71,8 @@ def render(seed=51):
             t.draw(img, None)
             lights.extend(t.lights())
         elif kind == 'jizo':
-            oe.Jizo(x, y, sd, cap=flag, lean=int(rng.integers(-1, 2))).draw(img, G)
+            cap, bib = flag if isinstance(flag, tuple) else (flag, False)
+            oe.Jizo(x, y, sd, cap=cap, bib=bib, lean=int(rng.integers(-1, 2))).draw(img, G)
         elif kind == 'schrein':
             oe.Schrein(x, y, sd).draw(img, G)
         elif kind == 'bowl':

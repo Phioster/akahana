@@ -597,47 +597,76 @@ RED = [hx(c) for c in ['#3a1614', '#6b2622', '#9a3a32', '#c0584a']]        # fad
 
 
 class Jizo:
-    """A small stone Jizo: a round-headed, bell-shaped figure on a low base, a faded red bib, often a red cap."""
-    def __init__(s, x, y, seed=1, cap=True, lean=0):
-        s.x, s.y, s.seed, s.cap, s.lean = x, y, seed, cap, lean
+    """A small stone Jizo, each one a little different: body width and height, head size and tilt, weathering (moss, chips,
+    a broken edge, dark streaks), a red knitted cap on some, a faded red bib on only one, some bare-headed or with a stone hood."""
+    def __init__(s, x, y, seed=1, cap=True, lean=0, bib=False):
+        s.x, s.y, s.seed, s.cap, s.lean, s.bib = x, y, seed, cap, lean, bib
 
     def box(s):
-        return (s.x - 7, s.y - 17, s.x + 8, s.y + 2)
+        return (s.x - 8, s.y - 20, s.x + 9, s.y + 2)
 
     def draw(s, img, G):
         rng = np.random.default_rng(s.seed)
         x, y = s.x, s.y
+        dw = int(rng.integers(-1, 2))                                  # body width
+        bh = int(rng.integers(9, 13))                                  # body height
+        hr = rng.uniform(3.0, 3.9)                                     # head radius
+        tilt = int(rng.integers(-1, 2))                                # head sits a little to a side
+        weather = rng.uniform(0.3, 1.0)
+        MOSS = [np.array(c, float) for c in ((44, 60, 38), (62, 82, 48), (86, 104, 60))]
+        broken = int(rng.integers(0, 4))                               # 0: whole, 1: left shoulder broken, 2: right, 3: head chipped
 
         def px(i, j, c):
             put(img, x + i + int(round(s.lean * (-j) / 14.0)), y + j, c)
-        for i in range(-5, 6):                                       # base stone
+        for i in range(-5, 6):                                         # base stone
             for j in range(-2, 1):
                 px(i, j, STONE[1 + (i < 0) + (j == -2)] if abs(i) < 5 or j == 0 else STONE[0])
-        for j in range(-12, -2):                                     # the body: narrow at the shoulders, wider at the foot
-            hw = 2 + int(round((j + 12) * 0.32))
+        top = -2 - bh
+        for j in range(top, -2):
+            t = (j - top) / max(bh - 1, 1)
+            hw = 2 + dw + int(round(t * 3.2))
             for i in range(-hw, hw + 1):
-                lit = 2.2 - 1.8 * (i + hw) / max(2 * hw, 1) + rng.normal(0, 0.25)
+                lit = 2.2 - 1.8 * (i + hw) / max(2 * hw, 1) + rng.normal(0, 0.28)
                 c = STONE[int(np.clip(lit, 0, 3))]
                 if i in (-hw, hw):
                     c = STONE[0] if i > 0 else STONE[2]
+                if rng.random() < 0.10 * weather:
+                    c = STONE[0]                                       # pits and chips
+                if (j + 2 * i) % 7 == 0 and rng.random() < 0.7 * weather and j > top + 2:
+                    c = MOSS[int(rng.integers(0, 3))]                  # moss in streaks, thicker toward the foot
+                if j > -5 and rng.random() < 0.45 * weather:
+                    c = MOSS[int(rng.integers(0, 3))]
+                if (broken == 1 and i < -hw + 1 and j < top + 3) or (broken == 2 and i > hw - 1 and j < top + 3):
+                    continue
                 px(i, j, c)
-        for j in range(-9, -6):                                      # the bib
-            for i in range(-2, 3):
-                px(i, j, RED[2 if (i + j) % 3 else 1])
-        for j in range(-17, -11):                                    # the head, a ball
-            for i in range(-3, 4):
-                if i * i + (j + 14.5) ** 2 * 1.1 <= 9.5:
-                    lit = 2.4 - 1.7 * (i + 3) / 6.0 + rng.normal(0, 0.2)
-                    px(i, j, STONE[int(np.clip(lit, 0, 3))])
-        if s.cap:                                                    # a red knitted cap
-            for j in range(-18, -14):
-                for i in range(-3, 4):
-                    if i * i + (j + 15.6) ** 2 * 1.2 <= 9.5:
-                        px(i, j, RED[3 if i < 0 and j == -17 else (2 if i < 1 else 1)])
-        else:
-            px(0, -13, STONE[0])
-        px(-1, -14, STONE[0]); px(1, -14, STONE[0])                  # eyes: two dark dashes
-        px(-1, -6, STONE[3]); px(0, -6, STONE[3])                    # hands held together, lit
+        if s.bib:                                                      # only one wears the faded red bib
+            for j in range(top + 3, top + 6):
+                for i in range(-2, 3):
+                    px(i, j, RED[1 if (i + j) % 3 else 0])
+        hy = top - int(hr) + 1                                         # the head's centre row
+        for j in range(int(hy - hr) - 1, int(hy + hr) + 1):
+            for i in range(-4, 5):
+                if i * i + (j - hy) ** 2 * 1.1 <= hr * hr:
+                    lit = 2.4 - 1.7 * (i + hr) / (2 * hr) + rng.normal(0, 0.25)
+                    c = STONE[int(np.clip(lit, 0, 3))]
+                    if rng.random() < 0.08 * weather:
+                        c = STONE[0]
+                    if rng.random() < 0.10 * weather and j > hy:
+                        c = MOSS[int(rng.integers(0, 2))]
+                    if broken == 3 and i > 1 and j < hy - 1:
+                        continue
+                    px(i + tilt, j, c)
+        capkind = 'red' if s.cap else ('hood' if rng.random() < 0.4 else 'none')
+        if capkind != 'none':
+            for j in range(int(hy - hr) - 3, int(hy - 0.5)):
+                for i in range(-4, 5):
+                    if i * i + (j - hy + 1.2) ** 2 * 1.25 <= (hr + 0.2) ** 2 and j < hy - 0.8:
+                        if capkind == 'red':
+                            px(i + tilt, j, RED[3 if i < 0 and j == int(hy - hr) - 1 else (2 if i < 1 else 1)])
+                        else:
+                            px(i + tilt, j, STONE[2 if i < 1 else 1])
+        px(-1 + tilt, int(hy + 0.5), STONE[0]); px(1 + tilt, int(hy + 0.5), STONE[0])      # eyes: two dark dashes
+        px(-1, top + 6, STONE[3]); px(0, top + 6, STONE[3])            # hands together, lit
 
 
 class Schrein:
