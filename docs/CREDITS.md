@@ -11,6 +11,7 @@ Alles hier ist frei nutzbar. Die Namen stehen trotzdem hier, aus Dank.
 - Nox Sound, „Essentials Series“ (Schritte, Island-Schritte, Nacht, ruhiger Wind), CC0 1.0
 - Freesound.org, alle CC0 1.0:
   - #249809 „Waving Torch“ von spookymodem
+  - #177958 „Water Dripping in Cave“ von Sclolex (Tropfen am Ostwald-Teich)
   - #434858 „evening grassland.WAV“ von cupido-1
   - #165526 „Wind singing in the mountain, some night cricket in background“ von felix.blume
   - #156045 „Wind blowing in the bush on the top of the mountain, in the desert of Atacama (Chile).“ von felix.blume

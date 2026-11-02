@@ -119,6 +119,21 @@ def south():
         k += 1
 
 
+def east():
+    """The Ostwald's sounds: drops at the pond (#177958 Sclolex, CC0), the ritual place's little bell (the far bell,
+    #266525, an octave up and cut short)."""
+    loop(f'{FS}/177958.ogg', 'tropfen', 4, 30, 0.08, highpass=250.0)
+    b = load(f'{FS}/266525.ogg')[:int(4.0 * SR)]
+    b = np.interp(np.arange(0, len(b) - 1, 2.0), np.arange(len(b)), b)          # an octave up, half as long
+    b = b[:int(2.4 * SR)] * np.minimum(1, np.linspace(2.4, 0, int(2.4 * SR))[:len(b)] / 0.5)
+    save('glockchen', b, 0.1)
+
+
+if __name__ == '__main__' and sys.argv[1:] == ['east']:
+    os.makedirs(OUT, exist_ok=True)
+    east()
+    sys.exit(0)
+
 if __name__ == '__main__' and sys.argv[1:] == ['south']:
     south()
     sys.exit(0)
@@ -162,4 +177,5 @@ if __name__ == '__main__':
         save(f'seite_{i}', load(f'{FS}/{sid}.ogg'), 0.1)
     save('buch_zu_0', load(f'{FS}/484886.ogg'), 0.1)           # chosen over 484884
     south()
+    east()
     print('ok', len(glob.glob(os.path.join(OUT, '*.ogg'))), 'Dateien')

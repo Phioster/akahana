@@ -24,6 +24,12 @@ var _mountain_dir := 1.0
 var _one: AudioStreamPlayer2D
 var _bell_in := 0.0
 var _frog_in := 0.0
+var _wood := 0.0                      # smoothed: how deep in the dark wood the wanderer stands
+var _silence := 0.0                   # 1 on the graves' clearing: the beds sink away
+var _chime_in := 20.0
+const DROPS_DB := -4.0                # recording -25.5 -> about -29.5 at the pond
+const CHIME_DB := -10.5               # recording -20 -> about -30, like the far bell
+const GRAVES_HUSH := 80.0             # px round the graves in which the beds sink
 var _spots := Activator.new()         # place sounds exist only within earshot
 
 
@@ -39,6 +45,9 @@ func _ready() -> void:
 			var b: Dictionary = world.brook[i]
 			var size: String = sizes[(i / 2) % 3]
 			_spot(size, Vector2(float(b["x"]), float(b["y"])), BROOK_DB[size], BROOK_REACH)
+		if world.places.has("pond"):
+			var pd: Array = world.places["pond"]
+			_spot("tropfen", Vector2(float(pd[0]), float(pd[1])), DROPS_DB, 110.0)
 		if not world.fire.is_empty():
 			_spot("feuer", Vector2(float(world.fire["x"]), float(world.fire["y"])), FIRE_DB, FIRE_REACH)
 		for l in world.lights:
@@ -93,8 +102,15 @@ func _process(delta: float) -> void:
 		return
 	_spots.update(Rect2(player.position, Vector2.ZERO))
 	var alt := altitude(player.position.y)
-	_meadow.volume_db = lerpf(-14.0, -40.0, clampf(alt * 2.0, 0.0, 1.0))
-	_wind.volume_db = lerpf(-18.0, -10.0, alt)
+	if world != null:
+		_wood = lerpf(_wood, world.wood_at(player.position), clampf(delta * 0.6, 0.0, 1.0))
+		_silence = 0.0
+		if world.places.has("graves"):
+			var g: Array = world.places["graves"]
+			_silence = clampf(1.0 - player.position.distance_to(Vector2(float(g[0]), float(g[1]))) / GRAVES_HUSH, 0.0, 1.0)
+	_bed.volume_db = -15.0 - 14.0 * _silence
+	_meadow.volume_db = lerpf(-14.0, -40.0, clampf(maxf(alt * 2.0, _wood * 1.5), 0.0, 1.0)) - 20.0 * _silence
+	_wind.volume_db = lerpf(-18.0, -10.0, alt) - 3.0 * _wood - 12.0 * _silence   # only a breath in the needles
 	# two mountain winds, slowly handing over to each other so it never repeats the same way
 	_mountain_mix = clampf(_mountain_mix + _mountain_dir * delta / 40.0, 0.0, 1.0)
 	if _mountain_mix <= 0.0 or _mountain_mix >= 1.0:
@@ -106,6 +122,13 @@ func _process(delta: float) -> void:
 	if _bell_in <= 0.0:
 		_bell_in = randf_range(150.0, 260.0)
 		_play_once("glocke", RUIN + Vector2(0, -40), -8.5, 700.0, 1.0, 2.0)   # steeper: soft from afar
+	_chime_in -= delta
+	if _chime_in <= 0.0:
+		_chime_in = randf_range(25.0, 55.0)
+		if world != null and world.places.has("ritual"):
+			var rt: Array = world.places["ritual"]
+			_play_once("glockchen", Vector2(float(rt[0]), float(rt[1])) + Vector2(randf_range(-30, 30), -10), CHIME_DB,
+					220.0, randf_range(0.93, 1.06), 1.5)
 	_frog_in -= delta
 	if _frog_in <= 0.0:
 		_frog_in = randf_range(7.0, 18.0)

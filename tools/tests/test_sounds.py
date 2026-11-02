@@ -35,6 +35,19 @@ class Sounds(unittest.TestCase):
             rms = float(np.sqrt(np.mean(x ** 2)))
             self.assertGreater(rms, 0.02, f'schritt_waten_{i:02d} too quiet: {rms:.3f}')
 
+    @unittest.skipUnless(shutil.which('ffmpeg'), 'ffmpeg needed to read the .ogg files')
+    def test_the_ostwald_sounds_have_their_level_and_loop_without_a_click(self):
+        for name, lo, hi in (('tropfen', 0.03, 0.12), ('glockchen', 0.03, 0.15)):
+            x = decode(name)
+            rms = float(np.sqrt(np.mean(x ** 2)))
+            self.assertGreater(rms, lo, name)
+            self.assertLess(rms, hi, name)
+        d = decode('tropfen')
+        seam = abs(d[0] - d[-1])
+        self.assertLess(seam, 0.25, 'the drops loop: no jump at the seam')
+        b = decode('glockchen')
+        self.assertLess(abs(b[-1]), 0.01, 'the little bell fades out')
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -602,6 +602,11 @@ def write(r):
     w['sprites'] = r['sprites']
     w['fireflies'] = list(w.get('fireflies', [])) + swarms()
     grade_field.write(out)
+    f = grade_field.build()[::10, ::10, 0]                      # the wood's darkness per 20 px, for the sounds
+    w['mood_w'] = int(f.shape[1])
+    w['mood'] = [int(round(v * 100)) for v in f.ravel()]
+    w['places'] = {'ritual': [s5.X0 + s5.CX, s5.Y0 + s5.CY + 4], 'pond': [int(L.SPOTS['4'].x), int(L.SPOTS['4'].y)],
+                   'graves': [int(L.SPOTS['3'].x), int(L.SPOTS['3'].y)]}
     w['lights'] = list(w['lights']) + [l for l in r['lights']]
     with open(os.path.join(out, 'world.json'), 'w') as f:
         json.dump(w, f, indent=1)

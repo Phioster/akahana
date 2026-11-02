@@ -88,3 +88,10 @@ func test_a_lantern_sprite_holds_only_the_lantern_not_its_glow() -> void:
 		assert_true(n >= 25 and n <= 75, "%s: nur die Laterne, %d deckende Pixel" % [s["name"], n])
 		assert_true(x1 - x0 <= 7, "%s: schmal wie Dach und Pfosten, %d breit" % [s["name"], x1 - x0 + 1])
 	assert_true(found >= 2, "Holzlaternen gefunden: %d" % found)
+
+func test_the_wood_depth_and_the_ostwald_places_are_known() -> void:
+	var w := WorldData.load_default()
+	assert_true(w.places.has("ritual") and w.places.has("pond") and w.places.has("graves"), "Orte")
+	assert_true(w.wood_at(Vector2(100, 820)) < 0.05, "Mohnwiese hell")
+	assert_true(w.wood_at(Vector2(1200, 1000)) > 0.9, "tiefer Wald dunkel")
+	assert_true(w.wood_at(Vector2(400, 2500)) < 0.05, "der Sueden hell")

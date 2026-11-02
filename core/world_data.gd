@@ -18,8 +18,21 @@ var wisps: Array = []                # where the will-o'-the-wisps live
 var fireflies: Array = []            # swarms: home spot and every fly's loop
 var lamp_paths: Array = []           # lanterns by the lake: where their light's path on the water starts
 var fire := {}
+var places := {}                     # named spots of the Ostwald: ritual, pond, graves (for their sounds)
+var mood: Array = []                 # the wood's darkness 0..100 per MOOD_CELL px square, rows of mood_w
+var mood_w := 0
+const MOOD_CELL := 20.0
 var chunks := Vector2i.ZERO          # how many chunks across and down
 var grid: ChunkGrid
+
+
+## How deep in the dark wood this spot is: 0 on the meadow and in the south .. 1 deep in the Ostwald.
+func wood_at(p: Vector2) -> float:
+	if mood.is_empty() or mood_w <= 0:
+		return 0.0
+	var x := clampi(int(p.x / MOOD_CELL), 0, mood_w - 1)
+	var y := clampi(int(p.y / MOOD_CELL), 0, mood.size() / mood_w - 1)
+	return float(mood[y * mood_w + x]) / 100.0
 
 
 static func load_default() -> WorldData:
@@ -42,6 +55,9 @@ static func load_default() -> WorldData:
 	d.fireflies = j.get("fireflies", [])
 	d.lamp_paths = j.get("lamp_paths", [])
 	d.fire = j.get("fire", {})
+	d.places = j.get("places", {})
+	d.mood = j.get("mood", [])
+	d.mood_w = int(j.get("mood_w", 0))
 	var cs: Array = j.get("chunks", [0, 0])
 	d.chunks = Vector2i(int(cs[0]), int(cs[1]))
 	d.grid = ChunkGrid.new(d.chunks.x, d.chunks.y)
