@@ -65,10 +65,10 @@ def render(seed=61):
     for dx, dy in ((-26, -12), (-9, -14), (10, -13), (27, -11)):
         pass
     things += [('bowl', CX - 9, CY - 1, 11, 1), ('bowl', CX + 4, CY - 3, 12, 1), ('bowl', CX + 15, CY, 13, 1)]
-    for dx, dy in ((-52, -56), (56, -58), (-30, 52)):                         # lanterns outside the ring, none on the way
+    for dx, dy in ((-62, -50), (-30, 56), (84, 46)):                         # lanterns outside the ring, none on the way
         things.append(('lantern', CX + dx, CY + dy, 0, 1))
     things.append(('halle', CX + 112, CY - 74, 3, 1))
-    things.append(('lantern', CX + 84, CY - 58, 0, 1)); things.append(('lantern', CX + 140, CY - 58, 0, 1))
+    things.append(('lantern', CX + 80, CY - 72, 0, 1)); things.append(('lantern', CX + 146, CY - 72, 0, 1))
     for dx, dy in ((-38, 32), (34, 36), (-62, -14), (68, -16), (4, 48)):      # staffs with faded cloth, bowls at the foot of the stones
         things.append(('stab', CX + dx, CY + dy, int(rng.integers(0, 10 ** 6)), 1))
     for x, y, a in ring[::3]:
