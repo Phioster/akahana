@@ -16,6 +16,7 @@ ol.AUTUMN['nacht'] = ([hx(c) * 0.9 for c in ['#101c1c', '#1a2c2a', '#26403a', '#
 ol.AUTUMN['moos'] = ([hx(c) * 0.92 for c in ['#131c14', '#202e1c', '#2f4426', '#455f33', '#637e45']], hx('#a8bb72'))
 STRAND = [hx(c) for c in ['#2a3a2a', '#3e5538', '#587a48', '#83a468']]
 RIM = hx('#7f9a96')
+RIM2 = hx('#4c6561')
 WOODC = [hx(c) for c in ['#2e2724', '#4a3f3a', '#76695f', '#a39689']]      # weathered grey wood, light enough to read in the dark
 BARK = [hx(c) for c in ['#1b1917', '#322b29', '#4e4340', '#6d5f58']]      # grey with a little warmth (Philip: some brown again)
 
@@ -34,43 +35,54 @@ class Nachtbaum:
 
 
 class Riesenbaum:
-    """A giant old tree: a broad crown of moss-green clumps, a thick leaning trunk with roots, and long strands of
-    hanging moss under the crown (the moodboard's tree at the water)."""
+    """A giant old tree: ONE trunk, thick at its roots and tapering into the crown (which sits on its top), roots arching
+    over the ground, a broad crown of moss-green clumps and strands of hanging moss that grow from the crown's underside
+    only (they stop well above the ground and keep clear of the trunk)."""
     def __init__(s, x, y, seed=3, size=2.1, lean=0):
         s.x, s.y, s.seed, s.size, s.lean = x, y, seed, size, lean
 
     def box(s):
-        r = int(20 * s.size)
-        return (s.x - r - 6, s.y - int(52 * s.size) - 4, s.x + r + 14, s.y + 8)
+        r = int(22 * s.size) + abs(s.lean)
+        return (s.x - r - 6, s.y - int(60 * s.size) - 4, s.x + r + 14, s.y + 8)
 
     def draw(s, img, G):
         rng = np.random.default_rng(s.seed + 7)
         sz = s.size
         h, w = img.shape[:2]
-        # trunk: thick, slightly leaning, widening to roots
-        for k in range(int(26 * sz)):
-            t = k / (26 * sz)
-            cx = s.x + 3 * sz * t * t + s.lean * t * t + 1.2 * np.sin(t * 5 + s.seed)
-            half = max(2, 2.6 * sz * (1 - 0.35 * t) + (2.2 * sz * (1 - t) ** 3))
+        th = int(24 * sz)                                                # the trunk's length: the crown sits on its top
+        topx = s.x + s.lean
+        crown_base = s.y - th
+        ol.Laubbaum(topx, crown_base, s.seed, sz, 'moos').draw(img, G)   # crown with its own short trunk, continued below
+        # hanging moss: from the crown's underside, short enough to stay clear of the ground, off the trunk
+        under = crown_base - int(16 * sz)
+        for _ in range(int(80 * sz)):
+            x_ = int(topx + rng.normal(0, 13 * sz))
+            if abs(x_ - topx) < 5:
+                continue
+            top = int(under + rng.uniform(-4, 5))
+            ln = int(rng.uniform(7, 17) * sz ** 0.6)
+            for k in range(ln):
+                xx = x_ + int(np.round(np.sin(k * 0.55 + x_) * 0.7))
+                if 0 <= top + k < h and 0 <= xx < w and top + k < s.y - 8 * sz:
+                    put(img, xx, top + k, STRAND[min(3, int(k / ln * 3.2))])
+        # roots over the ground
+        for a in (-1, 1, 0.5, -0.5, 0.2, -0.2):
+            for k in range(int(11 * sz)):
+                x_, y_ = int(s.x + a * (3 + k * 1.15)), int(s.y + 1 + k * 0.15 * abs(a))
+                if 0 <= y_ < h and 0 <= x_ < w:
+                    put(img, x_, y_, BARK[1 + (k % 3 == 0)])
+                    if 0 <= y_ - 1 < h and k < 6 * sz:
+                        put(img, x_, y_ - 1, BARK[2])
+        # the trunk: one curve from the roots to the crown, widest at the foot
+        for k in range(th + 2):
+            t = min(1.0, k / th)
+            cx = s.x + s.lean * t * t + 1.5 * np.sin(t * 4.2 + s.seed) * (1 - t)
+            half = 1.3 * sz + 2.4 * sz * (1 - t) ** 2.2
             y = s.y - k
             for i in range(int(cx - half), int(cx + half) + 1):
                 v = (i - cx) / (half + 0.5)
-                put(img, i, y, BARK[int(np.clip(2.4 - 1.6 * v + rng.normal(0, 0.35), 0, 3))]) if 0 <= y < h and 0 <= i < w else None
-        for a in (-1, 1, 0.5, -0.5):                                  # roots reaching out over the ground
-            for k in range(int(9 * sz)):
-                x_, y_ = int(s.x + a * (3 + k * 1.1)), int(s.y + 1 + k * 0.12 * abs(a))
-                if 0 <= y_ < h and 0 <= x_ < w:
-                    put(img, x_, y_, BARK[1 + (k % 3 == 0)])
-        ol.Laubbaum(s.x + 2 + s.lean, s.y - int(22 * sz) + 4, s.seed, sz, 'moos').draw(img, G)
-        # hanging strands under the crown, longer towards the middle, lighter at the tips
-        for _ in range(int(60 * sz)):
-            x_ = int(s.x + s.lean + rng.normal(0, 13 * sz))
-            top = int(s.y - 24 * sz + rng.uniform(0, 10 * sz))
-            ln = int(rng.uniform(7, 22) * sz ** 0.7)
-            for k in range(ln):
-                xx = x_ + int(np.round(np.sin(k * 0.55 + x_) * 0.8))
-                if 0 <= top + k < h and 0 <= xx < w:
-                    put(img, xx, top + k, STRAND[min(3, int(k / ln * 3.2))])
+                if 0 <= y < h and 0 <= i < w:
+                    put(img, i, y, RIM2 if v < -0.8 and k > 3 and k % 2 == 0 else BARK[int(np.clip(2.4 - 1.6 * v + rng.normal(0, 0.35), 0, 3))])
 
 
 class Kahlbaum:

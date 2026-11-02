@@ -66,16 +66,16 @@ def render(seed=29):
     for _ in range(4):
         i = int(rng.integers(0, len(ys)))
         ol.Seerosen(int(xs[i]), int(ys[i]), int(rng.integers(4, 8)), int(rng.integers(0, 10 ** 6))).draw(img, G)
-    # the jetty from the west bank, the giant tree over it
-    row = int(S.y - Y0 + 24)
-    shore = int(np.nonzero(lake[row])[0].min())
-    ol.Steg(row, shore - 10, shore + 34, 7, across=True, dry=shore + 1).draw(img, G)
+    # the giant tree first, then what stands in front of it: sitting stones, the jetty
     trow = int(S.y - Y0 - 6)
     tshore = int(np.nonzero(lake[trow])[0].min())
-    tx, ty = tshore - 8, trow + 18
+    tx, ty = tshore - 10, trow + 20
+    oe.Riesenbaum(tx, ty, 11, 2.1, lean=14).draw(img, G)
     oe.MoosStein(tx + 14, ty + 6, 6.5, 5).draw(img, G)                      # sitting stones at the foot of the tree
     oe.MoosStein(tx + 25, ty + 10, 5.0, 6).draw(img, G)
-    oe.Riesenbaum(tx, ty, 11, 2.1, lean=16).draw(img, G)
+    row = int(S.y - Y0 + 28)
+    shore = int(np.nonzero(lake[row])[0].min())
+    ol.Steg(row, shore - 10, shore + 34, 7, across=True, dry=shore + 1).draw(img, G)
     return img
 
 
