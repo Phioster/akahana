@@ -102,6 +102,7 @@ func _ready() -> void:
 	post.set_shader_parameter("mist1", TextureLoader.load_texture(WorldData.DIR + "mist1.png"))
 	post.set_shader_parameter("mist2", TextureLoader.load_texture(WorldData.DIR + "mist2.png"))
 	post.set_shader_parameter("mist_fields", TextureLoader.load_texture(WorldData.DIR + "mist_fields.png"))
+	post.set_shader_parameter("grade_field", TextureLoader.load_texture(WorldData.DIR + "grade_field.png"))
 	post.set_shader_parameter("world_size", Vector2(world.width, world.height))
 	rect.material = post
 	layer.add_child(rect)
@@ -363,7 +364,7 @@ func _feed_lights(view: Rect2) -> void:
 	for sw in get_tree().get_nodes_in_group("fireflies"):
 		for l in sw.lights():
 			if Vector2(l.x, l.y).distance_to(player.position) < l.z + 4.0:
-				near.append({"x": l.x, "y": l.y, "r": l.z, "k": l.w})
+				near.append({"x": l.x, "y": l.y, "r": l.z, "k": absf(l.w)})
 	player.set_light(PlayerLight.at(near, player.position))
 	post.set_shader_parameter("flies", flies)
 	post.set_shader_parameter("fly_count", nf)

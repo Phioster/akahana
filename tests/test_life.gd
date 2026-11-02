@@ -379,6 +379,24 @@ func test_the_south_mist_map_reaches_the_post_shader() -> void:
 	assert_true(code.contains("GRASS_MIST") and code.contains("edge"))
 	m.queue_free()
 
+func test_the_wood_mood_map_and_cool_flies_reach_the_post_shader() -> void:
+	var tree := Engine.get_main_loop() as SceneTree
+	var m: Node2D = load("res://scenes/main.gd").new()
+	tree.root.add_child(m)
+	await tree.process_frame
+	if m.world == null:
+		m.queue_free()
+		return
+	assert_true(m.post.get_shader_parameter("grade_field") != null, "Stimmungskarte geladen")
+	var code: String = (load("res://shaders/post.gdshader") as Shader).code
+	assert_true(code.contains("grade_field") and code.contains("bloomc"))
+	var sw := Fireflies.new()
+	sw.setup({"x": 10.0, "y": 10.0, "cool": true, "flies": [{"ax": 0.0, "ay": 0.0, "rx": 1.0, "ry": 1.0, "sp": 0.0, "ph": 0.0, "bph": 1.5707963, "blink": 0.0}]})
+	var l := sw.lights()
+	assert_true(l.size() > 0 and l[0].w < 0.0, "kalte Fliege: negative Staerke")
+	sw.free()
+	m.queue_free()
+
 func test_wisp_stands_on_whole_world_pixels_like_the_ground() -> void:
 	# with "snap 2D transforms to pixel" on, a node at a fractional spot is rounded against the scrolling
 	# camera, the ground (on whole pixels) is not - so the wisp hopped a pixel in the walking direction

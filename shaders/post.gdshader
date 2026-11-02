@@ -8,6 +8,7 @@ uniform sampler2D screen_tex : hint_screen_texture, filter_nearest;
 uniform sampler2D mist1 : repeat_enable, filter_linear;
 uniform sampler2D mist2 : repeat_enable, filter_linear;
 uniform sampler2D mist_fields : filter_linear;  // south: R mist band over the brooks, G calm over the lake,
+uniform sampler2D grade_field : filter_linear;   // the wood's mood (gen_east/grade_field.py): R darkness, G moonlight in clearings, B the shaft
 uniform vec2 world_size = vec2(900.0, 3600.0);   // B the mist wall at the world's edge (gen_south)
 uniform vec2 view_world = vec2(180.0, 400.0);   // visible area in art pixels
 uniform vec2 cam_pos;                 // world position (art px, fractional) of the screen's top-left corner
@@ -21,6 +22,9 @@ const float LOOP = 8.0;               // the wallpaper loops every 8 s; flicker 
 const vec3 LCOL = vec3(1.0, 0.62, 0.30);
 const vec3 WCOL = vec3(1.0, 0.58, 0.26);      // the will-o'-the-wisp: a warm amber flame
 const vec3 MIST = vec3(214.0, 214.0, 212.0);
+const vec3 FLOOR_TINT = vec3(0.93, 1.04, 1.03);   // the wood's one cool light: moon-white with a little green
+const vec3 MOON = vec3(0.80, 1.0, 0.90);
+const vec3 CCOL = vec3(0.70, 1.0, 0.82);       // cool fireflies of the wood
 const float GRASS_MIST = 0.45;        // thinner over green grass, where grey patches stood out (south drafts)
 
 float flick(float kind, float ph, vec2 s) {
@@ -57,12 +61,17 @@ void fragment() {
 	// highlights 191..208 - they counted as flames, stayed bright while the mist moved round them: flicker
 	bool em = src.r > 212.0 && src.g > 110.0 && src.b < 140.0 && src.r - src.b > 90.0;
 	vec3 a = grade(src);
+	vec3 gf = texture(grade_field, world / world_size).rgb;
+	a *= (1.0 - 0.30 * gf.r) * mix(vec3(1.0), FLOOR_TINT, gf.r);      // the deeper into the wood, the darker and cooler
+	a += MOON * (gf.g * 9.0 + gf.b * 55.0);                              // moonlight in the clearings, the shaft over the altar
 
 	float ph = 6.2831853 * TIME / LOOP;
 	float L = 0.0;
 	float Lw = 0.0;
+	float Lc = 0.0;                                                 // light of the cool fireflies
 	vec3 bloom = vec3(0.0);
 	vec3 bloomw = vec3(0.0);
+	vec3 bloomc = vec3(0.0);
 	for (int i = 0; i < 16; i++) {
 		if (i >= light_count) break;
 		vec4 l = lights[i];
@@ -86,12 +95,20 @@ void fragment() {
 		vec4 l = flies[i];
 		vec2 dv = world - l.xy;
 		float d = length(dv * vec2(1.0, 1.35)) / l.z;
-		L += l.w / (1.0 + 4.0 * d * d) * sqrt(clamp(1.0 - d, 0.0, 1.0));
+		float k = abs(l.w);                                        // a negative strength marks a cool fly (the wood's)
+		float li = k / (1.0 + 4.0 * d * d) * sqrt(clamp(1.0 - d, 0.0, 1.0));
 		float r2 = dot(dv, dv);
-		bloom += vec3(250.0, 190.0, 90.0) * 0.8 * (l.w / 0.27) * (0.0875 * exp(-r2 / 8.0) + 0.0221 * exp(-r2 / 72.0));
+		float bl = 0.8 * (k / 0.27) * (0.0875 * exp(-r2 / 8.0) + 0.0221 * exp(-r2 / 72.0));
+		if (l.w < 0.0) {
+			Lc += li;
+			bloomc += vec3(190.0, 250.0, 215.0) * bl;
+		} else {
+			L += li;
+			bloom += vec3(250.0, 190.0, 90.0) * bl;
+		}
 	}
 	bloom *= vec3(1.0, 0.80, 0.55);
-	a *= 1.0 + L * LCOL * 1.4 + Lw * WCOL * 1.2;
+	a *= 1.0 + L * LCOL * 1.4 + Lw * WCOL * 1.2 + Lc * CCOL * 1.4;
 
 	vec2 m1 = (world - vec2(3.5 * TIME, 0.0)) / vec2(256.0);      // mist drifts right, two layers at two speeds
 	vec2 m2 = (world - vec2(6.0 * TIME, 0.0)) / vec2(256.0);
@@ -110,10 +127,10 @@ void fragment() {
 	a = mix(a, soft, clamp(dens * 2.2, 0.0, 1.0));
 	a = a * (1.0 - dens) + MIST * 0.8 * (1.0 + L * LCOL * 1.6) * dens;   // mist glows near the lights
 
-	a += bloom + bloomw;
+	a += bloom + bloomw + bloomc * vec3(0.8, 1.0, 0.9);
 	if (em) a = max(a, src * 1.05);
 
-	float eff = em ? 0.0 : clamp(dens * 7.0 + (L + Lw) * 2.5 + (bloom.r + bloom.g + bloom.b + bloomw.g) / 90.0, 0.0, 1.0);
+	float eff = em ? 0.0 : clamp(dens * 7.0 + (L + Lw + Lc) * 2.5 + (bloom.r + bloom.g + bloom.b + bloomw.g) / 90.0, 0.0, 1.0);
 	float bay = bayer4(px);
 	if (eff > bay * 0.8 + 0.1) {                                   // raster only on mist and light
 		float l2 = (a.r + a.g + a.b) / 3.0 + 0.001;

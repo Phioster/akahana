@@ -22,7 +22,9 @@ from scipy import ndimage as ndi
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path[:0] = [os.path.join(HERE, 'east'), os.path.join(HERE, 'south'), os.path.join(HERE, 'lib'), HERE]
 import collect  # noqa: E402
+import fireflies  # noqa: E402
 import forest as F  # noqa: E402
+import grade_field  # noqa: E402
 import layers  # noqa: E402
 import layout as L  # noqa: E402
 import objects_east as oe  # noqa: E402
@@ -509,6 +511,28 @@ def finish(r):
     return r
 
 
+def swarms():
+    """The wood's fireflies: cool, two over each main place and one on each long way; the glade at the warm meadow keeps warm ones."""
+    out = []
+    n = 0
+    for key, cool in (('3', True), ('4', True), ('5', True), ('6', True), ('7', True), ('9', False)):
+        s = L.SPOTS[key]
+        for k in range(1 if key == '9' else 2):
+            a = 2.4 * k + int(key) * 0.7
+            n += 1
+            sw = fireflies.Swarm(s.x + np.cos(a) * s.r * 0.45, s.y + np.sin(a) * s.r * 0.3, 7, 400 + n, 11.0)
+            out.append(dict(x=float(sw.x), y=float(sw.y), cool=cool,
+                            flies=[{k_: round(float(v), 4) for k_, v in f.items()} for f in sw.flies]))
+    for name in ('moos', 'wasser', 'saum_n', 'ritual_s'):
+        p = L.paths()[name]
+        x, y = p[len(p) // 2]
+        n += 1
+        sw = fireflies.Swarm(x + 10, y - 6, 6, 400 + n, 9.0)
+        out.append(dict(x=float(sw.x), y=float(sw.y), cool=name != 'saum_n',
+                        flies=[{k_: round(float(v), 4) for k_, v in f.items()} for f in sw.flies]))
+    return out
+
+
 def write(r):
     """The pictures and tables: everything the chunk cutter and the game read."""
     src, out, w = r['src'], r['out'], r['w']
@@ -576,6 +600,8 @@ def write(r):
     Image.fromarray(lake).save(os.path.join(out, 'lake.png'))
     Image.fromarray(mist).save(os.path.join(out, 'mist_fields.png'))
     w['sprites'] = r['sprites']
+    w['fireflies'] = list(w.get('fireflies', [])) + swarms()
+    grade_field.write(out)
     w['lights'] = list(w['lights']) + [l for l in r['lights']]
     with open(os.path.join(out, 'world.json'), 'w') as f:
         json.dump(w, f, indent=1)
