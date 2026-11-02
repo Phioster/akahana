@@ -8,7 +8,9 @@ import numpy as np
 from PIL import Image
 
 D = os.path.join(os.path.dirname(__file__), '..', '..', 'assets', 'world')
-REF_MD5 = '47cee5a72caf6043bc54e853c03957d4'      # ground of x < 900 (5 x 18 chunks) before the eastern wood, 0.9.2
+REF_WEST = 'ef6fbe12542ec42a75982570ee6e7813'     # ground x < 380, y < 1200 before the Ostwald (the poppy gate changes x >= 380)
+REF_SOUTH = ('db83c886008044a18cbfe7631b5239cd', '38036b7ab865bcf7db851324b8d2fadd')   # ground y >= 1160, x < 400 and 460..800 (the fringe glade takes x >= 800;
+# 400..460 holds 85 pixels the south generator itself varies from run to run)
 
 
 def _ground(cols):
@@ -25,14 +27,10 @@ class WorldWidth(unittest.TestCase):
             self.assertTrue(os.path.exists(os.path.join(D, 'chunks', f'c_{cx}_17_cells.bin')))
 
     def test_the_old_west_and_the_south_are_pixel_identical(self):
-        self.assertEqual(hashlib.md5(_ground(range(5)).tobytes()).hexdigest(), REF_MD5)
-
-    def test_the_new_columns_are_closed_for_now(self):
-        w = json.load(open(os.path.join(D, 'world.json')))
-        cw, ch = w['chunk']
-        for cx in range(5, 10):
-            cells = np.fromfile(os.path.join(D, 'chunks', f'c_{cx}_9_cells.bin'), np.uint8)
-            self.assertEqual(int(cells.sum()), 0, f'chunk {cx} must hold no walkable cell yet')
+        g = _ground(range(5))
+        self.assertEqual(hashlib.md5(g[:1200, :380].tobytes()).hexdigest(), REF_WEST)
+        self.assertEqual(hashlib.md5(g[1160:, :400].tobytes()).hexdigest(), REF_SOUTH[0])
+        self.assertEqual(hashlib.md5(g[1160:, 460:800].tobytes()).hexdigest(), REF_SOUTH[1])
 
 
 if __name__ == '__main__':

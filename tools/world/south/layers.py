@@ -48,6 +48,8 @@ class Collected:
         s.shadow = {}              # (y, x) -> factor the ground is darkened by
         s.sway_h = {}              # (y, x) -> how high above its plant's foot a swaying pixel sits
         s.pass_ = 'ground'
+        s.depth = 0                # >0 while a recorded thing draws (things that draw other things)
+        s.W = z1.W                 # width of the canvas the sideways-jetty check compares with
         s.cut_sway = []            # masks of sway pixels a later zone lifted off again (zone 2: cut heads)
         s.scratch = None
         s.brooks = []              # the Brooks drawn (their centre lines give the stream sounds)
@@ -102,7 +104,16 @@ def _wrap(cls, kind):
             return orig(t, img, *rest)
         if c.pass_ == 'ground':
             return None if kind != 'flat' else orig(t, img, *rest)
-        if img.shape[1] != z1.W:                               # a sideways jetty draws on the turned picture:
+        if c.depth:                                            # drawn by another recorded thing: the outer one records it
+            return orig(t, img, *rest)
+        c.depth += 1
+        try:
+            return record(t, img, c, *rest)
+        finally:
+            c.depth -= 1
+
+    def record(t, img, c, *rest):
+        if img.shape[1] != c.W:                               # a sideways jetty draws on the turned picture:
             return orig(t, img, *rest)                         # the outer call records it
         x0, y0, x1, y1 = _box_of(t, img)
         if kind == 'flat':                                     # where it lies, by kind: bridges, stones, the jetty

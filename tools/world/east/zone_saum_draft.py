@@ -112,6 +112,7 @@ def render(seed=19):
     F.draw(g, out, G)
     z2.Bank(int(s9.x - X0 - 6), int(s9.y - Y0 + 6)).draw(g, G)
     oe.Pilzring(int(s9.x - X0 + 24), int(s9.y - Y0 + 14), 9, 5).draw(g, G)
+    render.open_ = open_                                        # for the generator: where the tongue is open
     return g, green
 
 
