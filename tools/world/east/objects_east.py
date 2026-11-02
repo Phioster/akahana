@@ -710,3 +710,34 @@ class Schrein:
         for i in (-2, -1, 0, 1, 2):
             put(img, x + i, y - 26, STONE[3] if i < 1 else STONE[2])
         put(img, x, y - 27, STONE[3])
+
+
+class Altar:
+    """A low altar slab at the middle of the stone ring: a worn block, a pale top face, moss at the foot and a stain of old
+    offerings. About 30 px wide, 9 high; things stand on its top."""
+    def __init__(s, x, y, seed=3):
+        s.x, s.y, s.seed = x, y, seed
+
+    def box(s):
+        return (s.x - 18, s.y - 12, s.x + 18, s.y + 3)
+
+    def draw(s, img, G):
+        rng = np.random.default_rng(s.seed)
+        x, y = s.x, s.y
+        for j in range(-9, 1):                                        # the block
+            top = j < -5
+            hw = 15 - (1 if j in (-9, 0) else 0)
+            for i in range(-hw, hw + 1):
+                if top:
+                    lit = 2.7 - 1.3 * (i + hw) / (2 * hw) + rng.normal(0, 0.15)
+                else:
+                    lit = 1.6 - 1.2 * (i + hw) / (2 * hw) + 0.2 * (j % 3 == 0) + rng.normal(0, 0.12)
+                c = STONE[int(np.clip(lit, 0, 3))]
+                if j > -3 and rng.random() < 0.35:
+                    c = MOSSC[int(rng.integers(0, 3))]
+                if abs(i) == hw:
+                    c = STONE[0] if i > 0 else STONE[2]
+                put(img, x + i, y + j, c)
+        for i in range(-6, 6):                                        # a dark stain of old offerings on top
+            if rng.random() < 0.7:
+                put(img, x + i, y - 7, STONE[1])
