@@ -95,3 +95,12 @@ func test_the_wood_depth_and_the_ostwald_places_are_known() -> void:
 	assert_true(w.wood_at(Vector2(100, 820)) < 0.05, "Mohnwiese hell")
 	assert_true(w.wood_at(Vector2(1200, 1000)) > 0.9, "tiefer Wald dunkel")
 	assert_true(w.wood_at(Vector2(400, 2500)) < 0.05, "der Sueden hell")
+
+func test_the_song_crossfades_between_meadow_and_dark_version() -> void:
+	var a := Music.mix_db(0.0)
+	var b := Music.mix_db(1.0)
+	assert_true(a.x > -9.5 and a.y < -50.0, "Wiese: nur die helle Fassung")
+	assert_true(b.y > -9.5 and b.x < -50.0, "tiefer Wald: nur die dunkle")
+	var m := Music.mix_db(0.5)
+	var power := db_to_linear(m.x - Music.LEVEL_DB) * db_to_linear(m.x - Music.LEVEL_DB) + db_to_linear(m.y - Music.LEVEL_DB) * db_to_linear(m.y - Music.LEVEL_DB)
+	assert_almost_eq(power, 1.0, 0.02, "gleiche Leistung beim Ueberblenden")

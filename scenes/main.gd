@@ -116,7 +116,10 @@ func _ready() -> void:
 	amb.player = player
 	add_child(amb)
 	add_child(Ducker.new())
-	add_child(Music.new())
+	var music := Music.new()
+	music.world = world
+	music.player = player
+	add_child(music)
 
 	book = BookUI.new()
 	book.music = save.music

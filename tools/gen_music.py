@@ -9,10 +9,14 @@ echo; the game puts long silences between plays).
 Sources are read from ~/mohnweg-sounds (gayageum/*.ogg, piano/src/UprightPianoKW*/samples).
 Writes assets/audio/musik.ogg.
 """
-import os, glob, subprocess, numpy as np
+import os, sys, glob, subprocess, numpy as np
 from scipy import signal
 SR = 44100
 rng = np.random.default_rng(3)
+# python3 tools/gen_music.py [dunkel]: the same piece in the same length for the Ostwald - the game plays both and
+# crossfades by how deep in the wood the wanderer stands. 'dunkel': melody an octave down, no octave-up return,
+# a drone under it, longer darker room.
+DARK = sys.argv[1:] == ['dunkel']
 HOME = os.path.expanduser('~/mohnweg-sounds')
 NOTE = {'C': 0, 'D': 2, 'E': 4, 'F': 5, 'G': 7, 'A': 9, 'B': 11}
 
@@ -85,7 +89,7 @@ def koto_bar(fig, b, scale=1.0):
 for b in range(4): koto_bar(FIG[b], bar, 0.8); bar += 1                     # alone first
 a0 = bar
 for b in range(8): koto_bar(FIG[b % 4], bar); bar += 1
-for (bo, be, d, m) in THEME: add(piano(m, d * BEAT, 0.42), starts[a0 + bo] + be * BEAT + rng.normal(0, 0.01), 0.6)
+for (bo, be, d, m) in THEME: add(piano(m - 12 * DARK, d * BEAT, 0.42 - 0.06 * DARK), starts[a0 + bo] + be * BEAT + rng.normal(0, 0.01), 0.6)
 m0 = bar
 # the middle part keeps a steady pulse: the left hand walks every beat, the koto marks each one,
 # the melody lands on the ones (and a quiet pickup on the last beat) - no loose timing here
@@ -101,30 +105,36 @@ for b in range(8):
     add(gay(lo, 6.0, 0.35), t0, 0.35)
     for i in MID_BARS[b]:
         be, d, m = MID_MEL[i]
-        add(piano(m, d * BEAT, 0.38 if be == 0 else 0.26, 1.0), t0 + be * BEAT, 0.6)
+        add(piano(m - 12 * DARK, d * BEAT, 0.38 if be == 0 else 0.26, 1.0), t0 + be * BEAT, 0.6)
     bar += 1
 r0 = bar                                          # the theme once more, an octave up, lighter
 for b in range(8): koto_bar(FIG[b % 4], bar, 0.85); bar += 1
-for (bo, be, d, m) in THEME: add(piano(m + 12, d * BEAT, 0.32), starts[r0 + bo] + be * BEAT + rng.normal(0, 0.01), 0.62)
+for (bo, be, d, m) in THEME: add(piano(m + 12 * (not DARK) - 12 * DARK, d * BEAT, 0.32), starts[r0 + bo] + be * BEAT + rng.normal(0, 0.01), 0.62)
 for b in range(4): koto_bar(FIG[b], bar, 0.8 - 0.12 * b); bar += 1
 add(gay(D3, 7.0, 0.4), starts[bar], 0.4)
 
-ir_n = int(3.6 * SR)
-ir = rng.normal(0, 1, ir_n) * np.exp(-np.arange(ir_n) / SR * 2.0)
-ir = signal.lfilter(*signal.butter(2, 3500 / (SR / 2)), ir); ir /= np.abs(ir).sum() ** 0.5 * 26
+if DARK:                                          # a drone D under everything, a fifth A every other time
+    rd = np.random.default_rng(11)
+    for b in range(0, BARS, 4):
+        add(gay(D2, 11.0, 0.55), starts[b] + rd.normal(0, 0.02), 0.45)
+        if b % 8 == 4:
+            add(gay(A2, 9.0, 0.35), starts[b + 2] + rd.normal(0, 0.02), 0.5)
+ir_n = int((5.2 if DARK else 3.6) * SR)
+ir = rng.normal(0, 1, ir_n) * np.exp(-np.arange(ir_n) / SR * (1.3 if DARK else 2.0))
+ir = signal.lfilter(*signal.butter(2, (2200 if DARK else 3500) / (SR / 2)), ir); ir /= np.abs(ir).sum() ** 0.5 * 26
 L = L * 0.75 + signal.fftconvolve(L, ir)[:len(L)] * 0.65
 R = R * 0.75 + signal.fftconvolve(R, ir)[:len(R)] * 0.65
 n = len(L); fade = np.clip((n - np.arange(n)) / (4 * SR), 0, 1); L *= fade; R *= fade
 rms = np.sqrt(((L ** 2 + R ** 2) / 2).mean()); g = 10 ** (-19 / 20) / rms   # even loudness, not one loud note
 L, R = np.tanh(L * g / 0.8) * 0.8, np.tanh(R * g / 0.8) * 0.8                  # soft ceiling for the rare peak
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-out = os.path.join(ROOT, 'assets', 'audio', 'musik')
+out = os.path.join(ROOT, 'assets', 'audio', 'musik_dunkel' if DARK else 'musik')
 np.stack([L, R], 1).astype(np.float32).tofile(out + '.f32')
 # last pass, the way every piece is finished: 15 % slower (and so lower), a light echo, a soft top
 SLOW = 0.85
 subprocess.run(['ffmpeg', '-v', 'error', '-y', '-f', 'f32le', '-ar', str(SR), '-ac', '2', '-i', out + '.f32',
                 '-af', f'apad=pad_dur=3,asetrate={SR}*{SLOW},aresample={SR},aecho=0.9:0.9:90|210:0.16|0.08,'
-                       'lowpass=f=7000,volume=2dB,alimiter=limit=0.8,areverse,afade=t=in:d=4,areverse',
+                       f'lowpass=f={4800 if DARK else 7000},volume=2dB,alimiter=limit=0.8,areverse,afade=t=in:d=4,areverse',
                 '-c:a', 'libvorbis', '-q:a', '5', out + '.ogg'], check=True)
 os.remove(out + '.f32')
 print('ok', round((LEN + 3) / SLOW, 1), 's; Mittelteil ab', round(starts[m0] / SLOW, 1), '; Wiederkehr ab', round(starts[r0] / SLOW, 1))
