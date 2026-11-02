@@ -72,14 +72,16 @@ def render(seed=41):
     cx = ndi.center_of_mass(np.ones_like(lab), lab, range(1, n + 1))
     drop = np.zeros(n + 1, bool)
     for i, (cy_, cx_) in enumerate(cx, 1):
-        p_keep = 1 - smooth((cx_ + X0 - RAMP0) / (540 - RAMP0 + 60.0)) * 0.97
+        o_ = open_[min(int(cy_), H - 1), min(int(cx_), W - 1)]       # along the wood's rim more of them stay (Philip: lightly, no line)
+        p_keep = 1 - smooth((cx_ + X0 - RAMP0) / (540 - RAMP0 + 60.0)) * (0.55 + 0.42 * o_)
         drop[i] = rng.random() > p_keep
     gone = drop[lab]
     sub = heads[:, :old_cols]
     sub[:] = np.where(((fl[..., 3] > 0) & ~gone)[..., None], fl, 0)
     # --- a few new blossoms inside the wood, rarer and rarer
     field6.HEADS[:] = field6.make_heads(np.random.default_rng(31))
-    flow = 0.32 * np.clip(1 - (gx - 540) / 220.0, 0, 1) * open_
+    rim = np.clip(1 - np.abs(gx - 560) / 110.0, 0, 1) * (1 - open_)   # a loose band of blossoms along the rim, soft at both sides
+    flow = 0.32 * np.clip(1 - (gx - 540) / 220.0, 0, 1) * open_ + 0.22 * rim * (0.6 + 0.4 * ndi.gaussian_filter(rng.random((H, W)), 6) / 0.25).clip(0, 1.4)
     for (x, y, kk, ph) in patches(H, W, flow, np.zeros((H, W), bool), rng, 20000):
         if x + X0 < 540:
             continue
