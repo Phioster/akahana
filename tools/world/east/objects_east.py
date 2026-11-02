@@ -38,8 +38,8 @@ class Riesenbaum:
     """A giant old tree: ONE trunk, thick at its roots and tapering into the crown (which sits on its top), roots arching
     over the ground, a broad crown of moss-green clumps and strands of hanging moss that grow from the crown's underside
     only (they stop well above the ground and keep clear of the trunk)."""
-    def __init__(s, x, y, seed=3, size=2.1, lean=0):
-        s.x, s.y, s.seed, s.size, s.lean = x, y, seed, size, lean
+    def __init__(s, x, y, seed=3, size=2.1, lean=0, avoid=None):
+        s.x, s.y, s.seed, s.size, s.lean, s.avoid = x, y, seed, size, lean, avoid      # avoid: a bool mask the moss must not touch (water)
 
     def box(s):
         r = int(22 * s.size) + abs(s.lean)
@@ -52,7 +52,14 @@ class Riesenbaum:
         th = int(24 * sz)                                                # the trunk's length: the crown sits on its top
         topx = s.x + s.lean
         crown_base = s.y - th
-        ol.Laubbaum(topx, crown_base, s.seed, sz, 'moos').draw(img, G)   # crown with its own short trunk, continued below
+        tmp = img.copy()                                                  # the crown only: its own trunk and limbs are dropped,
+        ol.Laubbaum(topx, crown_base, s.seed, sz, 'moos').draw(tmp, G)    # the one trunk below carries it
+        changed = (np.abs(tmp - img).sum(-1) > 0)
+        barkish = np.zeros(changed.shape, bool)
+        for c in ol.BARK:
+            barkish |= (np.abs(tmp - np.asarray(c, float)).sum(-1) < 1)
+        take = changed & ~barkish
+        img[take] = tmp[take]
         # hanging moss: from the crown's underside, short enough to stay clear of the ground, off the trunk
         under = crown_base - int(16 * sz)
         for _ in range(int(80 * sz)):
@@ -63,7 +70,7 @@ class Riesenbaum:
             ln = int(rng.uniform(7, 17) * sz ** 0.6)
             for k in range(ln):
                 xx = x_ + int(np.round(np.sin(k * 0.55 + x_) * 0.7))
-                if 0 <= top + k < h and 0 <= xx < w and top + k < s.y - 8 * sz:
+                if 0 <= top + k < h and 0 <= xx < w and top + k < s.y - 8 * sz and not (s.avoid is not None and s.avoid[top + k, xx]):
                     put(img, xx, top + k, STRAND[min(3, int(k / ln * 3.2))])
         # the trunk: a thick, gnarled column. Vertical bark furrows (lit ridges, dark gaps), swelling at the roots like buttresses,
         # a couple of knots, patches of moss on the north side, lit from the upper left. It tapers into the crown's limbs.
