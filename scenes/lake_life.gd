@@ -77,12 +77,12 @@ func steer(p: Vector2, heading: Vector2, min_depth: int, side: float) -> Vector2
 ## A random point at least min_depth deep inside r (and outside `avoid`, e.g. the view), or (-1, -1).
 func random_spot(r: Rect2, min_depth: int, avoid := Rect2()) -> Vector2:
 	for i in 48:
-		var p := Vector2(randf_range(r.position.x, r.end.x), randf_range(r.position.y, r.end.y))
-		if avoid.has_point(p):
+		var p := Vector2(randf_range(r.position.x, r.end.x), randf_range(r.position.y, r.end.y)).round()
+		if avoid.has_point(p):                       # rounded first: 2949.6 outside became 2950 inside
 			continue
 		if swim_depth(p) >= min_depth and swim_depth(p + Vector2(8, 0)) >= min_depth \
 				and swim_depth(p - Vector2(8, 0)) >= min_depth:
-			return p.round()
+			return p
 	return Vector2(-1, -1)
 
 

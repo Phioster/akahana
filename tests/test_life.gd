@@ -374,7 +374,7 @@ func test_the_south_mist_map_reaches_the_post_shader() -> void:
 		return
 	var t: Texture2D = m.post.get_shader_parameter("mist_fields")
 	assert_true(t != null, "Nebelkarte geladen")
-	assert_eq(m.post.get_shader_parameter("world_size"), Vector2(900, 3600))
+	assert_eq(m.post.get_shader_parameter("world_size"), Vector2(1800, 3600))
 	var code: String = (load("res://shaders/post.gdshader") as Shader).code
 	assert_true(code.contains("GRASS_MIST") and code.contains("edge"))
 	m.queue_free()

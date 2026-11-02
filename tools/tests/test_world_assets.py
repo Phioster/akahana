@@ -66,9 +66,9 @@ class WorldAssets(unittest.TestCase):
                     kinds |= set(np.unique(np.array(wt)[..., 3]).tolist())
         self.assertTrue({1, 2, 3} <= kinds, 'alter Bach, neue Baeche, See')
 
-    def test_the_world_is_five_chunks_wide_and_eighteen_tall(self):
-        self.assertEqual((self.w['width'], self.w['height']), (900, 3600))
-        self.assertEqual(self.w['chunks'], [5, 18])
+    def test_the_world_is_ten_chunks_wide_and_eighteen_tall(self):
+        self.assertEqual((self.w['width'], self.w['height']), (1800, 3600))
+        self.assertEqual(self.w['chunks'], [10, 18])
 
     def _from_start(self):
         st = self.w['start']

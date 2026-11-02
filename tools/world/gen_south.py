@@ -28,13 +28,32 @@ import zone1_draft as z1  # noqa: E402
 ROOT = os.path.abspath(os.path.join(HERE, '..', '..'))
 FULL = os.path.join(ROOT, 'build', 'world_old')
 OUT = os.path.join(ROOT, 'assets', 'world')
-W, H = 900, 3600
+W, H = 900, 3600                     # the south's own canvas
+EXTRA = 900                          # columns the eastern wood adds to the world (world is W + EXTRA wide)
+WW = W + EXTRA
 OW, OH = z1.OLD_W, z1.OLD_H
 TOP = OH - z1.CTX                     # the south canvas starts at this world row
 SEAM = 1190                           # from here down the old map's closed bottom edge gives way
 CELL = 2
 GRASS, EARTH, STONE, WOOD, SNOW, WET = range(6)   # GroundMat
 FRAMES, FPS = 64, 8
+
+
+def east_pad(a, fill=0):
+    """Adds the eastern columns to one per-pixel layer (axis 1 for 2-3 d images, last axis for planes)."""
+    axis = 1
+    width = [(0, 0)] * a.ndim
+    width[axis] = (0, EXTRA)
+    return np.pad(a, width, constant_values=fill)
+
+
+def wood_floor():
+    """Placeholder ground for the new eastern columns: the dark floor, until the drafts replace it."""
+    rng = np.random.default_rng(31)
+    g = np.empty((H, EXTRA, 3), np.uint8)
+    g[:] = (24, 32, 34)
+    g = (g.astype(int) + rng.integers(-5, 6, (H, EXTRA, 1))).clip(0, 255).astype(np.uint8)
+    return g
 
 
 def old_world():
@@ -298,7 +317,7 @@ def main():
             part = np.zeros((H, W), bool)
             part[TOP:TOP + v.shape[0]] = v[:H - TOP]
             low[part] = np.maximum(low[part], hgt)
-    Image.fromarray(low).save(os.path.join(OUT, 'low.png'))
+    Image.fromarray(east_pad(low)).save(os.path.join(OUT, 'low.png'))
     stones = m['Trittsteine']
     ford = ndi.binary_dilation(stones, iterations=3) & m['brook']   # between the stones: wade, as the old ford
     mouths = m['brook'] & (ndi.distance_transform_edt(~m['lake']) < MOUTH)   # where it runs out: shallow, wade
@@ -356,22 +375,25 @@ def main():
     fields[0, TOP:] = c.band                                   # mist shader: water band, calm lake, edge fog
     fields[1, TOP:] = c.calm
     fields[2, TOP:] = c.edge_fog
+    fields = np.concatenate([fields, np.zeros((3, H, EXTRA), np.float32)], 2)
+    fields[2, :, W:] = 1.0                                     # the new columns: nothing but mist (placeholder)
     np.savez_compressed(os.path.join(ROOT, 'build', 'mist_fields.npz'), band=fields[0], calm=fields[1],
                         edge=fields[2])
-    half = fields.reshape(3, H // 2, 2, W // 2, 2).mean(axis=(2, 4))   # the game's copy: half size, it is soft
+    half = fields.reshape(3, H // 2, 2, WW // 2, 2).mean(axis=(2, 4))   # the game's copy: half size, it is soft
     Image.fromarray((np.clip(half, 0, 1).transpose(1, 2, 0) * 255).round().astype(np.uint8)).save(
         os.path.join(OUT, 'mist_fields.png'))
-    Image.fromarray(water_map(ground, w, c, m)).save(os.path.join(OUT, 'water.png'))
-    Image.fromarray(bend).save(os.path.join(OUT, 'bend.png'))
+    Image.fromarray(east_pad(water_map(ground, w, c, m))).save(os.path.join(OUT, 'water.png'))
+    Image.fromarray(east_pad(bend)).save(os.path.join(OUT, 'bend.png'))
     wm = water_map(ground, w, c, m)                            # where fish and ducks may be: the lake's depth,
     lake = np.where(wm[..., 3] == 3, wm[..., 1], 0)            # half size (shipped, read by scenes/lake_life.gd)
     lake = lake.reshape(H // 2, 2, W // 2, 2).min(axis=(1, 3))
+    lake = np.pad(lake, ((0, 0), (0, EXTRA // 2)))
     standing = []                                              # what stands still by the water, mirrored once
     for s_ in sprites:
         pic = np.array(Image.open(os.path.join(OUT, 'sprites', s_['name'] + '.png')).convert('RGBA'))[:, :s_['w']]
         standing.append((pic, s_['x'], s_['y'], s_['foot']))
     open_water = (wm[..., 3] > 0) & (flowers[..., 3] == 0) & (low == 0)
-    Image.fromarray((open_water * 255).astype(np.uint8)).save(os.path.join(OUT, 'open_water.png'))   # for the
+    Image.fromarray(east_pad((open_water * 255).astype(np.uint8))).save(os.path.join(OUT, 'open_water.png'))   # for the
     lake_open = open_water & (wm[..., 3] == 3)                 # wanderer's reflection (shaders/reflection)                 # a lantern by the lake: its light's path on the
     lamp_paths = []                                            # water starts where the open water really does
     for l in lights:
@@ -382,17 +404,18 @@ def main():
             if run.any():
                 lamp_paths.append(dict(x=i, y=j0 + int(np.argmax(run))))
     w['lamp_paths'] = lamp_paths
-    Image.fromarray(reflect_map.bake(H, W, open_water, flowers, bend, low, ground, standing)).save(
+    Image.fromarray(east_pad(reflect_map.bake(H, W, open_water, flowers, bend, low, ground, standing))).save(
         os.path.join(OUT, 'refl.png'))
     Image.fromarray(lake.astype(np.uint8)).save(os.path.join(OUT, 'lake.png'))
-    Image.fromarray(ground).save(os.path.join(OUT, 'ground.png'))
-    Image.fromarray(flowers).save(os.path.join(OUT, 'flowers.png'))
+    Image.fromarray(np.concatenate([ground, wood_floor()], 1)).save(os.path.join(OUT, 'ground.png'))
+    Image.fromarray(east_pad(flowers)).save(os.path.join(OUT, 'flowers.png'))
+    walk = east_pad(walk)                                      # the new columns are closed until the drafts open paths
     Image.fromarray((walk * 255).astype(np.uint8)).save(os.path.join(OUT, 'walk.png'))
     walk.astype(np.uint8).tofile(os.path.join(OUT, 'walk.bin'))
-    walk.reshape(H // CELL, CELL, W // CELL, CELL).all(axis=(1, 3)).astype(np.uint8).tofile(
+    walk.reshape(H // CELL, CELL, WW // CELL, CELL).all(axis=(1, 3)).astype(np.uint8).tofile(
         os.path.join(OUT, 'walk_cells.bin'))
-    cells_mat.tofile(os.path.join(OUT, 'ground_mat.bin'))
-    w.update(width=W, height=H, sprites=sprites, lights=lights, brook=brook, birds=birds, fireflies=flies)
+    np.pad(cells_mat, ((0, 0), (0, EXTRA // CELL)), constant_values=GRASS).tofile(os.path.join(OUT, 'ground_mat.bin'))
+    w.update(width=WW, height=H, sprites=sprites, lights=lights, brook=brook, birds=birds, fireflies=flies)
     with open(os.path.join(OUT, 'world.json'), 'w') as f:
         json.dump(w, f, indent=1)
     print('ok', len(sprites), 'sprites,', len(lights), 'lights,', len(flies), 'swarms', flush=True)
