@@ -457,152 +457,132 @@ class Kreuz:
 
 
 class Steinbruecke:
-    """An old stone bridge with two round arches, seen from the south at an angle. x is the middle, y the middle row of the
-    deck (the way crosses there). The deck's pale pavers on top with worn middle and moss in the joints, low parapets, below it
-    the front wall of laid blocks (each its own cool/warm/green-grey tone, dithered light from the upper left, lichen,
-    water stains, ivy hanging from the parapet), two arches with lit voussoirs and a pier, the arches' vaults dark with the
-    mist-lit far side showing. About 74 px wide."""
-    L = 74
-    FACE = 25                                                     # front wall height, deck's front edge to the waterline
-    DECK = 13
+    """An old stone bridge with two round arches, RENDERED as a small 3-D solid in the world's oblique view (a 2 : 1 ground,
+    like the other things seen from above at an angle): the bridge runs along the ground diagonal from upper left to lower
+    right (the way), the river under it along the other diagonal. Every pixel looks for the nearest part of the solid;
+    faces get their light from the upper left, blocks and pavers are textured in the faces' own coordinates, so the deck
+    is a real parallelogram, the front wall slants, the arches are cut at an angle. x, y: the middle of the deck's top."""
+    LH = 30                                                       # half length along the way
+    WH = 10                                                       # half width of the deck
+    FACE = 24                                                     # the wall's height, deck top to the water
+    ARCH = (-15.0, 15.0)
+    R = 10.0
+    SLOPE = 0.5
 
     def __init__(s, x, y, seed=4):
         s.x, s.y, s.seed = x, y, seed
 
-    SLOPE = 0.5                                                   # the bridge runs from upper left to lower right, 2 : 1
-
     def box(s):
-        r = s.L // 2 + 10
-        return (s.x - r, s.y - int(r * s.SLOPE) - 16, s.x + r, s.y + int(r * s.SLOPE) + s.FACE + s.DECK + 12)
+        e = s.LH + s.WH + 6
+        return (s.x - e, s.y - e // 2 - 14, s.x + e, s.y + e // 2 + s.FACE + 8)
+
+    def solid(s, u, v, z):
+        """Is the point inside the bridge? (u along the way, v across, z up from the deck's top; the water is at -FACE)"""
+        body = (np.abs(u) <= s.LH) & (np.abs(v) <= s.WH) & (z <= 0) & (z >= -s.FACE)
+        zc = -s.FACE + 4.0
+        for ua in s.ARCH:
+            open_ = (np.abs(u - ua) <= s.R) & ((z <= zc) | ((u - ua) ** 2 + (z - zc) ** 2 <= s.R ** 2)) & (z < zc + s.R)
+            body &= ~(open_ & (z <= zc + np.sqrt(np.clip(s.R ** 2 - (u - ua) ** 2, 0, None))))
+        para = (np.abs(u) <= s.LH + 1) & (z > 0) & (z <= 4.5) & ((np.abs(v) >= s.WH - 2.0) & (np.abs(v) <= s.WH))
+        return body | para
 
     def draw(s, img, G):
-        """Drawn frontally on a copy, then every column moved down by SLOPE per pixel to the right (an oblique view like the
-        world's other things): the courses of blocks run in 2-pixel steps, the vertical joints stay upright."""
-        tmp = img.copy()
-        s._front(tmp, G)
-        ys, xs = np.nonzero((tmp != img).any(-1))
-        dy = np.round((xs - s.x) * s.SLOPE).astype(int)
-        yy = ys + dy
-        ok = (yy >= 0) & (yy < img.shape[0])
-        img[yy[ok], xs[ok]] = tmp[ys[ok], xs[ok]]
-
-    def _front(s, img, G):
         rng = np.random.default_rng(s.seed)
         h, w = img.shape[:2]
-        x0, x1 = s.x - s.L // 2, s.x + s.L // 2
-        dtop = s.y - s.DECK // 2                                  # the deck's top row
-        dfront = dtop + s.DECK                                    # its front edge
-        yb = dfront + s.FACE                                      # waterline
+        e = s.LH + s.WH + 6
+        xs = np.arange(-e, e + 1)
+        ys = np.arange(-e // 2 - 14, e // 2 + s.FACE + 8)
+        SX, SY = np.meshgrid(xs, ys)
+        zs = np.arange(5.0, -s.FACE - 1.0, -0.5)
+        Z = zs[None, None, :]
+        U = SY[..., None] + Z + SX[..., None] / 2.0
+        V = SY[..., None] + Z - SX[..., None] / 2.0
+        hit = s.solid(U, V, Z)
+        any_hit = hit.any(-1)
+        k = np.argmax(hit, axis=-1)                              # the first (highest, nearest) solid sample along the ray
+        zh = zs[k]
+        uh = np.take_along_axis(U, k[..., None], -1)[..., 0]
+        vh = np.take_along_axis(V, k[..., None], -1)[..., 0]
+        # the face: from which side the point is open (a small step in each direction)
+        def sol(du, dv, dz):
+            return s.solid(uh + du, vh + dv, zh + dz)
+        top = ~sol(0, 0, 0.8)
+        front = ~sol(0, 0.9, 0)                                  # open on the +v side: the wall facing the lower left
+        end = ~sol(0.9, 0, 0)                                    # open on the +u side: the end facing the lower right
+        inner = ~sol(-0.9, 0, 0) | ~sol(0, -0.9, 0)              # arch insides and the like: dark
         bay = np.array([[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]) / 16.0
-        TINT = [np.array(t) for t in ((1.0, 1.0, 1.0), (1.06, 1.01, 0.94), (0.94, 1.02, 1.0), (0.97, 0.99, 1.05))]    # calm: nearly the same grey
+        TINT = [np.array(t) for t in ((1.0, 1.0, 1.0), (1.06, 1.01, 0.94), (0.94, 1.02, 1.0), (0.97, 0.99, 1.05))]
         LICH = [np.array(c, float) for c in ((56, 76, 46), (82, 102, 58), (116, 132, 78))]
-
-        def ok(i, j):
-            return 0 <= j < h and 0 <= i < w
-
-        def stone(lit, tint, i, j):
-            v = np.clip(lit, 0, 0.999) * 3 + (bay[j % 4, i % 4] - 0.5)
-            return np.clip(STONE[int(np.clip(round(v), 0, 3))].astype(float) * tint * 0.84, 0, 255)       # a step darker than the open-air stones: it stands in the wood's shade
-        lich = np.zeros((h, w))
-        for _ in range(15):                                       # lichen and moss patches: blobs, denser at the top and foot
-            cx, cy = int(rng.integers(x0 - 4, x1 + 5)), int(rng.choice([dfront + int(rng.integers(0, 6)), yb - int(rng.integers(0, 6)), dtop + int(rng.integers(0, 6))]))
-            r = rng.uniform(2.0, 4.5)
-            for j in range(int(cy - r), int(cy + r) + 1):
-                for i in range(int(cx - r), int(cx + r) + 1):
-                    if ok(i, j) and (i - cx) ** 2 + (j - cy) ** 2 < r * r and rng.random() < 0.8:
-                        lich[j, i] = 1
-        arch = [(s.x - 19, 11.0), (s.x + 19, 11.0)]
-        # --- the front wall
-        for j in range(dfront, yb + 1):
-            for i in range(x0, x1 + 1):
-                if not ok(i, j):
+        NO = np.random.default_rng(s.seed + 5).random((64, 64))
+        for r in range(len(ys)):
+            for c in range(len(xs)):
+                if not any_hit[r, c]:
                     continue
-                inarch = False
-                for (cx, r) in arch:
-                    dx, dy = i - cx, yb - j
-                    spring = r * 0.2 + 2
-                    if abs(dx) <= r and (dy <= spring or dx * dx + (dy - spring) ** 2 <= r * r * 0.8) and dy < spring + r * 0.9:
-                        inarch = True
-                        edge = (abs(dx) > r - 1.8) or (dy > spring and dx * dx + (dy - spring) ** 2 > (r - 1.8) ** 2 * 0.8)
-                        if edge:                                   # voussoirs: lit on the left, alternating tones
-                            blk = (int(np.arctan2(dy - spring, dx) * 4) % 2)
-                            put(img, i, j, stone(0.95 - 0.35 * (dx > 0) - 0.18 * blk, TINT[0], i, j))
-                        elif dy < 3:
-                            put(img, i, j, np.array([34, 58, 66]) + 6 * bay[j % 4, i % 4])   # the water in the arch
-                        else:                                        # the vault: dark, the far side's misty light at the middle
-                            far = np.clip(1 - (abs(dx) / r) ** 2 - (dy - 3) / (r + 3), 0, 1)
-                            put(img, i, j, np.array([12, 20, 24]) + far * np.array([38, 58, 58]))
-                if inarch:
+                X, Y = s.x + xs[c], s.y + ys[r]
+                if not (0 <= Y < h and 0 <= X < w):
                     continue
-                row = (j - dfront) // 4
-                col = (i + (row % 2) * 4) // 8
-                rr = np.random.default_rng(s.seed * 7919 + row * 131 + col)
+                u, v, z = uh[r, c], vh[r, c], zh[r, c]
+                if top[r, c]:
+                    face, lit = 'top', 0.86
+                    pj, pi = int(np.floor(v / 4.0)), int(np.floor((u + 3 * (int(np.floor(v / 4.0)) % 2)) / 6.0))
+                    joint = ((v % 4.0) < 0.9) or (((u + 3 * (int(np.floor(v / 4.0)) % 2)) % 6.0) < 0.9)
+                    walk = 1 - abs(v) / (s.WH + 1)
+                    lit += 0.1 * walk                                    # the worn middle where people walk
+                elif front[r, c]:
+                    face, lit = 'front', 0.58
+                    row = int(np.floor(-z / 4.0))
+                    pj, pi = row, int(np.floor((u + 4 * (row % 2)) / 8.0))
+                    joint = ((-z) % 4.0 < 0.9) or (((u + 4 * (row % 2)) % 8.0) < 0.9)
+                elif end[r, c]:
+                    face, lit = 'end', 0.3
+                    row = int(np.floor(-z / 4.0))
+                    pj, pi = row + 40, int(np.floor((v + 4 * (row % 2)) / 8.0))
+                    joint = ((-z) % 4.0 < 0.9) or (((v + 4 * (row % 2)) % 8.0) < 0.9)
+                else:
+                    face, lit = 'in', 0.14 + 0.1 * (z / -s.FACE)
+                    pj, pi, joint = 0, 0, False
+                rr = np.random.default_rng(s.seed * 7919 + pj * 131 + pi)
                 tint = TINT[int(rr.integers(0, 4))] * (0.96 + 0.08 * rr.random())
-                joint = ((i + (row % 2) * 4) % 8 == 0) or ((j - dfront) % 4 == 3)
-                lit = 0.84 - 0.4 * ((i - x0) / s.L) - 0.12 * ((j - dfront) % 4) / 3 + 0.06 * rr.random() + rng.normal(0, 0.04)
-                if (i + (row % 2) * 4) % 8 == 1 and not joint:
-                    lit += 0.18                                    # the lit left edge of each block
-                if joint:
-                    lit = 0.06 + 0.1 * rng.random()
-                c = stone(lit, tint, i, j)
-                if lich[j, i] and not joint:
-                    c = LICH[int(np.clip(rng.integers(0, 3) + (lit > 0.6), 0, 2))]
-                put(img, i, j, c)
-        for _ in range(9):                                         # dark water stains running down from the parapet
-            i = int(rng.integers(x0 + 2, x1 - 2))
-            ln = int(rng.integers(5, 12))
-            for k in range(ln):
-                if ok(i, dfront + 1 + k) and not any(abs(i - cx) < r + 1 and (yb - (dfront + 1 + k)) < r + 2 for cx, r in arch):
-                    img[dfront + 1 + k, i] = img[dfront + 1 + k, i] * 0.72
-        # --- the deck: pavers of different tones, a worn pale middle (people walk it), moss in the joints, cracks
-        for j in range(dtop, dfront):
-            for i in range(x0 - 3, x1 + 4):
-                if not ok(i, j):
+                lit += 0.04 * rr.random() + rng.normal(0, 0.012)
+                if joint and face != 'in':
+                    lit = 0.08
+                v3 = np.clip(lit, 0, 0.999) * 3 + (bay[Y % 4, X % 4] - 0.5)
+                col = np.clip(STONE[int(np.clip(round(v3), 0, 3))].astype(float) * tint * 0.9, 0, 255)
+                lich = NO[int(abs(u * 1.3 + z * 0.7)) % 64, int(abs(v * 1.7 - z * 1.1)) % 64]
+                if face != 'in' and not joint and ((lich > 0.86) or (face == 'front' and z < -s.FACE + 5 and lich > 0.62) or (face == 'top' and lich > 0.8)):
+                    col = LICH[int(np.clip(rng.integers(0, 3) + (lit > 0.7), 0, 2))]
+                if face == 'top' and joint and rng.random() < 0.5:
+                    col = LICH[int(rng.integers(0, 2))]
+                if face == 'front' and rng.random() < 0.012 * (1 + (-z) / 6):
+                    col = col * 0.7                                      # water stains
+                if face == 'in':
+                    col = np.array([12, 20, 24]) + 22 * (z < -s.FACE + 3) * np.array([1.0, 1.4, 1.5])
+                img[Y, X] = col
+        # the water seen through the arches, the foot's shadow
+        for r in range(len(ys)):
+            for c in range(len(xs)):
+                if any_hit[r, c]:
                     continue
-                pj, pi = (j - dtop) // 4, (i + ((j - dtop) // 4 % 2) * 3) // 6
-                rr = np.random.default_rng(s.seed * 104729 + pj * 977 + pi)
-                tint = TINT[int(rr.integers(0, 4))] * (0.96 + 0.08 * rr.random())
-                joint = ((i + ((j - dtop) // 4 % 2) * 3) % 6 == 0) or ((j - dtop) % 4 == 3)
-                walk = 1 - abs((j - dtop) - s.DECK / 2) / (s.DECK / 2)
-                lit = 0.78 - 0.3 * ((i - x0) / s.L) + 0.18 * walk + 0.1 * rr.random() + rng.normal(0, 0.05)
-                c = stone(lit if not joint else 0.1, tint, i, j)
-                if joint and rng.random() < 0.55:
-                    c = LICH[int(rng.integers(0, 2))]
-                elif lich[j, i] and not joint:
-                    c = LICH[int(rng.integers(1, 3))]
-                put(img, i, j, c)
-        # --- parapets: back wall and front wall, a lit top face and dark undersides; moss crowns
-        for (top, hgt) in ((dtop - 4, 5), (dfront - 4, 5)):
-            for j in range(top, top + hgt):
-                for i in range(x0 - 3, x1 + 4):
-                    if ok(i, j):
-                        lit = 0.95 - 0.42 * ((i - x0) / s.L) - 0.22 * ((j - top) / hgt) + rng.normal(0, 0.05)
-                        c = stone(lit, TINT[(i // 9 + j) % 4], i, j) if j > top else np.clip(STONE[3] * 1.06, 0, 255)
-                        if (i + 3 * (top % 3)) % 9 == 0 and j > top:
-                            c = STONE[0]
-                        if j == top and rng.random() < 0.25:
-                            c = LICH[int(rng.integers(0, 3))]
-                        put(img, i, j, c)
-        # --- ivy hanging from the front parapet, bright leaves on dark stems
+                X, Y = s.x + xs[c], s.y + ys[r]
+                if not (0 <= Y < h and 0 <= X < w):
+                    continue
+                u = ys[r] - s.FACE + xs[c] / 2.0
+                v = ys[r] - s.FACE - xs[c] / 2.0
+                if abs(v) <= s.WH and any(abs(u - ua) <= s.R for ua in s.ARCH):
+                    img[Y, X] = np.array([30, 52, 60]) + 6 * bay[Y % 4, X % 4]
+                elif abs(u) <= s.LH + 3 and s.WH < v <= s.WH + 5:
+                    img[Y, X] = img[Y, X] * 0.74                          # shadow on the ground/water at the wall's foot
+        # ivy hanging from the front parapet
         for _ in range(7):
-            i = int(rng.integers(x0 + 1, x1))
-            ln = int(rng.integers(8, 18))
+            u = rng.uniform(-s.LH + 3, s.LH - 3)
+            ln = int(rng.integers(7, 16))
             for k in range(ln):
-                j = dfront + 1 + k
-                ii = i + int(round(np.sin(k * 0.6 + i) * 1.0))
-                if ok(ii, j) and not any(abs(ii - cx) < r and (yb - j) < r + 2 for cx, r in arch):
-                    put(img, ii, j, np.array([36, 56, 36]))
-                    if k % 3 == 1:
-                        put(img, ii + 1, j, LICH[2] if rng.random() < 0.5 else LICH[1])
-        # --- the foot: a dark shadow and ripples on the water below the wall, ferns at both ends
-        for j in range(yb + 1, yb + 4):
-            for i in range(x0, x1 + 1):
-                if ok(i, j) and not any(abs(i - cx) < r - 1 for cx, r in arch):
-                    img[j, i] = img[j, i] * (0.62 + 0.1 * (j - yb))
-        for dx in (-s.L // 2 - 3, s.L // 2 + 4):
-            for k in range(9):
-                a_ = -np.pi / 2 + (k - 4) * 0.4
-                for r in range(6):
-                    i, j = int(s.x + dx + np.cos(a_) * r), int(dfront + 8 + np.sin(a_) * r * 0.9)
-                    if ok(i, j):
-                        put(img, i, j, LICH[1 if r < 3 else 2] * (0.8 if k % 2 else 1.0))
+                z = 0 - k
+                sxp, syp = int(round(u - s.WH)), int(round(0.5 * (u + s.WH) - z))
+                X, Y = s.x + sxp + int(round(np.sin(k * 0.6 + u))), s.y + syp
+                if 0 <= Y < h and 0 <= X < w and any(not (abs(u - ua) < s.R - 1 and z < -s.FACE + 8) for ua in s.ARCH[:1]):
+                    arch_here = any(abs(u - ua) < s.R - 1 and z < -s.FACE + 4 + np.sqrt(max(s.R ** 2 - (u - ua) ** 2, 0)) for ua in s.ARCH)
+                    if not arch_here:
+                        img[Y, X] = np.array([36, 56, 36])
+                        if k % 3 == 1 and X + 1 < w:
+                            img[Y, X + 1] = LICH[2] if rng.random() < 0.5 else LICH[1]

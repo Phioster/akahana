@@ -27,15 +27,18 @@ W, H = X1 - X0, Y1 - Y0
 def render(seed=37):
     rng = np.random.default_rng(seed)
     river = np.array(L.river())
-    deck_y = int(S.y - Y0)                                               # the way crosses here: the deck's middle, the river's too
     br = oe.Steinbruecke
-    bx = int(S.x - X0)
+    bx, by = int(S.x - X0), int(S.y - Y0)                               # the middle of the deck's top: the way crosses here, the river too
     yy, xx = np.mgrid[0:H, 0:W]
     im = Image.new('L', (W, H), 0)
     ImageDraw.Draw(im).line([(x - X0, y - Y0) for x, y in river], fill=1, width=L.RIVER_W, joint='curve')
-    # under the bridge the water is a band along the bridge's own diagonal, as wide as the wall is high
-    foot = deck_y + br.DECK // 2 + br.FACE + (xx - bx) * br.SLOPE         # the waterline at the wall's foot, sheared
-    pool = (np.abs(xx - bx) < br.L // 2 + 4) & (yy > foot - 5) & (yy < foot + 18 - np.abs(xx - bx) * 0.1)
+    # under the bridge the water fills the span between the arches along the river's own diagonal (the other ground diagonal)
+    u = (yy - by) - br.FACE + (xx - bx) / 2.0
+    v = (yy - by) - br.FACE - (xx - bx) / 2.0
+    near = [(x - X0, y - Y0) for x, y in river if np.hypot(x - S.x, y - S.y) < 48]
+    pim = Image.new('L', (W, H), 0)
+    ImageDraw.Draw(pim).line(near, fill=1, width=34, joint='curve')           # the river is wider under the bridge, then narrows
+    pool = np.array(pim) > 0
     water = (np.array(im) > 0) | pool
     masks = F.window_masks(X0, Y0, X1, Y1)
     land = ndi.binary_dilation(water, iterations=4)
@@ -52,7 +55,7 @@ def render(seed=37):
     for _ in range(34):
         i = int(rng.integers(0, len(ys)))
         (ow.Schilf(int(xs[i]), int(ys[i]), int(rng.integers(4, 8)), int(rng.integers(0, 10 ** 6))) if rng.random() < 0.6 else ow.Farn(int(xs[i]), int(ys[i]), int(rng.integers(0, 10 ** 6)), int(rng.integers(5, 9)))).draw(img, G)
-    br(bx, deck_y, 4).draw(img, G)
+    br(bx, by, 4).draw(img, G)
     return img, water
 
 

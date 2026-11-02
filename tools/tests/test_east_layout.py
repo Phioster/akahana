@@ -65,7 +65,7 @@ class EastLayout(unittest.TestCase):
         bridge = L.SPOTS['6']
         yy, xx = np.mgrid[0:m.river.shape[0], 0:m.river.shape[1]]
         pond = L.SPOTS['4']
-        away = (np.hypot(xx + L.X0 - bridge.x, yy + L.Y0 - bridge.y) >= bridge.r + 12) \
+        away = (np.hypot(xx + L.X0 - bridge.x, yy + L.Y0 - bridge.y) >= bridge.r * 1.8) \
             & (np.hypot(xx + L.X0 - pond.x, yy + L.Y0 - pond.y) >= pond.r * 1.7)    # the river ends in the pond (its outline reaches 1.6 r)
         self.assertFalse((m.river & m.path & away).any(), 'no path crosses the river except at the bridge')
         self.assertFalse((m.river & m.clearing & away).any(), 'no clearing lies in the river')
