@@ -44,6 +44,22 @@ def corridor():
     return np.clip(1 - (np.abs(yy - cy) / half) ** 2.2, 0, 1)
 
 
+def blocked_for_poppies():
+    """Where no new blossom may stand: the moss path, the old path and the old brook (not walkable, or path ground), the lanterns."""
+    mat = np.fromfile(os.path.join(OLD, 'ground_mat.bin'), np.uint8).reshape(1200 // 2, 540 // 2)
+    walk = np.fromfile(os.path.join(OLD, 'walk.bin'), np.uint8).reshape(1200, 540).astype(bool)
+    b = np.zeros((H, W), bool)
+    cols = 540 - X0
+    ms = np.kron(mat, np.ones((2, 2), np.uint8))[Y0:Y1, X0:540]
+    b[:, :cols] = (ms == 1) | (ms == 2) | (ms == 3) | (ms == 5) | ~walk[Y0:Y1, X0:540]
+    b |= path_mask()
+    gate = L.SPOTS['1']
+    for dx, dy in ((-22, -6), (24, 12)):
+        cx_, cy_ = int(gate.x - X0 + dx), int(gate.y - Y0 + dy)
+        b[max(0, cy_ - 30):cy_ + 12, max(0, cx_ - 16):cx_ + 18] = True
+    return ndi.binary_dilation(b, iterations=2)
+
+
 def render(seed=41):
     rng = np.random.default_rng(seed)
     w = json.load(open(os.path.join(OLD, 'world_old.json')))
@@ -85,7 +101,7 @@ def render(seed=41):
     profile = (1 - smooth((gx - 460) / 270.0)) + 0.3 * open_ * (1 - smooth((gx - 690) / 170.0))    # a few more in the tongue, none deep in
     keep = np.clip(np.maximum(profile, 0.45 * rim), 0, 1)
     handover = smooth((gx - 420) / 130.0)
-    for (x, y, kk, ph) in patches(H, W, np.full((H, W), 0.5), np.zeros((H, W), bool), rng, 40000):
+    for (x, y, kk, ph) in patches(H, W, np.full((H, W), 0.5), blocked_for_poppies(), rng, 40000):
         xc, yc = min(x + 2, W - 1), min(y + 2, H - 1)
         if x + X0 < 420 or rng.random() > handover[yc, xc] * keep[yc, xc] * 0.79:
             continue
@@ -98,21 +114,25 @@ def render(seed=41):
     return g, heads, open_
 
 
-def paint_path(g, rng):
-    """The moss path from the meadow's edge to the gate and on to the junction; fades out in the poppies."""
+def path_mask():
+    """Pixels of the moss path (tor, moos, gabel), 8 px wide."""
     pa = L.paths()
     pts = np.vstack([pa['tor'], pa['moos'], pa['gabel']]).astype(float)
     m = np.zeros((H, W), bool)
+    r = L.PATH_W // 2
     for x, y in pts:
         xi, yi = int(round(x)) - X0, int(round(y)) - Y0
-        r = L.PATH_W // 2
         if 0 <= xi < W and 0 <= yi < H:
             m[max(0, yi - r):yi + r + 1, max(0, xi - r):xi + r + 1] = True
-    # west of the old edge the trodden strip fades: random pixels only
+    return m
+
+
+def paint_path(g, rng, m=None):
+    """The moss path from the meadow's edge to the gate and on to the junction; fades out in the poppies."""
+    m = path_mask() if m is None else m.copy()
     xx = np.mgrid[0:W][None, :] + X0
-    m &= rng.random((H, W)) < np.clip((xx - 430) / 110.0, 0, 1)
-    tone = rng.random((H, W))
-    idx = np.digitize(ndi.gaussian_filter(tone, 0.8), [0.46, 0.56])
+    m &= rng.random((H, W)) < np.clip((xx - 430) / 110.0, 0, 1)      # west of the old edge the trodden strip fades
+    idx = np.digitize(ndi.gaussian_filter(rng.random((H, W)), 0.8), [0.46, 0.56])
     g[m] = MOSS_PATH[idx][m]
     edge = m & ~ndi.binary_erosion(m, iterations=1)
     g[edge & (rng.random((H, W)) < 0.45)] *= 0.8
@@ -193,7 +213,7 @@ def region_dark(gx):
 def preview(out, scale=2):
     g, heads, open_ = render()
     rng = np.random.default_rng(5)
-    pm = paint_path(g, rng)
+    pm = paint_path(g, rng, path_mask())
     img = g.copy()
     m = heads[..., 3] > 0
     img[m] = heads[m][:, :3]
