@@ -35,9 +35,11 @@ def render(seed=37):
     # under the bridge the water fills the span between the arches along the river's own diagonal (the other ground diagonal)
     u = (yy - by) - br.FACE + (xx - bx) / 2.0
     v = (yy - by) - br.FACE - (xx - bx) / 2.0
-    near = [(x - X0, y - Y0) for x, y in river if np.hypot(x - S.x, y - S.y) < 48]
+    near = [(x - X0, y - Y0) for x, y in river if np.hypot(x - S.x, y - S.y) < 30]
+    mid = [(x - X0, y - Y0) for x, y in river if np.hypot(x - S.x, y - S.y) < 55]
     pim = Image.new('L', (W, H), 0)
-    ImageDraw.Draw(pim).line(near, fill=1, width=26, joint='curve')           # the river is wider under the bridge, then narrows
+    ImageDraw.Draw(pim).line(near, fill=1, width=42, joint='curve')
+    ImageDraw.Draw(pim).line(mid, fill=1, width=30, joint='curve')           # the river is wider under the bridge, then narrows
     pool = np.array(pim) > 0
     water = (np.array(im) > 0) | pool
     masks = F.window_masks(X0, Y0, X1, Y1)
