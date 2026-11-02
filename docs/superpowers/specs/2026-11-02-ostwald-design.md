@@ -14,7 +14,7 @@ Stand 2026-11-02, Entwurf zur Abnahme. Aus `docs/ideenblatt.md` („Osten: Schre
 - Welt wächst nach OSTEN (Spalten 3–4 sind heute der Waldsaum-Platzhalter, wird ersetzt); alte Welt und Süden bleiben pixelgleich.
 - Ein Gebiet von ca. 1200 × 1400 Kunstpixeln ab x 540, y 300…1700, dazu ein Waldsaum nach Süden (bis y 2900) als Übergang vom See; der Rest ringsum bleibt dichter Wald/Nebel (keine harten Weltgrenzen, Vision Kartenform).
 - Orte (Plan Abnahme-Seite Schritt 37, Runde 3): 0 Mohn-Übergang (weich, ~200 px), 1 Waldtor, 2 Moosweg, 3 Gräberlichtung, 4 Wasserplatz mit Riesenbaum (Bach zum See),
-  6 Kapellenruine, 7 Jizō-Weg, 5 Ritualplatz GANZ HINTEN im Osten (nur über zwei lange Pfade), 9 Waldwiese, 10 Waldsaum vom See nach Nordosten (Wiese → dunkler Wald), zweiter Eingang über die Fischerhütte.
+  6 alte Steinbrücke mit Bögen über einen Fluss (Philip 2026-11-02, ersetzt die Kapelle; der Fluss fließt von Norden über die Brücke zum Wasserplatz, von dort der Bach zum See), 7 Jizō-Weg, 5 Ritualplatz GANZ HINTEN im Osten (nur über zwei lange Pfade), 9 Waldwiese, 10 Waldsaum vom See nach Nordosten (Wiese → dunkler Wald), zweiter Eingang über die Fischerhütte.
 - Abgenommen 2026-11-02 (Plan Runde 3): manche Orte abseits (z. B. Gräber), manche direkt am Weg (Kapelle, Wasserplatz).
 - Lichtungen unregelmäßig, Pfade stark gewunden (Philip: „natürlicher, viel mehr hin und her durch die Bäume“).
 - Wege sind schmale Pfade; dazwischen undurchdringlicher Wald (nur Pfade und Lichtungen begehbar), keine Sackgassen außer 8.
