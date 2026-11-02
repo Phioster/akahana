@@ -43,6 +43,10 @@ def render(seed=37):
     pool = np.array(pim) > 0
     water = (np.array(im) > 0) | pool
     masks = F.window_masks(X0, Y0, X1, Y1)
+    uu = (yy - by) + (xx - bx) / 2.0
+    vv = (yy - by) - (xx - bx) / 2.0
+    under = (np.abs(uu) < br.LH) & (np.abs(vv) < br.WH + br.FACE + 6) | ndi.binary_dilation(pool, iterations=2)
+    masks = dict(masks, path=masks['path'] & ~under)                       # no path under the deck or in the water
     land = ndi.binary_dilation(water, iterations=4)
     masks2 = {'path': masks['path'], 'clearing': masks['clearing'] | ndi.binary_dilation(pool, iterations=14), 'river': water}
     img = F.floor(H, W, masks2, rng)

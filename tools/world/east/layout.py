@@ -35,7 +35,7 @@ _EDGES = {
     'gabel': ('J1', 'J2', [(360, 560), (430, 470)]),
     'gruft': ('J2', '3', [(430, 470), (370, 410), (460, 340), (420, 250)]),
     'wasser': ('J1', '4', [(360, 560), (290, 680), (420, 770), (310, 890), (440, 960), (430, 1050)]),
-    'bruecke_w': ('J2', '6', [(430, 470), (520, 420), (600, 350), (660, 292), (700, 268), (766, 303), (800, 320)]),
+    'bruecke_w': ('J2', '6', [(430, 470), (480, 360), (540, 270), (610, 215), (680, 235), (730, 275), (766, 303), (800, 320)]),
     'bruecke_o': ('6', '5', [(800, 320), (834, 337), (880, 360), (930, 400), (960, 450), (985, 520), (960, 615), (1030, 700), (1090, 780)]),
     'jizo': ('4', '7', [(430, 1050), (520, 1130), (620, 1060), (700, 1170), (780, 1100), (850, 1150)]),
     'ritual_s': ('7', '5', [(850, 1150), (900, 1000), (1010, 950), (1060, 860), (1090, 780)]),
@@ -68,7 +68,16 @@ def _spline(pts, seed, wig=26.0, n=40):
 
 def paths():
     """edge name -> (N, 2) world polyline."""
-    return {k: _spline(c, 100 + i, wig=18.0 if len(c) < 3 else 36.0) for i, (k, (_, _, c)) in enumerate(_EDGES.items())}
+    out = {}
+    for i, (k, (_, _, c)) in enumerate(_EDGES.items()):
+        a = _spline(c, 100 + i, wig=18.0 if len(c) < 3 else 36.0)
+        if k.startswith('bruecke'):                                    # the wobble dies out toward the bridge: the way meets it straight
+            b = _spline(c, 100 + i, wig=0.0)
+            s = SPOTS['6']
+            w = np.clip((np.hypot(b[:, 0] - s.x, b[:, 1] - s.y) - 40) / 80.0, 0, 1)[:, None]
+            a = b + (a - b) * w + np.array([0.0, 7.0]) * (1 - w)    # the deck's middle lies a little below the spot's point
+        out[k] = a
+    return out
 
 
 def river():
