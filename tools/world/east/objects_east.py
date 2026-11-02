@@ -16,7 +16,7 @@ ol.AUTUMN['nacht'] = ([hx(c) * 0.9 for c in ['#101c1c', '#1a2c2a', '#26403a', '#
 ol.AUTUMN['moos'] = ([hx(c) * 0.92 for c in ['#131c14', '#202e1c', '#2f4426', '#455f33', '#637e45']], hx('#a8bb72'))
 STRAND = [hx(c) for c in ['#1e2a20', '#2c3d2a', '#41573a', '#5c7650']]
 RIM = hx('#7f9a96')
-BARK = [hx(c) for c in ['#161a1a', '#272d2c', '#3f4746', '#5a6563']]      # cool grey: less brown (Philip)
+BARK = [hx(c) for c in ['#1b1917', '#322b29', '#4e4340', '#6d5f58']]      # grey with a little warmth (Philip: some brown again)
 
 
 class Nachtbaum:
