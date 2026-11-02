@@ -27,23 +27,19 @@ W, H = X1 - X0, Y1 - Y0
 def render(seed=37):
     rng = np.random.default_rng(seed)
     river = np.array(L.river())
-    k = int(np.argmin(np.hypot(river[:, 0] - S.x, river[:, 1] - S.y)))
-    bx, by = int(river[k, 0]) - X0, int(river[k, 1]) - Y0               # where the river passes the spot's middle
-    deck_y = int(S.y - Y0)
-    front = deck_y + 6                                                   # the deck's front edge row; the wall's foot is FACE lower
-    # the river, widened to the bridge's span for a short stretch, narrow elsewhere
-    im = Image.new('L', (W, H), 0)
-    d = ImageDraw.Draw(im)
-    d.line([(x - X0, y - Y0) for x, y in river], fill=1, width=L.RIVER_W, joint='curve')
-    span = np.zeros((H, W), bool)
+    deck_y = int(S.y - Y0)                                               # the way crosses here: the deck's middle, the river's too
+    br = oe.Steinbruecke
+    bx = int(S.x - X0)
     yy, xx = np.mgrid[0:H, 0:W]
-    ctr = bx
-    wide = np.abs(xx - ctr) < 14 * np.clip(1 - np.abs(yy - (front + 12)) / 40.0, 0, 1) ** 0.6 + 7
-    span = wide & (np.abs(yy - (front + 12)) < 40)
-    water = (np.array(im) > 0) | span
+    im = Image.new('L', (W, H), 0)
+    ImageDraw.Draw(im).line([(x - X0, y - Y0) for x, y in river], fill=1, width=L.RIVER_W, joint='curve')
+    # under the bridge the water is a band along the bridge's own diagonal, as wide as the wall is high
+    foot = deck_y + br.DECK // 2 + br.FACE + (xx - bx) * br.SLOPE         # the waterline at the wall's foot, sheared
+    pool = (np.abs(xx - bx) < br.L // 2 + 4) & (yy > foot - 5) & (yy < foot + 18 - np.abs(xx - bx) * 0.1)
+    water = (np.array(im) > 0) | pool
     masks = F.window_masks(X0, Y0, X1, Y1)
     land = ndi.binary_dilation(water, iterations=4)
-    masks2 = {'path': masks['path'], 'clearing': masks['clearing'] | ndi.binary_dilation(span, iterations=14), 'river': water}
+    masks2 = {'path': masks['path'], 'clearing': masks['clearing'] | ndi.binary_dilation(pool, iterations=14), 'river': water}
     img = F.floor(H, W, masks2, rng)
     shallow = water & (ndi.distance_transform_edt(water) < 4)
     ol.paint_lake(img, 0, water, shallow, rng)
@@ -56,7 +52,7 @@ def render(seed=37):
     for _ in range(34):
         i = int(rng.integers(0, len(ys)))
         (ow.Schilf(int(xs[i]), int(ys[i]), int(rng.integers(4, 8)), int(rng.integers(0, 10 ** 6))) if rng.random() < 0.6 else ow.Farn(int(xs[i]), int(ys[i]), int(rng.integers(0, 10 ** 6)), int(rng.integers(5, 9)))).draw(img, G)
-    oe.Steinbruecke(bx, front - oe.Steinbruecke.FACE - 6, 4).draw(img, G)
+    br(bx, deck_y, 4).draw(img, G)
     return img, water
 
 
