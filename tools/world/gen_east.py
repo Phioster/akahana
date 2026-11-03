@@ -40,6 +40,9 @@ import zone0_draft as Z0  # noqa: E402
 import zone1_draft as z1  # noqa: E402
 import zone2_draft as z2  # noqa: E402
 import zone_saum_draft as ZS  # noqa: E402
+import ground as south_ground  # noqa: E402
+import zone4_layout as L4  # noqa: E402
+from objects_south import Findling  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(HERE, '..', '..'))
 H, WW = 3600, 1800
@@ -142,13 +145,22 @@ def spot_piece(name, mod, adapt):
 
 def forest_weight(x0, y0, h, w):
     """How much of the wood shows at each pixel: everywhere east of the south, a wide mix over zone 1's firs and the
-    poppies, the old fir block's place filled with wood, and the west edge running out into the poppy field."""
+    poppies, the old fir block's place filled with wood, and the west edge running out into the poppy field.
+    South of y 2230 the meadow tongue and the lake's shore keep the wood away until x ~1050 (tongue) / ~1190 (lake)."""
     gx = np.arange(w)[None, :] + x0
     gy = np.arange(h)[:, None] + y0
     yr = 1.0 - smooth((gy - (TOP - 40)) / 110.0)                  # blends into zone 1's own firs
     xr = smooth((gx - (SOUTH_W - MIX)) / float(MIX))              # the poppies thin out into the wood
     blob = smooth((gx - (OW + 10)) / 70.0) * smooth((gy - (TOP - 60)) / 60.0) * (1.0 - smooth((gy - (TOP + 110)) / 80.0))   # where the south's block of firs stood
     wt = np.where(gx >= SOUTH_W, 1.0, np.maximum(np.maximum(yr, xr), blob))
+    ry = smooth((gy - 2230) / 110.0)
+    w2 = smooth((gy - 2880) / 140.0)
+    keep = ry * ((1 - w2) * (1.0 - smooth((gx - SOUTH_W) / 150.0)) + w2 * (1.0 - smooth((gx - 960) / 460.0)))
+    bach = np.zeros((h, w), bool)                                 # the brook still needs its wood ground: it runs through the tongue
+    bm = L.masks().bach
+    bach[:bm.shape[0], :bm.shape[1]] = bm
+    bw = np.clip(ndi.gaussian_filter(ndi.binary_dilation(bach, iterations=5).astype(float), 2.0) * 1.6, 0, 1)
+    wt = np.maximum(wt * (1 - keep), bw * ry)
     return wt * smooth((gx - (OW - 140)) / 140.0)                 # west edge: the poppy field runs out into the wood
 
 
@@ -248,6 +260,33 @@ def zone0_piece():
     return Piece('zone0', x0, y0, c, wt, c.result[1])
 
 
+def ext_map(cols, w, seed):
+    """Which source column and vertical roll each extension column takes: random picks, so no stripes repeat."""
+    r = np.random.default_rng(seed)
+    return r.integers(10, cols, w), r.integers(0, 10 ** 5, w)
+
+
+def mirror_cols(src, cols, w, seed=5):
+    """src's first `cols` columns, then the meadow carried on east from randomly picked columns."""
+    out = np.zeros((src.shape[0], w) + src.shape[2:], src.dtype)
+    out[:, :cols] = src[:, :cols]
+    pick, roll = ext_map(cols, w, seed)
+    for k in range(cols, w):
+        out[:, k] = np.roll(src[:, pick[k]], int(roll[k]), axis=0)
+    return out
+
+
+def blade_layers(x0, y0, w, h, cols, bad=None, seed=5):
+    """The south's swaying blades (flowers.png + bend.png) in x x0..x0+cols*, carried on east like the ground."""
+    src = ZS.FULL
+    fl = np.array(Image.open(os.path.join(src, 'flowers.png')).convert('RGBA'))[y0:y0 + h, x0:x0 + 80]
+    bd = np.array(Image.open(os.path.join(src, 'bend.png')))[y0:y0 + h, x0:x0 + 80]
+    if bad is not None:
+        fl[bad] = 0
+        bd[bad] = 0
+    return mirror_cols(fl, cols, w, seed), mirror_cols(bd, cols, w, seed)
+
+
 def saum_piece():
     """The meadow's tongue and the glade 9 at the south-east, from the south's last columns."""
     x0, y0, w, h = ZS.X0, ZS.Y0, ZS.W, ZS.H
@@ -256,14 +295,117 @@ def saum_piece():
         g, green = ZS.render()
         return g, green
 
+    ZS.BAKE_BLADES = False
     c = collect.collect_window(render, w)
+    fl, bd = blade_layers(x0, y0, w, h, 80)
+    keep = np.random.default_rng(31).random((h, w)) < np.clip(ZS.render.open_, 0, 1) ** 0.7     # blades only where the ground is meadow
+    c.sway = np.where(keep[..., None], fl, 0).astype(np.uint8)
+    c.sway_h = np.where(keep, bd, 0).astype(np.uint8)
     yy, xx = np.mgrid[0:h, 0:w]
     d = np.minimum(np.minimum(yy, h - 1 - yy), w - 1 - xx)                # wide feather on three sides, the south's seam stays narrow
     wt = np.minimum(smooth(d / float(SPOT_FEATHER)), smooth(xx / 24.0))
     bach = L.masks().bach[y0 - L.Y0:y0 - L.Y0 + h, x0 - L.X0:x0 - L.X0 + w]           # the wood's brook runs on through the meadow tongue to brook B
     wt = wt * (1.0 - np.clip(ndi.gaussian_filter(ndi.binary_dilation(bach, iterations=5).astype(float), 2.0) * 1.6, 0, 1))
     pc = Piece('saum', x0, y0, c, wt)
+    pc.ver = 2
     pc.sw = wt * smooth((np.arange(x0, x0 + w)[None, :] - (ZS.SEAM - 20)) / 130.0)          # the leaf mass fades in from the meadow, the ground stays
+    return pc
+
+
+UX0, UY0, UX1, UY1 = 826, 2860, 1560, 3600
+Z4Y = 2800                                                      # world row of the lake zone's first row
+
+
+def ufer_piece(src):
+    """The lake's east shore, grown the way the south's lake zone is grown (zone4_draft): the same ground recipe handed
+    over from the south's own ground, tall grass, wild flowers, ferns, stones, the reed sea along the world's edge
+    (it retreats eastward), and the wood's green trees thickening slowly. The south itself ends in side reeds at x 875."""
+    w, h = UX1 - UX0, UY1 - UY0
+    rng = np.random.default_rng(37)
+    ax = np.arange(w)[None, :] + UX0
+    yl = np.arange(h)[:, None] + (UY0 - Z4Y)
+    og = np.array(Image.open(os.path.join(src, 'ground.png')).convert('RGB'))[UY0:UY1, UX0 - 60:UX0].astype(float)
+    fog = np.clip(0.70 + 0.10 * z2.fbm(h, w, 18, 404), 0, 1)
+    flow = np.clip(0.22 + 0.10 * z2.fbm(h, w, 10, 405), 0, 1)
+    fresh = south_ground.fresh_tone(h, w, fog, flow, rng)
+    tone = south_ground.continued_tone(south_ground.tone_of(og).T, fresh.T, reach=60).T
+    base = south_ground.ground_from_tone(tone, fog, flow, rng) * (1 - np.array([0.12, 0.0, 0.14])) * 0.62
+    edge = L4.edge(ax) + 4 * z2.fbm(h, w, 6, 406) + 100 * smooth((ax - 1150) / 260.0)     # the reed sea retreats eastward
+    sea = yl > edge
+    marsh = (yl > edge + 30 + 8 * z2.fbm(h, w, 8, 407)) & (z2.fbm(h, w, 4, 408) > -0.3)
+    open_w = yl > edge + 52 + 6 * np.sin(ax / 23.0)
+    water = marsh | open_w
+    shallow = marsh & ~open_w
+    base[ndi.distance_transform_edt(~water) < 8] *= 0.85
+    open_ = np.clip(1.0 - smooth((ax - 1000) / 340.0), 0, 1) * np.ones((h, 1))
+    no = np.zeros((h, w), bool)
+
+    def render():
+        r = np.random.default_rng(29)
+        floor = F.floor(h, w, {'path': no, 'clearing': no, 'river': no}, r)
+        take = r.random((h, w)) < open_ ** 0.7
+        g = np.where(take[..., None], base, floor)
+        ol.paint_lake(g, 0, water, shallow, r)
+        things = []
+        reed = sea & ~open_w
+        ys, xs = np.nonzero(reed)
+        pick = r.random(len(ys)) < 1 / 9
+        for y, x in zip(ys[pick], xs[pick]):
+            if r.random() < 0.78:
+                things.append(ow.Schilf(int(x), int(y), int(r.integers(6, 12)), int(r.integers(0, 10 ** 6))))
+            else:
+                things.append(ow.Rohrkolben(int(x), int(y), int(r.integers(3, 6)), int(r.integers(0, 10 ** 6))))
+        dry = ~ndi.binary_dilation(water | sea, iterations=3)
+        for k in range(7):                                        # ferns and stones as the south scatters them
+            x, y = int(r.integers(20, 360)), int(r.integers(30, h - 130))
+            if dry[y, x]:
+                things.append(ow.Farn(x, y, int(r.integers(0, 999)), 7))
+        for k, size in enumerate((7, 6, 8, 5)):
+            x, y = int(r.integers(30, 420)), int(r.integers(40, h - 140))
+            if dry[y, x]:
+                things.append(Findling(x, y, size, 50 + k))
+        spots = []
+        for k in range(60):                                       # a few broadleaf trees standing alone in the grass, as in the south
+            x, y = int(r.integers(40, 340)), int(r.integers(60, h - 170))
+            if dry[y, x] and open_[0, x] > 0.5 and all(np.hypot(x - a, y - b) > 80 for a, b in spots) and len(spots) < 9:
+                spots.append((x, y))
+                things.append(ol.Laubbaum(x, y, seed=120 + len(spots), size=float(r.uniform(0.9, 1.25)), leaf=(None, None, 'gold', None, None, 'orange', None, None, None)[len(spots) - 1]))
+        keep_off = ~dry
+        for a, b in spots:
+            keep_off[max(0, b - 4):b + 3, max(0, a - 6):a + 7] = True
+        for t_ in things:
+            if isinstance(t_, Findling):
+                x0, y0, x1, y1 = t_.box()
+                keep_off[max(0, y0):max(0, y1), max(0, x0):max(0, x1)] = True
+        dens = np.clip(0.75 + 0.32 * z2.fbm(h, w, 16, 409), 0.35, 1)
+        blades = []
+        for _ in range(int(w * h / 8.5)):
+            x, y = r.uniform(2, w - 2), r.uniform(0, h - 1)
+            if keep_off[int(y), int(x)] or r.random() > dens[int(y), int(x)] * open_[0, int(x)]:
+                continue
+            blades.append(z2.Blade(x, int(round(y)), r))
+        for _ in range(1100):
+            x, y = int(r.integers(4, w - 4)), int(r.integers(2, h - 2))
+            if keep_off[y, x] or r.random() > (1.2 - dens[y, x]) * open_[0, x]:
+                continue
+            things.append(z2.Wildflower(x, y, int(r.choice(3, p=[0.45, 0.33, 0.22])), r, int(r.integers(6, 10))))
+        G = np.random.default_rng(3).random((h, w))
+        for t_ in sorted(things + blades, key=lambda t_: getattr(t_, 'order', None) or t_.box()[3]):
+            t_.draw(g, G)
+        green = np.clip(smooth((1400 - ax) / 400.0) * np.ones((h, 1)), 0, 1)
+        items = F.scatter(h, w, {'path': no, 'clearing': open_ > 0.45, 'river': ~dry}, r, green=green)
+        items = [t for t in items if t[1] + UX0 > 884 and r.random() < smooth((t[1] + UX0 - 1060) / 340.0)]    # trees thicken slowly
+        F.draw(g, sorted(items, key=lambda t: t[2]), np.random.default_rng(5).random((h, w)))
+        return g, []
+
+    c = collect.collect_window(render, w)
+    yy, xx = np.mgrid[0:h, 0:w]
+    wt = np.minimum(smooth(np.minimum(yy, w - 1 - xx) / float(SPOT_FEATHER)), smooth(xx / 34.0))
+    cells = np.fromfile(os.path.join(src, 'ground_mat.bin'), np.uint8).reshape(H // CELL, WW // CELL)
+    path0 = np.kron(cells[UY0 // CELL:UY1 // CELL, UX0 // CELL:(UX0 + 100) // CELL] == EARTH, np.ones((CELL, CELL), bool))
+    wt[:, :100] *= 1.0 - ndi.binary_dilation(path0, iterations=2)                # the south's own path stays whole
+    pc = Piece('ufer', UX0, UY0, c, wt)
+    pc.ver = 6
     return pc
 
 
@@ -379,8 +521,15 @@ def main(src=None, out=None):
             with open(cache, 'wb') as f:
                 pickle.dump((pieces, ZS.render.open_), f, protocol=4)
 
+    if sum((p.name == 'saum' and getattr(p, 'ver', 0) >= 2) or (p.name == 'ufer' and getattr(p, 'ver', 0) >= 6) for p in pieces) < 2:     # re-render these two (cheap) after a change
+        pieces = [p for p in pieces if p.name not in ('saum', 'ufer')]
+        pieces[2:2] = [saum_piece(), ufer_piece(src)]
+        if cache:
+            import pickle
+            with open(cache, 'wb') as f:
+                pickle.dump((pieces, ZS.render.open_), f, protocol=4)
     pieces[0].weight = forest_weight(pieces[0].x0, pieces[0].y0, pieces[0].h, pieces[0].w)   # cheap: tunable without re-rendering the wood
-    for p in pieces[3:]:                                        # the spots never reach into the south's ground below zone 1's top
+    for p in [p for p in pieces if p.name in ('s3', 's4', 's5', 's6', 's7')]:   # the spots never reach into the south's ground below zone 1's top
         p.weight = spot_weight(p)
         gx = np.arange(p.x0, p.x0 + p.w)[None, :]
         gy = np.arange(p.y0, p.y0 + p.h)[:, None]
@@ -424,6 +573,12 @@ def water_east(ground_u8, masks, pieces):
     dep = np.clip(ndi.distance_transform_edt(ndi.binary_dilation(stream, iterations=2))[yy, xx] / 5.0, 0, 1)
     out[yy + y0, xx + x0] = np.stack([(ang[i] / (2 * np.pi) % 1 * 256).astype(np.uint8), (dep * 255).astype(np.uint8),
                                       (arc[i] % 256).astype(np.uint8), np.full(len(yy), KIND_BROOK, np.uint8)], 1)
+    ur = np.zeros_like(wat)                                      # the lake shore's reed sea moves like the south's
+    ur[UY0 - y0:UY1 - y0, UX0 - x0:UX1 - x0] = True
+    sea = wat & ur & ~pond
+    sd = np.clip(ndi.distance_transform_edt(ndi.binary_dilation(sea, iterations=2)) / 25.0, 0, 1)
+    out[y0:y1, x0:x1][sea, 1] = (sd[sea] * 255).astype(np.uint8)
+    out[y0:y1, x0:x1][sea, 3] = KIND_LAKE
     lake = wat & pond
     dep = np.clip(ndi.distance_transform_edt(pond) / 40.0, 0, 1)
     sub = out[reg]
@@ -482,6 +637,7 @@ def finish(r):
     sprites = [s for s in sprites if not (re.fullmatch(r's\d+', s['name']) and TOP - 60 <= s['foot'] < TOP + 190 and
                                           OW <= s['x'] + s['w'] // 2 < SOUTH_W)]             # the south's block of firs makes way for the wood's own trees
     sprites = [s for s in sprites if not (s['name'].startswith('tanne') and OW - 60 <= s['x'] + s['w'] // 2 < OW + 80)]   # the old closed wall of firs at the east edge is gone: the poppies run into the wood
+    sprites = [s for s in sprites if not (re.fullmatch(r's\d+', s['name']) and s['x'] + s['w'] // 2 >= UX0 and s['foot'] >= UY0)]   # the south's side firs/reeds: the shore grows on instead
     cells = np.fromfile(os.path.join(src, 'ground_mat.bin'), np.uint8).reshape(H // CELL, WW // CELL)
     earth = ndi.binary_dilation(cells == EARTH, iterations=5)
     kept = [s for s in kept if not (s['x'] + s['w'] // 2 < SOUTH_W and s['foot'] >= TOP and
@@ -591,20 +747,25 @@ def write(r):
     cm[own[::CELL, ::CELL]] = mat[::CELL, ::CELL][own[::CELL, ::CELL]]
     cm[own[::CELL, ::CELL]] = np.where(walk[reg][::CELL, ::CELL][own[::CELL, ::CELL]], cm[own[::CELL, ::CELL]], GRASS)
     # ---- water, open water, reflections, the pond for the fish
+    cut = (slice(UY0, UY1), slice(UX0, SOUTH_W))                 # the south's side-reed strip is replaced by the grown shore
     water = im('water.png', 'RGBA')
+    water[cut] = 0
     east_w = wm[reg][..., 3] > 0
     water[reg][east_w] = wm[reg][east_w]
     open_old = im('open_water.png', 'L') > 0
+    open_old[cut] = False
     open_east = east_w & (flowers[reg][..., 3] == 0) & (low[reg] == 0)
     open_all = open_old.copy()
     open_all[reg] |= open_east
     sprs = [(s['rgba'][:, :s['w']], s['x'] - x0, s['y'] - y0, s['foot'] - y0) for s in r['kept']
             if s['x'] + s['w'] > x0 and s['y'] + s['rgba'].shape[0] > y0]
     refl = im('refl.png', 'RGBA')
+    refl[cut] = 0
     rr = reflect_map.bake(y1 - y0, x1 - x0, open_east, flowers[reg], bend[reg], low[reg], gu8[reg], sprs)
     m = rr[..., 3] > 0
     refl[reg][m] = rr[m]
     lake = im('lake.png', 'L')
+    lake[cut[0].start // 2:cut[0].stop // 2, cut[1].start // 2:cut[1].stop // 2] = 0
     ld = np.where(wm[..., 3] == KIND_LAKE, wm[..., 1], 0).astype(np.uint8)
     ld = ld.reshape(H // 2, 2, WW // 2, 2).min(axis=(1, 3))
     lake = np.maximum(lake, ld)
@@ -617,6 +778,10 @@ def write(r):
     ownh = (xx * 2 >= SOUTH_W) | (yy * 2 < TOP)
     mist[hy0:hy1, hx0:hx1, 2][ownh] = np.round(edge[ownh] * 255).astype(np.uint8)
     mist[hy0:hy1, hx0:hx1, :2][ownh] = 0
+    uy, ux = np.mgrid[UY0 // 2:UY1 // 2, UX0 // 2:UX1 // 2]       # the shore's own mist: the south's bottom fade, retreating with the reed sea
+    prof = np.clip((uy * 2 - Z4Y - 690) / 110.0, 0, 1) ** 1.4 * 0.88 * (1.0 - smooth((ux * 2 - 1150) / 260.0))
+    ed = 1 - smooth(np.minimum(np.minimum(uy - UY0 // 2, UX1 // 2 - 1 - ux), UY1 // 2 - 1 - uy) / 24.0)
+    mist[UY0 // 2:UY1 // 2, UX0 // 2:UX1 // 2, 2] = np.round(np.maximum(ed, prof) * 255).astype(np.uint8)
     tg = np.zeros((H, WW), bool)
     tg[ZS.Y0:ZS.Y1, ZS.X0:ZS.X1] = ndi.binary_dilation(r['tongue'], iterations=6)
     th = tg[::2, ::2]

@@ -23,6 +23,8 @@ def main(d, x0, y0, x1, y1, out, scale=2):
         p = os.path.join(d, 'sprites', s['name'] + '.png')
         if not os.path.exists(p):
             p = os.path.join(ROOT, 'assets', 'world', 'sprites', s['name'] + '.png')
+        if not os.path.exists(p):
+            continue
         a = np.array(Image.open(p).convert('RGBA'))[:, :s['w']]
         for j in range(a.shape[0]):
             yy = s['y'] + j - y0

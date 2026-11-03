@@ -25,6 +25,7 @@ FULL = os.path.join(ROOT, 'build', 'world_full')
 X0, Y0, X1, Y1 = 800, 2260, 1520, 3010
 W, H = X1 - X0, Y1 - Y0
 SEAM = 900
+BAKE_BLADES = True               # preview: blades painted into the ground; the generator turns this off
 SRC_END = 880                    # the south's last 20 columns are its flat edge band: the extension starts before them
 
 
@@ -32,8 +33,9 @@ def meadow_window(w):
     """The south's picture (ground, blades, sprites) in x 800..899, then mirrored eastward, rolled each time."""
     g = np.array(Image.open(os.path.join(FULL, 'ground.png')).convert('RGB'))[Y0:Y1, X0:SRC_END].astype(float)
     fl = np.array(Image.open(os.path.join(FULL, 'flowers.png')).convert('RGBA'))[Y0:Y1, X0:SRC_END]
-    m = fl[..., 3] > 0
-    g[m] = fl[m][:, :3]
+    if BAKE_BLADES:                                              # the generator keeps the blades in their own (swaying) layer
+        m = fl[..., 3] > 0
+        g[m] = fl[m][:, :3]
     return g
 
 
