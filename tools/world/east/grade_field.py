@@ -33,7 +33,7 @@ def build():
     clr = np.zeros((H, W), bool)
     clr[L.Y0:L.Y1, L.X0:L.X1] = L.masks().clearing
     g = ndi.gaussian_filter(clr[::2, ::2].astype(float), 4) * 0.7 * r      # moonlight lies in the clearings
-    cx, cy = s5.X0 + s5.CX - 18, s5.Y0 + s5.CY - 14                     # the shaft falls a little off the altar's centre
+    cx, cy = s5.X0 + s5.CX, s5.Y0 + s5.CY - 6                           # the shaft falls on the altar slab's top, right over its centre
     top = cy - 150
     t = np.clip((cy - 8 - gy) / (cy - 8 - top), 0, 1)
     half = 11 + 9 * t

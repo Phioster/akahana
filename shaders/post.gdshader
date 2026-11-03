@@ -109,6 +109,7 @@ void fragment() {
 	}
 	bloom *= vec3(1.0, 0.80, 0.55);
 	a *= 1.0 + L * LCOL * 1.4 + Lw * WCOL * 1.2 + Lc * CCOL * 1.4;
+	a += CCOL * 255.0 * Lc * 0.55;                                   // the cool flies also add light: multiplying alone does nothing on the dark wood floor
 
 	vec2 m1 = (world - vec2(3.5 * TIME, 0.0)) / vec2(256.0);      // mist drifts right, two layers at two speeds
 	vec2 m2 = (world - vec2(6.0 * TIME, 0.0)) / vec2(256.0);
@@ -119,6 +120,7 @@ void fragment() {
 	vec3 mf = texture(mist_fields, world / world_size).rgb;
 	dens = dens * (1.0 - 0.5 * mf.r) + 0.06 * mf.r;                 // over the brooks: a flat, thin band
 	dens *= 1.0 - 0.65 * mf.g;                                     // over the wide lake: thin and even
+	dens *= 1.0 - 0.88 * gf.r;                                     // in the deep wood the mist stays thin: the bright patches over the dark crowns looked wrong
 
 	vec2 t = 1.0 / view_world;                                     // softness only where the mist is thick
 	vec3 nb = texture(screen_tex, uv + vec2(t.x, 0.0)).rgb + texture(screen_tex, uv - vec2(t.x, 0.0)).rgb

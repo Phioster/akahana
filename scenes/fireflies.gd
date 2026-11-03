@@ -7,6 +7,7 @@ extends Node2D
 const GLOW := [Color8(224, 178, 84), Color8(248, 214, 120), Color8(255, 242, 176)]   # dim .. bright
 const COOL := [Color8(150, 214, 178), Color8(190, 240, 214), Color8(226, 255, 240)]   # the wood's flies: moon-green
 const LIGHT_R := 7.0
+const COOL_R := 13.0                 # the wood's flies light a wider pool: the floor there is dark
 const LIGHT_K := 0.27
 
 var home := Vector2.ZERO
@@ -52,7 +53,7 @@ func lights() -> Array[Vector4]:
 	var out: Array[Vector4] = []
 	for p in state(_t):
 		if p.z > 0.05:
-			out.append(Vector4(p.x + 0.5, p.y + 0.5, LIGHT_R, LIGHT_K * p.z * (-1.0 if cool else 1.0)))
+			out.append(Vector4(p.x + 0.5, p.y + 0.5, COOL_R if cool else LIGHT_R, LIGHT_K * p.z * (-1.0 if cool else 1.0)))
 	return out
 
 

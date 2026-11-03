@@ -780,7 +780,7 @@ def write(r):
     mist[hy0:hy1, hx0:hx1, :2][ownh] = 0
     uy, ux = np.mgrid[UY0 // 2:UY1 // 2, UX0 // 2:UX1 // 2]       # the shore's own mist: the south's bottom fade, retreating with the reed sea
     prof = np.clip((uy * 2 - Z4Y - 690) / 110.0, 0, 1) ** 1.4 * 0.88 * (1.0 - smooth((ux * 2 - 1150) / 260.0))
-    ed = 1 - smooth(np.minimum(np.minimum(uy - UY0 // 2, UX1 // 2 - 1 - ux), UY1 // 2 - 1 - uy) / 24.0)
+    ed = 1 - smooth((UY1 // 2 - 1 - uy) / 24.0)                   # only the world's bottom edge closes in mist; the other sides are no frame
     mist[UY0 // 2:UY1 // 2, UX0 // 2:UX1 // 2, 2] = np.round(np.maximum(ed, prof) * 255).astype(np.uint8)
     tg = np.zeros((H, WW), bool)
     tg[ZS.Y0:ZS.Y1, ZS.X0:ZS.X1] = ndi.binary_dilation(r['tongue'], iterations=6)
