@@ -79,9 +79,13 @@ def main(world, out):
     lake = (((xx - lc[0]) / 150.0) ** 2 + ((yy - lc[1]) / 92.0) ** 2) < 1 + 0.35 * n
     lake = ndi.binary_opening(lake, iterations=3)
     ice = lake & (xx + 0.5 * (yy - lc[1]) < lc[0] - 55 + 30 * fbm(rng, 8, (H, W)))   # the west part; the fall drops into open water
-    river_pts = [C(1252, 772), C(1272, 860), C(1238, 960), C(1270, 1070), C(1255, 1160), C(1262, 1300),
+    river_pts = [C(1252, 740), C(1272, 860), C(1238, 960), C(1270, 1070), C(1255, 1160), C(1262, 1300),
                  C(1266, 1400), C(1270, 1520)]
-    river = band(river_pts, 15) & ~lake
+    rb = band(river_pts, 15)
+    mouth = rb & (yy < lc[1] + 120)
+    lake = ndi.binary_closing(lake | mouth, iterations=8) & ~(rb & (yy > lc[1] + 60) & ~lake)   # a funnel into the river, no snow tongues
+    lake = ndi.binary_opening(lake, iterations=2)
+    river = rb & ~lake
     brook = band([C(1196, 320), C(1226, 380), C(1206, 440), C(1240, 500), C(FALL_X, 556)], 4)
     step = (np.abs(yy - C(0, 566)[1] - 6 * np.sin(xx / 23.0)) < 9) & (np.abs(xx - C(FALL_X, 0)[0]) < 85 + 15 * n)
     water = lake | river | brook
@@ -95,22 +99,24 @@ def main(world, out):
 
     # ground: the north's, interlocking in clumps with today's (reflected upward, its paths left out), no line
     north = snow_ground(rng, H, W, NY0, wood)
+    grass = (north[..., 1] - north[..., 0] > 12) & (yy < SEAM - 150)       # the ground generator's green tufts: up here dead and grey
+    north[grass] = north[grass].mean(-1, keepdims=True) * np.array([1.0, 0.98, 0.97])
     src = old_g.copy()
     row = np.where(yy >= SEAM, yy - SEAM, np.clip(SEAM - yy, 0, OLD - 1))
     ref = np.where((yy >= SEAM)[..., None], old_g[np.clip(row, 0, OLD - 1), xx], src[np.clip(row, 0, OLD - 1), xx])
     reach = np.where(yy < SEAM, smooth((yy - (SEAM - BAND)) / BAND), 1 - 0.3 * smooth((yy - SEAM) / 120.0))
     clumps = 0.5 + 0.28 * fbm(rng, 14, (H, W)) + 0.12 * fbm(rng, 3, (H, W))
-    img = np.where((clumps < reach)[..., None], ref, north)
+    img = np.where(((clumps < reach) & (reach > 0.01))[..., None], ref, north)   # no stray patch of today's ground far up
     G, CL = noise_maps(rng, H, W)
 
-    paint_lake(img, 0, lake & ~ice, ndi.binary_dilation(~lake, iterations=4) & lake & ~ice, rng)
-    paint_lake(img, 0, river, ndi.binary_dilation(~river, iterations=3) & river, rng)
+    paint_lake(img, 0, lake & ~ice, ndi.binary_dilation(~(lake | river), iterations=4) & lake & ~ice, rng, rimless=river)
+    paint_lake(img, 0, river, ndi.binary_dilation(~(river | lake), iterations=3) & river, rng, rimless=lake)   # one water, no mud line at the mouth
     # the frozen half: pale ice, cracks, snow blown onto it in drifts
     v = fbm(rng, 14, (H, W))
-    img[ice] = np.where((v > 0.35)[ice][:, None], ICE[4], ICE[3])
+    img[ice] = np.where((v > 0.35)[ice][:, None], np.array([150, 168, 178.0]), np.array([126, 146, 158.0]))   # dull grey-blue, never white like the fall
     cr = np.abs(fbm(rng, 9, (H, W)))
     crack = ice & (cr < 0.025) & (rng.random((H, W)) < 0.8)          # thin dark cracks running across
-    img[crack] = ICE[2]
+    img[crack] = np.array([92, 110, 124.0])
     drift = ice & (fbm(rng, 6, (H, W)) + 0.3 * (rng.random((H, W)) - .5) > 0.75)
     img[drift] = SNOWR[6]
     img[ndi.binary_dilation(ice, iterations=1) & ~ice & ~lake] = SNOWR[4]      # its edge rimed white
@@ -123,6 +129,10 @@ def main(world, out):
     paths = {'fluss': [C(1300, 792), C(1296, 862), C(1264, 960), C(1294, 1070), C(1282, 1160), C(1290, 1300),
                        C(1310, 1400), C(1338, 1520)],     # along the river, a little above its east bank
              'see': [C(800, 420), C(870, 455), C(960, 520), C(1040, 610), C(1078, 660), C(1094, 690)]}
+    near_lake = ndi.binary_dilation(lake, iterations=6)
+    c = through(paths['see'], 400)
+    stop = next(i for i, (x, y) in enumerate(c) if near_lake[int(y), int(x)])
+    paths['see'] = [tuple(p) for p in c[:stop:40]] + [tuple(c[stop])]   # it ends on the shore, not out on the ice
     for k, pts in paths.items():
         footpath(img, pts, G, width=1.5, bank=1.5, rng_seed=31 + len(k))
     path_mask = band(paths['fluss'], 12) | band(paths['see'], 12)
@@ -133,7 +143,7 @@ def main(world, out):
     img[earth] = img[earth] * (1 - k_[:, None]) + tone * k_[:, None]
 
     things = []
-    keep = ndi.binary_dilation(water, iterations=5) | ndi.binary_dilation(path_mask, iterations=9) | ndi.binary_dilation(step, iterations=10)
+    keep = ((np.abs(xx - C(FALL_X, 0)[0]) < 40) & (yy > C(0, 500)[1]) & (yy < C(0, 600)[1])) | ndi.binary_dilation(water, iterations=5) | ndi.binary_dilation(brook, iterations=22) | np.roll(ndi.binary_dilation(lake | river, iterations=20), 18, axis=0) | ndi.binary_dilation(path_mask, iterations=9) | ndi.binary_dilation(step, iterations=22)   # no fir half hidden behind the step's rocks
     occ = Firs()
     for s in old_sprites:
         occ.claim(s['x'] + s['w'] // 2 - X0, SEAM + s['foot'], 6 if s['h'] > 30 else 3)
@@ -162,8 +172,9 @@ def main(world, out):
             things.append((y, 'facet', (int(x), int(y), rng.uniform(7, 12), rng.uniform(5, 9), False, int(x * 3 + y), True)))
     ey, ex = np.nonzero(ndi.binary_dilation(lake, iterations=3) & ~lake & (rng.random((H, W)) < 0.012) & ~keep[..., ] | (
         ndi.binary_dilation(lake, iterations=3) & ~lake & (rng.random((H, W)) < 0.006)))
+    keep_mouth = ndi.binary_dilation(river, iterations=12)
     for y, x in zip(ey, ex):
-        if not path_mask[y, x]:
+        if not path_mask[y, x] and not keep_mouth[y, x]:
             things.append((y, 'rock', (int(x), int(y), int(rng.integers(3, 7)))))
     for _ in range(140):
         x, y = int(rng.integers(6, W - 6)), int(rng.integers(6, SEAM - 200))
