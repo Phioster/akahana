@@ -142,7 +142,7 @@ def main(world, out):
     lake = ndi.binary_closing(lake | mouth, iterations=8) & ~(rb & (yy > lc[1] + 60) & ~lake)   # a funnel into the river, no snow tongues
     lake = ndi.binary_opening(lake, iterations=2)
     river = rb & ~lake
-    brook = band([C(1191, 348), C(1214, 400), C(1206, 440), C(1240, 500), C(FALL_X, 556)], 4)
+    brook = band([C(1191, 348), C(1214, 400), C(1206, 440), C(1240, 500), C(FALL_X, 556)], 5)
     step = (np.abs(yy - C(0, 566)[1] - 6 * np.sin(xx / 23.0)) < 9) & (np.abs(xx - C(FALL_X, 0)[0]) < 85 + 15 * n)
     water = lake | river | brook
 
@@ -176,11 +176,13 @@ def main(world, out):
     drift = ice & (fbm(rng, 6, (H, W)) + 0.3 * (rng.random((H, W)) - .5) > 0.75)
     img[drift] = SNOWR[6]
     img[ndi.binary_dilation(ice, iterations=1) & ~ice & ~lake] = SNOWR[4]      # its edge rimed white
-    # the brook above the fall: ice under a dusting of snow, open water only in a few small holes
+    # the brook above the fall: open running water (it feeds the fall), ice crusted along its edges, snowy banks
     bv = rng.random((H, W))
-    img[brook] = np.where((bv < 0.5)[brook][:, None], ICE[3], np.where((bv < 0.8)[brook][:, None], ICE[4], SNOWR[6]))
-    hole = brook & (fbm(rng, 2, (H, W)) > 1.1) & ~ndi.binary_erosion(~brook, iterations=1)
-    img[hole] = np.array([72, 94, 110.0])
+    inner = ndi.binary_erosion(brook, iterations=1)
+    img[brook] = ICE[3]                                                   # ice along the edges
+    img[inner] = np.where((bv < 0.75)[inner][:, None], np.array([58, 80, 98.0]), np.array([84, 110, 128.0]))
+    glint = inner & (bv > 0.93)
+    img[glint] = ICE[4]
     bank_ = ndi.binary_dilation(brook, iterations=1) & ~brook
     img[bank_ & (rng.random((H, W)) < 0.7)] = SNOWR[5]
 
