@@ -259,7 +259,7 @@ func _show_travel() -> void:
 	var y := _heading("Reisen (Test)", 0)
 	for place in TestTravel.PLACES:
 		var to: Vector2 = place[1]
-		y = _entry(-1, place[0], y - 3, func(): close(); travel.emit(to))   # back: the phone's back key
+		y = _entry(-1, place[0], y - 8, func(): close(); travel.emit(to))   # tighter than the menus: ten places fit; back: the phone's back key
 
 
 func _show_settings() -> void:

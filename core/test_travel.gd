@@ -13,6 +13,8 @@ const PLACES := [
 	["Bäche", Vector2(594, 2300)],
 	["Steg", Vector2(574, 2945)],
 	["Hütte am See", Vector2(770, 3320)],
+	["Waldteich", Vector2(1000, 1380)],
+	["Ostwald", Vector2(1250, 1700)],
 ]
 
 
