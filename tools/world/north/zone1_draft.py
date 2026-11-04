@@ -7,6 +7,7 @@ clumps, the old ground runs up mirrored, firs of the north grow down into Kogara
 wood's trees, the cliff wall becomes scattered rocks over a broad band.
 python3 zone1_draft.py WORLD_DIR out.png"""
 import json
+os_env = __import__('os').environ.setdefault('AXE', 'wald')   # the small forest axe fits the small block
 import os
 import sys
 
@@ -111,9 +112,11 @@ def main(world, out):
     # ---- where the wood stands: sparse low down, dense higher and in the east; open at the hut and the gate
     east = smooth((xx - 380) / 260.0)
     up = (SEAM - yy) / 600.0
-    wood = smooth(0.35 + 0.55 * up + 0.35 * east + 0.25 * fbm(rng, 40))
-    clearing = (((xx - HUT[0]) / 125.0) ** 2 + ((yy - HUT[1] - 10) / 88.0) ** 2) < 1 + 0.25 * fbm(rng, 20)
-    wood = np.where(clearing, 0.0, np.minimum(wood, 0.9))
+    rise = smooth((SEAM - yy) / 300.0)                                 # thickens above Kogarashi ...
+    fall = smooth((HUT[1] - 40 - yy) / 320.0)                         # ... and thins out towards the mountains
+    wood = smooth((0.15 + 0.6 * rise + 0.3 * east) * (1 - 0.8 * fall) + 0.2 * fbm(rng, 40))
+    clearing = (((xx - HUT[0]) / 92.0) ** 2 + ((yy - HUT[1] - 8) / 64.0) ** 2) < 1 + 0.25 * fbm(rng, 20)
+    wood = np.where(clearing, 0.0, np.minimum(wood, 0.8))
 
     # ---- ground: the north's own, the old one mirrored upward, the two interlocking in clumps over BAND rows
     north = snow_ground(rng, wood)
@@ -126,7 +129,7 @@ def main(world, out):
         src[pathish] = np.roll(src, 9, axis=1)[pathish]
         pathish &= ((src[..., 0] - src[..., 2]) > 22) & (src[..., 0] > 140)
     mirror = src[64 + k, xx]                                         # row SEAM-d shows today's row 64+d (under the cliff)
-    reach = np.where(yy < SEAM, smooth((yy - (SEAM - BAND)) / BAND), 1 - 0.6 * smooth((yy - SEAM) / 160.0))
+    reach = np.where(yy < SEAM, smooth((yy - (SEAM - BAND)) / BAND), 1 - 0.3 * smooth((yy - SEAM) / 120.0))
     clumps = 0.5 + 0.28 * fbm(rng, 14) + 0.12 * fbm(rng, 3)          # patches, never single pixels
     take_old = clumps < reach
     img = np.where(take_old[..., None], mirror, north)
@@ -141,14 +144,14 @@ def main(world, out):
     CL = (CL - CL.min()) / (CL.max() - CL.min())
 
     # ---- paths: the old summit path runs on through the gate up to the hut; two branches leave it
-    trunk = [(312, HUT[1] + 14), (296, HUT[1] + 90), (286, HUT[1] + 170), (258, SEAM - 150), (282, SEAM - 70),
+    trunk = [(318, HUT[1] + 8), (296, HUT[1] + 90), (286, HUT[1] + 170), (258, SEAM - 150), (282, SEAM - 70),
              (266, SEAM + 10), (274, SEAM + 50), (277, SEAM + 100)]   # winding; overlaps the end of today's earth path
     footpath(img, trunk, G, width=1.6, bank=1.6, rng_seed=1, fade_from=0.93)
     footpath(img, [(300, HUT[1] - 4), (250, HUT[1] - 60), (190, HUT[1] - 150), (150, 0)], G, width=1.4,
              rng_seed=2, fade_from=0.55)                                   # to the cave
     footpath(img, [(345, HUT[1] + 4), (400, HUT[1] - 70), (480, HUT[1] - 150), (560, 0)], G, width=1.4,
              rng_seed=3, fade_from=0.55)                                   # to the gorge
-    footpath(img, [(318, HUT[1] + 10), (352, HUT[1] + 6), (372, HUT[1] + 26)], G, width=1.0, bank=1.0,
+    footpath(img, [(318, HUT[1] + 6), (342, HUT[1] + 4), (360, HUT[1] + 18)], G, width=1.0, bank=1.0,
              rng_seed=4)                                                    # door - woodpile - block
     # ---- things that stand: sorted by their foot so nearer ones overlap farther ones
     things = []
@@ -187,7 +190,7 @@ def main(world, out):
         if rng.random() > d or clearing[y, x] or (abs(x - GATE_X) < 16 and y > SEAM - 160) \
                 or (abs(x - GATE_X) < 52 and abs(y - SEAM) < 24):
             continue
-        r = 13 + 28 * (1 - d) ** 1.5
+        r = 17 + 30 * (1 - d) ** 1.5
         if not free(x, y, r):
             continue
         claim(x, y, r)
@@ -201,13 +204,13 @@ def main(world, out):
         snow = float(np.clip(0.55 + 0.4 * (SEAM - y) / SEAM, 0.3, 0.95)) * (1 - 0.35 * d)
         things.append((y, 'pine', (x, y, h, int(rng.integers(1 << 30)), snow)))
     # the woodcutter's hut
-    hx, hy = HUT
-    things += [(hy, 'cabin', (hx - 28, hy)), (hy + 2, 'shed', (hx + 22, hy + 2)),
-               (hy + 36, 'block', (hx + 44, hy + 36)),
-               (hy + 50, 'stump', (hx - 48, hy + 50)), (hy + 22, 'stump', (hx - 86, hy + 22)),
-               (hy - 14, 'stump', (hx + 84, hy - 14)),
-               (hy + 62, 'log', (hx - 96, hy + 58, hx - 66, hy + 66)), (hy + 58, 'log', (hx + 70, hy + 60, hx + 96, hy + 48)),
-               (hy + 34, 'lantern', (hx, hy + 30))]
+    hx, hy = HUT                                                     # sizes after the shepherd's cottage (34 wide)
+    things += [(hy, 'cabin', (hx - 20, hy)), (hy + 1, 'shed', (hx + 17, hy + 1)),
+               (hy + 25, 'block', (hx + 30, hy + 25)),
+               (hy + 34, 'stump', (hx - 34, hy + 34)), (hy + 16, 'stump', (hx - 60, hy + 16)),
+               (hy - 10, 'stump', (hx + 58, hy - 10)),
+               (hy + 44, 'log', (hx - 68, hy + 40, hx - 48, hy + 46)), (hy + 40, 'log', (hx + 48, hy + 42, hx + 66, hy + 34)),
+               (hy + 24, 'lantern', (hx, hy + 20))]
     whole = [t for t in east_trees if t['y'] > 0]
     for s in old_sprites:
         if s['y'] <= 0 and whole and s['name'].startswith('e'):     # cut flat at today's top edge: a whole tree instead
@@ -224,17 +227,17 @@ def main(world, out):
         elif kind == 'rock':
             rock(img, a[0], a[1], a[2], G, CL, int(a[0] * 7 + a[1]))
         elif kind == 'cabin':
-            Cabin(a[0], a[1], w=50, wall=20, roof=19, seed=11).draw(img, G, CL)
+            Cabin(a[0], a[1], w=34, wall=13, roof=14, seed=11, win=5, winh=5, doorw=5).draw(img, G, CL)
         elif kind == 'shed':
-            WoodShed(a[0], a[1], w=30, h=14, roof=10, seed=12).draw(img, G, CL)
+            WoodShed(a[0], a[1], w=20, h=10, roof=7, seed=12).draw(img, G, CL)
         elif kind == 'block':
-            ChoppingBlock(a[0], a[1], R=8, seed=13).draw(img, G, CL)
+            ChoppingBlock(a[0], a[1], R=6, seed=13).draw(img, G, CL)
         elif kind == 'stump':
-            Stump(a[0], a[1], r=5, seed=int(a[0])).draw(img, G, CL)
+            Stump(a[0], a[1], r=4, seed=int(a[0])).draw(img, G, CL)
         elif kind == 'log':
-            FallenLog(*a, r=3.3, seed=int(a[0])).draw(img, G, CL)
+            FallenLog(*a, r=2.6, seed=int(a[0])).draw(img, G, CL)
         elif kind == 'lantern':
-            lantern(img, a[0], a[1], post=9)
+            lantern(img, a[0], a[1], post=7)
         elif kind == 'old':
             paste_sprite(img, a, SEAM, root)
         elif kind == 'east':                                         # a copy of an east-wood tree, foot at (x, y)

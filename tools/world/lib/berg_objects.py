@@ -38,9 +38,10 @@ def drift(img, q, put, x_from, x_to, y_base, hump, wob, warm_of=None, up=4, down
 class Cabin:
     """Log cabin seen from above at an angle: front wall of round logs, a pillowy snow roof with soft
     edges (nothing straight), warm windows whose light glows on the logs and spills onto the snow."""
-    def __init__(s, x, y, w=56, wall=25, roof=23, seed=1):
+    def __init__(s, x, y, w=56, wall=25, roof=23, seed=1, win=13, winh=12, doorw=10):
         s.x, s.y, s.w, s.wall, s.roof = x, y, w, wall, roof        # (x, y) = bottom-left of the front wall
         s.seed = seed
+        s.win, s.winh, s.doorw = win, winh, doorw                   # the game's small cabin: windows of a few px
 
     def footprint(s, H, W):
         yy, xx = np.mgrid[0:H, 0:W]
@@ -58,14 +59,15 @@ class Cabin:
         def put(i, j, c):
             if 0 <= i < W and 0 <= j < H: img[j, i] = c
         top = y0 - s.wall
-        wins = ((x0 + 6, 13), (x0 + w - 19, 13))
-        door = (x0 + w // 2 - 5, 10)
+        nw, nh, k = s.win, s.winh, s.win / 13.0
+        wins = ((x0 + int(round(6 * k)), nw), (x0 + w - int(round(6 * k)) - nw, nw))
+        door = (x0 + w // 2 - s.doorw // 2, s.doorw)
         # 1) warm light on the snow in front of windows and door (dithered, strongest near the wall)
-        for j in range(y0 - 1, min(H, y0 + 40)):
-            for i in range(x0 - 20, x0 + w + 20):
+        for j in range(y0 - 1, min(H, y0 + int(40 * k))):
+            for i in range(x0 - int(20 * k), x0 + w + int(20 * k)):
                 if not (0 <= i < W): continue
                 best = 0
-                for (cx, r) in ((wins[0][0] + 6, 20), (door[0] + 5, 16), (wins[1][0] + 6, 20)):
+                for (cx, r) in ((wins[0][0] + nw // 2, 20 * k), (door[0] + door[1] // 2, 16 * k), (wins[1][0] + nw // 2, 20 * k)):
                     d = np.hypot((i - cx) / r, (j - y0 + 2) / (r * 0.8))
                     best = max(best, 1 - d if d < 1 else 0)
                 a = min(best ** 1.1 * 0.85, 0.8)
@@ -84,7 +86,7 @@ class Cabin:
                 v = 0.5 - 0.22 * (i - x0) / w + (0.2 if r == 0 else -0.04 if r == 1 else -0.3)
                 v += 0.1 * (CL[j, i] - 0.5) + 0.05 * np.sin(i * 0.9 + j * 3.1)
                 c = q(LOG, v, j, i)
-                glow = max(max(0, 1 - np.hypot(i - (wx + ww / 2), (j - top - 10) * 1.3) / 14) for (wx, ww) in wins)
+                glow = max(max(0, 1 - np.hypot(i - (wx + ww / 2), (j - top - 4 - nh * 0.5) * 1.3) / (14 * k)) for (wx, ww) in wins)
                 put(i, j, c * (1 - 0.45 * glow) + WARM * 0.45 * glow)
         # log ends at both corners, round discs on every log
         for j in range(top, y0 - 2, 3):
@@ -93,17 +95,17 @@ class Cabin:
                     put(cx + u, j + v, q(LOG, lit + k, j, cx))
         # 4) windows: bright warm panes with a cross of bars and a soft glow around them
         for (wx0, ww) in wins:
-            for j in range(top + 4, top + 16):
+            for j in range(top + 4, top + 4 + nh):
                 for i in range(wx0, wx0 + ww):
-                    edge = i in (wx0, wx0 + ww - 1) or j in (top + 4, top + 15)
-                    bar = i == wx0 + ww // 2 or j == top + 9
+                    edge = i in (wx0, wx0 + ww - 1) or j in (top + 4, top + 3 + nh)
+                    bar = (i == wx0 + ww // 2 or j == top + 4 + nh // 2 - 1) and nh >= 7
                     if edge: c = q(LOG, 0.22, j, i)
                     elif bar: c = FL[1]
-                    else: c = FL[4] if (j - top) < 9 and CL[j, i] > 0.3 else FL[3] if CL[j, i] > 0.25 else FL[2]
+                    else: c = FL[4] if (j - top) < 4 + (nh * 5) // 12 and CL[j, i] > 0.3 else FL[3] if CL[j, i] > 0.25 else FL[2]
                     put(i, j, c)
             for i in range(wx0 - 1, wx0 + ww + 1):                     # snow on the sill, lumpy
-                put(i, top + 16, q(SNOWR, 0.8 + 0.1 * wob[i % 300], top + 16, i))
-                if CL[top + 17, i % W] > 0.6: put(i, top + 17, q(SNOWR, 0.6, top + 17, i))
+                put(i, top + 4 + nh, q(SNOWR, 0.8 + 0.1 * wob[i % 300], top + 4 + nh, i))
+                if CL[(top + 5 + nh) % H, i % W] > 0.6: put(i, top + 5 + nh, q(SNOWR, 0.6, top + 5 + nh, i))
         dx, dw = door
         for j in range(top + 5, y0 - 1):
             for i in range(dx, dx + dw):
