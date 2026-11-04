@@ -100,12 +100,27 @@ def fall_frame(img, G, f):
             if frng.random() < 0.35 and k < (bot - top) * 0.6:
                 ix = int(cx + side * (half + 2 + frng.integers(0, 4)))
                 img[y, ix] = ICE[4] if frng.random() < 0.6 else ICE[3]
-    for y in range(bot - 3, bot + 9):                                    # foam and spray where it meets the lake
-        for x in range(fx - 13, fx + 14):
-            d = np.hypot((x - fx) / 13.0, (y - bot - 2) / 6.0)
-            if d < 1 and ffoam[y, x] < (1 - d) * 0.9:
-                img[y, x] = SNOWR[6] if ffoam[y, x] < 0.45 else SNOWR[5]
-
+    for y in range(bot - 4, bot + 12):                                   # foam where it meets the lake
+        for x in range(fx - 18, fx + 19):
+            d = np.hypot((x - fx) / 18.0, (y - bot - 3) / 8.0)
+            if d < 1 and ffoam[y, x] < (1 - d) ** 0.7 * 0.95:
+                img[y, x] = SNOWR[6] if ffoam[y, x] < 0.5 else SNOWR[5]
+    srng = np.random.default_rng(300 + f)
+    for _ in range(26):                                                  # spray thrown out, new every frame
+        a_, r_ = srng.uniform(np.pi, 2 * np.pi), srng.uniform(6, 22)
+        x, y = int(fx + np.cos(a_) * r_), int(bot + 2 + np.sin(a_) * r_ * 0.55)
+        img[y, x] = SNOWR[6]
+    for y in range(bot - 14, bot - 2):                                   # mist rising beside the fall
+        for x in range(fx - 12, fx + 13):
+            if abs(x - fx) > 4 and ffoam[y, x] < 0.12 * (1 - abs(x - fx) / 13.0):
+                img[y, x] = img[y, x] * 0.4 + SNOWR[6] * 0.6
+    for rr, ph in ((14, 0), (20, 4)):                                     # rings spreading on the open water
+        R = rr + (f + ph) % 8 * 0.8
+        for k in range(48):
+            t = np.pi * k / 47
+            x, y = int(fx + np.cos(t) * R), int(bot + 4 + np.sin(t) * R * 0.45)
+            if 0 <= y < img.shape[0] and (k + f) % 3:
+                img[y, x] = img[y, x] * 0.5 + np.array([150, 176, 190.0]) * 0.5
 
 def main(world, out):
     rng = np.random.default_rng(54)
@@ -210,7 +225,8 @@ def main(world, out):
             things.append((foot, 'old', s))
     # the spring: the brook comes out from under a heap of rocks, a little dark pool in front
     sx_, sy_ = C(1190, 348)
-    for dx, dy, r in [(-9, -6, 7), (8, -7, 7), (0, -12, 6), (-16, -1, 5), (15, -2, 5), (-4, -18, 4)]:
+    for dx, dy, r in [(-11, -7, 10), (10, -8, 10), (0, -15, 9), (-20, 0, 7), (19, -1, 7), (-5, -24, 6),
+                      (-8, 5, 6), (7, 6, 5)]:                       # the front two half hide the pool
         things.append((sy_ + dy, 'rock', (sx_ + dx, sy_ + dy, r)))
     # the rock step the water falls over, rocks round the shore, a few loose ones up the slope
     sy, sx = np.nonzero(step & (rng.random((H, W)) < 0.05))
@@ -249,11 +265,11 @@ def main(world, out):
         elif kind == 'east':
             t, x, y = a
             paste(img, t, x, y, root)
-    draw_things(img, things, G, CL, extra)
-
     pool = (((xx - C(1191, 0)[0]) / 5.0) ** 2 + ((yy - C(0, 352)[1]) / 3.0) ** 2) < 1
     img[pool] = np.array([60, 80, 96.0])
     img[ndi.binary_dilation(pool, iterations=1) & ~pool] = ICE[4]
+    draw_things(img, things, G, CL, extra)
+
     base = img.copy()
     fall_frame(img, G, 0)
     if FRAMES_OUT:
