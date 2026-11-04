@@ -7,11 +7,12 @@ on:
 
 env:
   GODOT_VERSION: 4.7.2
-  ## Die Python-Tests unter tools/tests/ lesen die erzeugte Welt (Pillow, numpy).
+  ## Die Python-Tests unter tools/tests/ lesen die erzeugte Welt (Pillow, numpy, scipy).
   ## Beide festgenagelt wie die Godot-Version: sonst entscheidet der Tag, an
   ## dem die CI laeuft, mit welcher Fassung geprueft wird.
   PILLOW_VERSION: 12.3.0
   NUMPY_VERSION: 2.4.4
+  SCIPY_VERSION: 1.18.1
 
 
 jobs:
@@ -31,10 +32,10 @@ jobs:
       - name: Ressourcen importieren
         run: godot --headless --import --quit-after 2000 || true
 
-      - name: Pillow und numpy holen
+      - name: Pillow, numpy und scipy holen
         run: |
-          pip install --quiet "pillow==${PILLOW_VERSION}" "numpy==${NUMPY_VERSION}"
-          python3 -c "import PIL, numpy; print('Pillow', PIL.__version__, 'numpy', numpy.__version__)"
+          pip install --quiet "pillow==${PILLOW_VERSION}" "numpy==${NUMPY_VERSION}" "scipy==${SCIPY_VERSION}"
+          python3 -c "import PIL, numpy, scipy; print('Pillow', PIL.__version__, 'numpy', numpy.__version__, 'scipy', scipy.__version__)"
 
       - name: Inhalte prüfen und Tests laufen lassen
         run: bash tools/test.sh
