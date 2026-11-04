@@ -252,3 +252,16 @@ func test_an_entry_without_a_node_is_made_once_and_dropped_once() -> void:
 	a.update(Rect2(500, 500, 40, 40))
 	a.update(Rect2(500, 500, 40, 40))
 	assert_eq(calls[1], 1, "einmal fallen gelassen")
+
+## 0.10.3: with a step set, small moves of the view are not looked at; a move past it is.
+func test_a_step_skips_small_moves_but_not_large_ones() -> void:
+	var a := Activator.new()
+	a.step = 5.0
+	a.add(Rect2(200, 0, 10, 10), 30.0, 90.0, func(): return Node.new(), func(n): n.free())
+	a.update(Rect2(0, 0, 100, 100))
+	var seen := a.visited
+	a.update(Rect2(3, 0, 100, 100))
+	assert_eq(a.visited, seen, "3 px: nicht neu geschaut")
+	a.update(Rect2(80, 0, 100, 100))
+	assert_eq(a.active_count(), 1, "80 px: aufgewacht")
+	a.clear()

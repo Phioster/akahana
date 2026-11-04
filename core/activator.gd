@@ -8,6 +8,10 @@ extends RefCounted
 const BUCKET := 200.0
 
 var visited := 0                     # entries looked at, for the test
+var step := 0.0                      # look again only once the area moved this far (0.10.3: 7-8 ms a frame,
+                                     # standing still, measured with ~1700 entries awake)
+var _last := Rect2()
+var _looked := false
 var _entries: Array = []             # {where: Rect2, near, far, make: Callable, drop: Callable, node}
 var _buckets := {}                   # Vector2i -> Array[int]
 var _awake := {}                     # id -> true
@@ -27,6 +31,10 @@ func add(where: Rect2, near: float, far: float, make: Callable, drop: Callable) 
 
 
 func update(area: Rect2) -> void:
+	if _looked and area.size == _last.size and area.position.distance_to(_last.position) < step:
+		return
+	_looked = true
+	_last = area
 	for by in range(floori(area.position.y / BUCKET), floori(area.end.y / BUCKET) + 1):
 		for bx in range(floori(area.position.x / BUCKET), floori(area.end.x / BUCKET) + 1):
 			for id in _buckets.get(Vector2i(bx, by), []):
@@ -52,6 +60,7 @@ func active_count() -> int:
 
 
 func clear() -> void:
+	_looked = false
 	for id in _awake.keys():
 		_entries[id]["drop"].call(_entries[id]["node"])
 		_entries[id]["node"] = null

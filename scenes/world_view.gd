@@ -133,6 +133,8 @@ func _make_chunk(c: Vector2i) -> void:
 
 func _add_objects() -> void:
 	_objects_ready = true
+	_objects.step = 3.0              # well inside the 40 px they wake ahead of the view
+	_prefetch.step = 12.0            # well inside the 60 px between the prefetch ring and the objects' ring
 	for s in world.sprites:
 		var where := Rect2(float(s["x"]), float(s["y"]), float(s["w"]), float(s["h"]))
 		_objects.add(where, OBJ_NEAR, OBJ_FAR, _make_object.bind(s), _drop_object)
