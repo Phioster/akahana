@@ -130,6 +130,14 @@ func hang_progress() -> float:
 	return clampf(_hang_t / (HANG_STEP * 4.0), 0.0, 1.0)
 
 
+## Which of the four drawn phases shows now (0 = in his hand .. 3 = hung), -1 when not hanging.
+func hang_phase() -> int:
+	if not is_hanging():
+		return -1
+	var k := mini(int(_hang_t / HANG_STEP), 3)
+	return k if _hang_up else 3 - k
+
+
 func _show_sheet(hang: bool) -> void:
 	for s in [sprite, mirror]:
 		s.texture = _hang_tex if hang else _plain
@@ -149,7 +157,7 @@ func _process(delta: float) -> void:
 			lantern.carried = _hang_up
 			_last_col = -1
 		else:
-			sprite.frame = dir * 4 + (k if _hang_up else 3 - k)
+			sprite.frame = dir * 4 + hang_phase()
 			mirror.frame = sprite.frame
 			sprite.position = global_position.round() - global_position
 			mirror.position = sprite.position

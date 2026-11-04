@@ -857,3 +857,13 @@ func test_the_lantern_hangs_off_the_staff_tip_in_every_facing() -> void:
 		var tx: int = Lantern.TIP_X[row]
 		var cx: int = Lantern.HANG_X[row]
 		assert_eq(absi(cx - tx), 1, "Haken ein Pixel")
+
+
+func test_the_light_sits_on_the_lantern_in_his_hand_while_he_lifts_it() -> void:
+	# phone 0.10.7: the glow already hung at the staff tip while the lantern was still at his waist
+	var img := TextureLoader.load_texture("res://assets/char/wanderer_laterne.png").get_image()
+	for row in 4:
+		for k in 2:
+			var p: Vector2i = Lantern.HELD[row][k]
+			var c := img.get_pixel(k * 16 + p.x + 2, row * 16 + p.y)
+			assert_true(c.r > 0.95 and c.g > 0.65 and c.g < 0.8, "Richtung %d Phase %d: kein Glutpixel bei %s" % [row, k, p])

@@ -6,6 +6,8 @@ extends Node2D
 
 const TIP_X := [9, 2, 7, 3]          # the staff's tip per facing (Player.Dir), in the 12x16 frame
 const HANG_X := [10, 1, 8, 2]        # the lantern's middle: on the staff's outer side, in profile right against it
+const HELD := [[Vector2i(9, 13), Vector2i(11, 9)], [Vector2i(2, 13), Vector2i(0, 9)],   # its glowing pixel while in
+		[Vector2i(8, 13), Vector2i(9, 9)], [Vector2i(2, 13), Vector2i(1, 9)]]       # his hand (phases 0, 1 per facing)
 const TIP_Y := [1, 1, 0, 1, 0, 0, 1, 0]   # the tip bobs with the frame (sheet columns)
 const DARK_ON := 0.55                # grade_field darkness from which he hangs it up ...
 const DARK_OFF := 0.35               # ... and below which he takes it down (apart: no dithering at the edge)
@@ -63,6 +65,10 @@ func _process(_delta: float) -> void:
 
 ## The lantern's glowing pixel in the 12x16 frame (feet at (6, 15)).
 func hang_point() -> Vector2i:
+	if player.is_hanging():
+		var k := player.hang_phase()
+		if k <= 1:
+			return HELD[player.dir][k]
 	var ty := 1 if player.is_hanging() else int(TIP_Y[player.sprite.frame % Player.COLS])
 	return Vector2i(HANG_X[player.dir], ty + 3)
 
