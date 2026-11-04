@@ -32,6 +32,12 @@ Philip (2026-11-04): „nach dem Plan einen Entwurf, wieder mit Abnahme-Seite“
 - Schnee nimmt nach oben zu (Boden heller, Wehen an Felsen und Stämmen). Unter dichten Tannen liegt weniger Schnee.
 - Der Rand über den Gipfeln wird zu Nebel bzw. Fels, ohne harte Kante (Vision Kartenform: keine sichtbaren Weltgrenzen).
 
+- **Breite Überhänge (Philip, 2026-11-04):** Keine Zone ist vom Nachbarn abgetrennt. Auf rund 300 px greifen sie ineinander:
+  - Boden in Flecken: Der alte Boden läuft gespiegelt nach oben, aber ohne seine Pfade und ohne die Felswand.
+  - Tannen wachsen nach Kogarashi und zwischen die Ostwaldbäume hinunter, Ostwaldbäume wachsen nach oben zwischen die Tannen.
+  - Die alte Felswand am oberen Rand löst sich in verstreute Felsen auf.
+  - Bäume, die heute am oberen Weltrand flach abgeschnitten sind, werden ganz neu gezeichnet.
+
 ## Nicht-Ziele
 - Keine Kämpfe, Kletter-Mechanik, Rätsel, Erklärtexte.
 - Keine begehbaren Häuser: Die Hütte bleibt außen, nur das Gewächshaus im Westen ist begehbar.
