@@ -3,7 +3,7 @@
 shader_type canvas_item;
 
 uniform vec2 wanderer = vec2(-1000.0);  // his feet in world pixels
-uniform float open_share = 0.5;         // share of a crown's pixels left out right over him
+uniform float open_share = 0.75;        // share of a crown's pixels left out right over him
 const vec2 HALF = vec2(7.0, 9.0);       // his body around (feet.x, feet.y - 8)
 const float RAMP = 5.0;                 // px over which the screen closes again around him
 
