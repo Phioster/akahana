@@ -237,7 +237,7 @@ class CaveHill:
     """The land heaves up into a snowy hill (no outline: it only shades the ground it rises from); at its
     front a face is cut, and in it the cave runs in like a mine adit, a timber frame round the mouth.
     Just inside: straw mat, tea bowl and a candle whose light falls out onto the snow."""
-    def __init__(s, x, y, rx=70, ry=44, cut=22, mouth=(12, 12), seed=51):
+    def __init__(s, x, y, rx=70, ry=44, cut=16, mouth=(12, 12), seed=51):
         s.x, s.y, s.rx, s.ry, s.cut, s.mouth, s.seed = x, y, rx, ry, cut, mouth, seed   # (x, y) = foot of the mouth
 
     def height(s, H, W):
@@ -263,7 +263,11 @@ class CaveHill:
         h = s.height(H, W)
         # 1) the hill: the ground shaded by its slope (lit from the upper left), a few rocks breaking through
         gy, gx = np.gradient(ndi.gaussian_filter(h, 1.2))
-        shade = np.clip(1 + 24.0 * (gx * 0.7 + gy * 0.9), 0.6, 1.2)       # n.L with light from the upper left
+        shade = np.clip(1 + 26.0 * (gx * 0.9 + gy * 0.45), 0.66, 1.18)    # lit upper left, shade to the lower right
+        yy_, xx_ = np.mgrid[0:H, 0:W]                                   # and its shadow falls on the snow lower right
+        sx = ((xx_ - (s.x + 4 + 0.35 * s.rx)) / (s.rx * 1.05)) ** 2 + ((yy_ - (s.y - s.ry * 0.45)) / (s.ry * 0.9)) ** 2
+        cast = (sx < 1) & (h < 0.05) & (G < 0.85 - 0.6 * sx)
+        img[cast] = img[cast] * 0.86
         on = h > 0.02
         img[on] = np.clip(img[on] * shade[on][:, None], 0, 255)
         rng = np.random.default_rng(s.seed)
@@ -276,7 +280,7 @@ class CaveHill:
         jag = ndi.gaussian_filter1d(rng.normal(0, 1, 4 * cut + 8), 1.5) * 1.5
         for k, i in enumerate(range(x - cut, x + cut + 1)):
             u = (i - x) / cut
-            depth = int(round((mh + 6) * np.sqrt(max(0.0, 1 - u ** 4)) + jag[k]))   # deepest in the middle
+            depth = int(round((mh + 3) * np.sqrt(max(0.0, 1 - u ** 2)) + 1.5 * jag[k]))   # highest over the mouth, ragged
             for j in range(y - depth, y + 1):
                 t = (j - (y - depth)) / max(1, depth)
                 v = 0.62 - 0.4 * t - 0.15 * u + 0.1 * np.sin(j * 0.9 + i * 0.4) + 0.12 * (CL[j % H, i % W] - .5)
