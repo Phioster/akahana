@@ -82,17 +82,23 @@ def main(out):
     look_top = (((xx - LOOK[0]) / 44.0) ** 2 + ((yy - LOOK[1] + 6) / 26.0) ** 2) < 1 + 0.25 * fbm(rng, 6, (H, W))
     things = []
     knoll = (((xx - LOOK[0]) / 64.0) ** 2 + ((yy - LOOK[1] + 6) / np.where(yy > LOOK[1] - 6, 62.0, 40.0)) ** 2) < 1   # knoll + rim; below it reaches further: a fir there grows up over the rock
-    keep = ndi.binary_dilation(gorge.mask(H, W), iterations=6) | path_mask | ridge | knoll | bridge.walk_mask(H, W)
+    keep = ndi.binary_dilation(gorge.mask(H, W), iterations=6) | ndi.binary_dilation(path_mask, iterations=6) | ridge | knoll | bridge.walk_mask(H, W)
     things += Firs().place(rng, wood, keep, NY0, tries=30000)
+    near_path_any = ndi.binary_dilation(path_mask, iterations=8)        # a rock's body reaches past its foot
     for _ in range(320):                                                # loose rocks, more of them higher up
         x, y = int(rng.integers(6, W - 6)), int(rng.integers(10, H - 4))
-        if rng.random() > 0.2 + 0.8 * smooth((560 - y) / 300.0) or keep[y, x]:
+        if rng.random() > 0.2 + 0.8 * smooth((560 - y) / 300.0) or keep[y, x] or near_path_any[y, x]:
             continue
         things.append((y, 'rock', (x, y, int(rng.integers(3, 9)))))
     # stones set along the bends of the path, as if someone had kept it
+    near_path = ndi.binary_dilation(path_mask, iterations=5)
     for p in SERPENTINE[2:-1:2]:
         for k in range(3):
-            things.append((p[1] + 6, 'rock', (p[0] + 9 + 4 * k, p[1] + 6 - k, 3)))
+            for off in range(0, 30, 3):                                 # outward until clear of the path
+                x, y = p[0] + 9 + 4 * k + off, p[1] + 6 - k
+                if 0 <= x < W and 0 <= y < H and not near_path[y, x]:
+                    things.append((y, 'rock', (x, y, 3)))
+                    break
 
     def extra(kind, a):
         if kind == 'east':
