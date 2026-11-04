@@ -32,7 +32,7 @@ func update(area: Rect2) -> void:
 			for id in _buckets.get(Vector2i(bx, by), []):
 				visited += 1
 				var e: Dictionary = _entries[id]
-				if e["node"] == null and _gap(e["where"], area) < e["near"]:
+				if not _awake.has(id) and _gap(e["where"], area) < e["near"]:  # by id: a make may give no node
 					e["node"] = e["make"].call()
 					_awake[id] = true
 	for id in _awake.keys():

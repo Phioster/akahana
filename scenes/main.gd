@@ -21,6 +21,7 @@ var view_node: WorldView
 var marker: TapMarker
 var birds: Birds
 var lake: LakeLife
+var _flog := FrameLog.new()           # diagnosis (forest stutter, 0.10.2): remove once understood
 var _life := Activator.new()         # wisps: made near the view, dropped far from it
 var book: BookUI
 var save := SaveData.new()
@@ -116,6 +117,7 @@ func _ready() -> void:
 	amb.player = player
 	add_child(amb)
 	add_child(Ducker.new())
+	add_child(_flog)
 	var music := Music.new()
 	music.world = world
 	music.player = player
@@ -316,7 +318,10 @@ func _process(delta: float) -> void:
 	var top_left := get_viewport().get_canvas_transform().affine_inverse() * Vector2.ZERO
 	post.set_shader_parameter("view_world", view)
 	post.set_shader_parameter("cam_pos", top_left)
+	var t0 := Time.get_ticks_usec()
 	view_node.update(Rect2(top_left, view))
+	_flog.note(delta, player.is_walking(), player.position, view_node.woke, view_node.woke_sync,
+			Time.get_ticks_usec() - t0, view_node.object_nodes())
 	birds.update_area(Rect2(top_left, view))
 	lake.step(delta, Rect2(top_left, view))
 	_life.update(Rect2(top_left, view))

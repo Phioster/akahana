@@ -5,6 +5,8 @@ extends Node2D
 
 const OBJ_NEAR := 40.0               # objects appear this far outside the view ...
 const OBJ_FAR := 120.0               # ... and go only beyond this
+const PRE_NEAR := 110.0              # their pictures start loading in the background this far out ...
+const PRE_FAR := 170.0               # ... and are let go beyond this (0.10.2: loading them on the spot stalled frames)
 
 var world: WorldData
 var store: ChunkStore
@@ -15,6 +17,10 @@ var _chunks := {}                    # Vector2i -> [ground Sprite2D, flowers Spr
 var _keep: Array[Vector2i] = []
 var _objects := Activator.new()
 var _objects_ready := false
+var _prefetch := Activator.new()
+var _fetched := {}                   # sprite path -> true while its picture loads or waits in the background
+var woke := 0                        # objects made / pictures loaded on the spot this frame (FrameLog)
+var woke_sync := 0
 var _animated := {}                  # Sprite2D -> [frames, fps]
 var _t := 0.0
 var _trail := [[], []]
@@ -47,6 +53,9 @@ func update(view: Rect2) -> void:
 	for c in keep:
 		if not _chunks.has(c) and store.is_ready(c):
 			_make_chunk(c)
+	woke = 0
+	woke_sync = 0
+	_prefetch.update(view)
 	_objects.update(view)
 
 
@@ -127,11 +136,47 @@ func _add_objects() -> void:
 	for s in world.sprites:
 		var where := Rect2(float(s["x"]), float(s["y"]), float(s["w"]), float(s["h"]))
 		_objects.add(where, OBJ_NEAR, OBJ_FAR, _make_object.bind(s), _drop_object)
+		_prefetch.add(where, PRE_NEAR, PRE_FAR, _fetch.bind(_path(s)), _unfetch.bind(_path(s)))
+
+
+static func _path(s: Dictionary) -> String:
+	return "res://assets/world/sprites/%s.png" % s["name"]
+
+
+## Export only (the dev device has no import cache and loads on the spot as before). The picture is kept
+## while he is within PRE_FAR, so an object dropped and made again does not load it a second time.
+func _fetch(path: String) -> Node:
+	if ResourceLoader.exists(path) and not _fetched.has(path):
+		ResourceLoader.load_threaded_request(path)
+		_fetched[path] = null
+	return null
+
+
+func _unfetch(_n: Node, path: String) -> void:
+	if _fetched.has(path) and _fetched[path] == null \
+			and ResourceLoader.load_threaded_get_status(path) == ResourceLoader.THREAD_LOAD_LOADED:
+		ResourceLoader.load_threaded_get(path)      # a finished load waits in the loader until taken
+	_fetched.erase(path)
+
+
+func _texture(path: String) -> Texture2D:
+	if _fetched.has(path):
+		if _fetched[path] == null and ResourceLoader.load_threaded_get_status(path) == ResourceLoader.THREAD_LOAD_LOADED:
+			_fetched[path] = ResourceLoader.load_threaded_get(path)
+		if _fetched[path] != null:
+			return _fetched[path]
+	woke_sync += 1
+	var t := TextureLoader.load_texture(path)
+	if _fetched.has(path) and _fetched[path] == null:
+		ResourceLoader.load_threaded_get(path)       # finish the background request (load() shared its result)
+		_fetched[path] = t
+	return t
 
 
 func _make_object(s: Dictionary) -> Node:
+	woke += 1
 	var sp := Sprite2D.new()
-	sp.texture = TextureLoader.load_texture("res://assets/world/sprites/%s.png" % s["name"])
+	sp.texture = _texture(_path(s))
 	sp.centered = false
 	sp.hframes = int(s["frames"])
 	sp.position = Vector2(float(s["x"]), float(s["foot"]))

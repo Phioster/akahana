@@ -240,3 +240,15 @@ func test_the_jetty_reaches_out_over_deep_water() -> void:
 	assert_false(s.walkable(Vector2(578, 3012)), "hinter dem Ende tiefes Wasser")
 	assert_false(s.walkable(Vector2(566, 2995)), "neben dem Steg kein Waten im Tiefen")
 	assert_false(s.walkable(Vector2(592, 3000)), "neben dem Steg kein Waten im Tiefen")
+
+## 0.10.2: the picture prefetch registers entries that make no node; they must be made once, not every frame.
+func test_an_entry_without_a_node_is_made_once_and_dropped_once() -> void:
+	var a := Activator.new()
+	var calls := [0, 0]
+	a.add(Rect2(100, 100, 10, 10), 20.0, 60.0, func(): calls[0] += 1; return null, func(_n): calls[1] += 1)
+	for i in 3:
+		a.update(Rect2(90, 90, 40, 40))
+	assert_eq(calls[0], 1, "einmal gemacht")
+	a.update(Rect2(500, 500, 40, 40))
+	a.update(Rect2(500, 500, 40, 40))
+	assert_eq(calls[1], 1, "einmal fallen gelassen")
