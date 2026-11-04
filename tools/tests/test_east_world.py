@@ -75,25 +75,20 @@ class EastWorld(unittest.TestCase):
         self.assertGreater(checked, 200)
         self.assertLess(bad / checked, 0.03)
 
-    def test_the_wood_opens_only_along_its_paths_and_clearings(self):
-        lm = L.masks()
-        ok = np.zeros((self.cells.shape[0] * 2, self.cells.shape[1] * 2), bool)
-        try:
-            from scipy import ndimage as ndi
-        except ImportError:
-            self.skipTest('scipy fehlt (CI)')
-        ok[L.Y0:L.Y1, L.X0:L.X1] = ndi.binary_dilation(lm.path | lm.clearing, iterations=6)
-        east = np.zeros_like(self.cells)
-        east[:, 450:] = self.cells[:, 450:]                      # x >= 900
-        ys, xs = np.nonzero(east)
-        self.assertGreater(len(ys), 20000, 'the wood is open')
-        meadow = (ys * 2 >= 2260) & (xs * 2 < 1520)              # the fringe's open meadow tongue
-        stray = ~ok[ys * 2, xs * 2] & ~meadow
-        self.assertLess(stray.mean(), 0.02)
+    def test_the_wood_floor_is_open_between_the_trunks(self):
+        # Philip, 2026-11-04: one walks between the trees like in a real wood, not only on its paths
+        wood = self.cells[200:1400, 480:870]                     # x 960..1740, y 400..2800: deep wood
+        self.assertGreater(wood.mean(), 0.75)
+        trunks = [s for s in self.w['sprites'] if s['name'].startswith('e') and 400 <= s['foot'] < 2800
+                  and 960 <= s['x'] + s['w'] // 2 < 1700 and s['h'] >= 40]
+        self.assertGreater(len(trunks), 50)
+        shut = [self.cells[(s['foot'] - 1) // 2, (s['x'] + s['w'] // 2) // 2] == 0 for s in trunks]
+        self.assertGreater(np.mean(shut), 0.6)                   # a tall thing's foot blocks (trunks sit near the middle)
 
-    def test_the_wood_is_closed_outside_its_frame(self):
-        self.assertFalse(self.cells[:150, 450:].any())           # y < 300
-        self.assertFalse(self.cells[1560:, 450:].any())          # y >= 3120: below the wood
+    def test_the_wood_is_closed_at_the_world_rim(self):
+        self.assertFalse(self.cells[:15, 450:].any())             # y < 30
+        self.assertFalse(self.cells[:, -15:].any())              # the east edge
+        self.assertFalse(self.cells[-15:, 450:].any())
 
     def test_ground_materials_mark_paths_and_the_deck(self):
         east = self.mat[150:1550, 270:]

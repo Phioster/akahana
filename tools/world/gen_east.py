@@ -745,14 +745,18 @@ def finish(r):
     own = own_mask(r, x0, y0, x1, y1)
     wm = water_east(gu8, masks, r['pieces'])
     wat = wm[reg][..., 3] > 0
-    wE = ndi.binary_dilation(lm.path, iterations=2) | lm.clearing
-    wE &= ~(wat | blocked[reg])
+    wE = ~(wat | blocked[reg])                                    # the wood floor is open between the trunks (Philip, 2026-11-04)
     deck = np.zeros_like(wE)
     for k in ('Steg', 'Steinbruecke'):
         if k in masks:
             deck |= masks[k][reg] & ndi.binary_dilation(lm.path | lm.clearing, iterations=3)
     deck &= ~blocked[reg]
     wE |= deck
+    rim = np.zeros_like(wE)                                      # the wood thickens before the map ends: no walking up to the screen's rim
+    rim[:max(0, 40 - y0)] = True
+    rim[max(0, H - 40 - y0):] = True
+    rim[:, max(0, WW - 40 - x0):] = True
+    wE &= ~rim
     wE |= stones_band(x0, y0, x1, y1)                             # the pond's stepping stones (spot4_pond.CROSSINGS)
     walk = np.fromfile(os.path.join(src, 'walk.bin'), np.uint8).reshape(H, WW).astype(bool)
     sub = walk[reg]
@@ -772,6 +776,9 @@ def finish(r):
     walk[ts] |= tongue & (np.arange(ZS.X0, ZS.X1)[None, :] >= 860)   # the south's closed east edge opens along the tongue
     r['tongue'] = tongue
     r['wm'] = wm
+    a, b = walk[:, SOUTH_W - 14], walk[:, SOUTH_W + 2]          # the south's closed 10-px east edge: now the open wood meets it,
+    seam = (a & b)[:, None] & ~blocked[:, SOUTH_W - 13:SOUTH_W + 2] & ~(wm[:, SOUTH_W - 13:SOUTH_W + 2, 3] > 0)
+    walk[:, SOUTH_W - 13:SOUTH_W + 2] |= seam                    # open it wherever both sides are open (no invisible wall)
     st = w['start']
     lab, _ = ndi.label(walk, structure=np.ones((3, 3)))
     walk &= lab == lab[int(st['y']), int(st['x'])]

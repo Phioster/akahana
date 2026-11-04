@@ -265,3 +265,17 @@ func test_a_step_skips_small_moves_but_not_large_ones() -> void:
 	a.update(Rect2(80, 0, 100, 100))
 	assert_eq(a.active_count(), 1, "80 px: aufgewacht")
 	a.clear()
+
+func test_standing_objects_open_over_the_wanderer() -> void:
+	# one walks among the trees: what stands in front of him is screened open (canopy.gdshader)
+	var v := _view(Rect2(180, 400, 180, 400))
+	v.set_wanderer(Vector2(250, 600))
+	var seen := 0
+	for n in v.sorted.get_children():
+		if n is Sprite2D:
+			seen += 1
+			var m := (n as Sprite2D).material as ShaderMaterial
+			assert_true(m != null and m.shader.resource_path.ends_with("canopy.gdshader"), "Objekt ohne Kronen-Shader")
+			assert_eq(m.get_shader_parameter("wanderer"), Vector2(250, 600))
+	assert_true(seen > 0, "Objekte da")
+	v.queue_free()

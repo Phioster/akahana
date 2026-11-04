@@ -13,6 +13,7 @@ var store: ChunkStore
 var sorted: Node2D                   # the y-sorted layer objects stand in (the wanderer lives there too)
 var _shader: Shader = preload("res://shaders/flowers.gdshader")
 var _water: Shader = preload("res://shaders/water.gdshader")
+var _canopy := ShaderMaterial.new()  # shared by every standing object: opens what stands in front of him
 var _chunks := {}                    # Vector2i -> [ground Sprite2D, flowers Sprite2D]
 var _keep: Array[Vector2i] = []
 var _objects := Activator.new()
@@ -22,6 +23,10 @@ var _fetched := {}                   # sprite path -> true while its picture loa
 var _animated := {}                  # Sprite2D -> [frames, fps]
 var _t := 0.0
 var _trail := [[], []]
+
+
+func _init() -> void:
+	_canopy.shader = preload("res://shaders/canopy.gdshader")
 
 
 func _process(delta: float) -> void:
@@ -60,6 +65,10 @@ func load_around(p: Vector2) -> void:
 	var size := Vector2(ChunkGrid.SIZE)
 	for c in store.grid.chunks_in(Rect2(p - size, size * 2.0)):
 		store.load_now(c)
+
+
+func set_wanderer(feet: Vector2) -> void:
+	_canopy.set_shader_parameter("wanderer", feet)
 
 
 func set_trail(points: Array, k: Array) -> void:
@@ -175,6 +184,7 @@ func _make_object(s: Dictionary) -> Node:
 	sp.texture = _texture(_path(s))
 	sp.centered = false
 	sp.hframes = int(s["frames"])
+	sp.material = _canopy
 	sp.position = Vector2(float(s["x"]), float(s["foot"]))
 	sp.offset = Vector2(0, float(s["y"]) - float(s["foot"]))
 	sorted.add_child(sp)

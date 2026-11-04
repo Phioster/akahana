@@ -283,6 +283,7 @@ func _process(delta: float) -> void:
 	_last_pos = player.position
 	var u: Array = trail.uniforms()
 	view_node.set_trail(u[0], u[1])
+	view_node.set_wanderer(player.position)
 
 	var view := get_viewport().get_visible_rect().size
 	var c := player.position + _cam_offset                # no rounding: the camera glides in screen pixels
