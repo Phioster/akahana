@@ -9,14 +9,20 @@ const WALK := 6
 const CONTACT := [1, 4]              # walk frames where a foot lands
 const TURN := 9.0                    # how fast he swings into a new heading: corners become small curves
 enum Dir { DOWN, UP, LEFT, RIGHT }
+const HANG_STEP := 0.22              # s per phase of hanging the lantern up (4 phases, wanderer_laterne.png)
 
 signal stepped                       # a foot touches the ground (twice per walk cycle)
 
 var path := PackedVector2Array()
 var dir: int = Dir.DOWN
 var sprite: Sprite2D
+var lantern: Lantern                 # lit only in the dark places (scenes/lantern.gd)
 var mirror: Sprite2D                 # his reflection on the water (shaders/reflection.gdshader)
 var _t := 0.0
+var _hang_t := -1.0                  # >= 0 while he stands and hangs the lantern up (or takes it down)
+var _hang_up := true
+var _plain: Texture2D
+var _hang_tex: Texture2D
 var _last_col := -1
 var _heading := Vector2.ZERO
 var _shade := {"dim": 1.0, "dir": Vector2.DOWN, "len": 6.0, "a": 0.0}
@@ -29,7 +35,12 @@ func _ready() -> void:
 	sprite.vframes = 4
 	sprite.centered = false
 	sprite.offset = Vector2(-6, -15)    # feet at the node's position
+	_plain = sprite.texture
+	_hang_tex = TextureLoader.load_texture("res://assets/char/wanderer_laterne.png")
 	add_child(sprite)
+	lantern = Lantern.new()
+	lantern.player = self
+	sprite.add_child(lantern)
 	mirror = Sprite2D.new()              # below his feet, upside down: shows only on open water
 	mirror.name = "Spiegelbild"
 	mirror.texture = sprite.texture
@@ -74,17 +85,75 @@ func _draw() -> void:
 		for x in range(-half, half + 1):
 			var edge := absf(float(x)) / (half + 1)
 			draw_rect(Rect2(x, y, 1, 1), Color(dark, 0.42 * (1.0 - 0.6 * edge)))
+	# the cast shadow: a tapering smear from the feet away from the strongest light, on whole pixels
+	var a: float = _shade["a"]
+	if a > 0.0:
+		var away: Vector2 = _shade["dir"]
+		var ln: float = _shade["len"]
+		var steps := int(ln)
+		for i in steps:
+			var s := float(i) / maxf(1.0, ln)
+			var c := Vector2(roundf(away.x * ln * s), roundf(away.y * ln * s * 0.6))
+			var hw := int(roundf(3.4 - 1.2 * s))
+			var hh := 1 if s < 0.6 else 0
+			for y in range(-hh, hh + 1):
+				for x in range(-hw, hw + 1):
+					draw_rect(Rect2(c.x + x, c.y + y, 1, 1), Color(0.05, 0.04, 0.06, a * 0.5 * (1.0 - 0.5 * s)))
+
 
 func walk_to(points: PackedVector2Array) -> void:
 	path = points
 
 
 func is_walking() -> bool:
-	return not path.is_empty()
+	return not path.is_empty() and not is_hanging()
+
+
+func is_hanging() -> bool:
+	return _hang_t >= 0.0
+
+
+## He stops, holds the lantern up and hangs it on his staff (up) or takes it down again; the way he was
+## going waits until he is done.
+func hang_lantern(up: bool) -> void:
+	if is_hanging() or _hang_tex == null:
+		return
+	_hang_up = up
+	_hang_t = 0.0
+	_show_sheet(true)
+
+
+## 0..1 how far the hanging has come (the lantern's light follows it).
+func hang_progress() -> float:
+	if not is_hanging():
+		return -1.0
+	return clampf(_hang_t / (HANG_STEP * 4.0), 0.0, 1.0)
+
+
+func _show_sheet(hang: bool) -> void:
+	for s in [sprite, mirror]:
+		s.texture = _hang_tex if hang else _plain
+		s.hframes = 4 if hang else COLS
+	sprite.offset = Vector2(-8, -15) if hang else Vector2(-6, -15)
+	mirror.offset = Vector2(-8, 1) if hang else Vector2(-6, 1)
 
 
 func _process(delta: float) -> void:
 	_t += delta
+	if is_hanging():
+		_hang_t += delta
+		var k := int(_hang_t / HANG_STEP)
+		if k >= 4:
+			_hang_t = -1.0
+			_show_sheet(false)
+			lantern.carried = _hang_up
+			_last_col = -1
+		else:
+			sprite.frame = dir * 4 + (k if _hang_up else 3 - k)
+			mirror.frame = sprite.frame
+			sprite.position = global_position.round() - global_position
+			mirror.position = sprite.position
+			return
 	var step := SPEED * delta
 	if path.is_empty():
 		_heading = Vector2.ZERO
@@ -131,17 +200,3 @@ func _face(v: Vector2) -> void:
 		dir = Dir.RIGHT if v.x > 0.0 else Dir.LEFT
 	else:
 		dir = Dir.DOWN if v.y > 0.0 else Dir.UP
-	# the cast shadow: a tapering smear from the feet away from the strongest light, on whole pixels
-	var a: float = _shade["a"]
-	if a > 0.0:
-		var dir: Vector2 = _shade["dir"]
-		var ln: float = _shade["len"]
-		var steps := int(ln)
-		for i in steps:
-			var s := float(i) / maxf(1.0, ln)
-			var c := Vector2(roundf(dir.x * ln * s), roundf(dir.y * ln * s * 0.6))
-			var hw := int(roundf(3.4 - 1.2 * s))
-			var hh := 1 if s < 0.6 else 0
-			for y in range(-hh, hh + 1):
-				for x in range(-hw, hw + 1):
-					draw_rect(Rect2(c.x + x, c.y + y, 1, 1), Color(0.05, 0.04, 0.06, a * 0.5 * (1.0 - 0.5 * s)))

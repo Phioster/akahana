@@ -800,3 +800,60 @@ func test_the_view_glides_in_screen_pixels_not_art_pixels() -> void:
 		last = c
 	assert_true(steps.size() <= 2, "gleichmäßig in Bildschirmpixeln: %s" % [steps.keys()])
 	assert_false(steps.has(0.0), "rückt jedes Bild weiter, nicht nur jedes vierte")
+
+
+func test_he_hangs_up_his_lantern_in_the_dark_wood_and_takes_it_down_outside() -> void:
+	# Philip 2026-11-04: in the dark he stops, lifts the lantern from his hand onto the staff; outside, back down
+	var tree := Engine.get_main_loop() as SceneTree
+	var p := Player.new()
+	tree.root.add_child(p)
+	var w := WorldData.load_default()
+	p.lantern.world_size = Vector2(w.width, w.height)
+	assert_almost_eq(p.lantern.darkness(Vector2(243, 1070), p.lantern.world_size), 0.0, 0.05, "Lager hell")
+	assert_true(p.lantern.darkness(Vector2(1250, 1700), p.lantern.world_size) > 0.9, "Ostwald dunkel")
+	p.position = Vector2(243, 1070)
+	p.lantern._process(0.1)
+	assert_false(p.is_hanging(), "auf der Wiese keine Laterne")
+	assert_almost_eq(float(p.lantern.light_data()["k"]), 0.0, 0.001)
+	p.position = Vector2(1250, 1700)
+	p.walk_to(PackedVector2Array([Vector2(1300, 1700)]))
+	p.lantern._process(0.1)
+	assert_true(p.is_hanging(), "haengt sie auf")
+	assert_false(p.is_walking(), "steht dabei")
+	var at := p.position
+	p._process(0.3)
+	assert_eq(p.position, at, "geht nicht weiter, solange er aufhaengt")
+	assert_eq(p.sprite.texture, p._hang_tex)
+	assert_eq(p.sprite.frame, p.dir * 4 + 1)
+	p.lantern._process(0.0)
+	assert_true(p.lantern.lit > 0.2 and p.lantern.lit < 0.5, "Licht kommt mit: %f" % p.lantern.lit)
+	for i in 6:
+		p._process(0.1)
+	assert_false(p.is_hanging())
+	assert_true(p.lantern.carried, "haengt am Stab")
+	assert_eq(p.sprite.hframes, Player.COLS, "wieder das normale Blatt")
+	p.lantern._process(0.0)
+	assert_almost_eq(p.lantern.lit, 1.0, 0.001)
+	var l: Dictionary = p.lantern.light_data()
+	assert_eq(l["kind"], "lantern")
+	assert_true(Vector2(l["x"], l["y"]).distance_to(p.position) < 16.0, "Licht am Moench")
+	p._process(0.5)
+	assert_true(p.position != at, "laeuft danach weiter")
+	p.path = PackedVector2Array()
+	p.position = Vector2(243, 1070)
+	p.lantern._process(0.0)
+	assert_true(p.is_hanging() and not p.lantern.carried, "nimmt sie draussen ab")
+	for i in 10:
+		p._process(0.1)
+	p.lantern._process(0.0)
+	assert_almost_eq(p.lantern.lit, 0.0, 0.001)
+	assert_false(p.lantern.carried)
+	p.queue_free()
+
+
+func test_the_lantern_hangs_off_the_staff_tip_in_every_facing() -> void:
+	# Philip: in profile it lies right against the staff, front and back one pixel out on a hook
+	for row in 4:
+		var tx: int = Lantern.TIP_X[row]
+		var cx: int = Lantern.HANG_X[row]
+		assert_eq(absi(cx - tx), 1, "Haken ein Pixel")

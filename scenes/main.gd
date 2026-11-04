@@ -64,6 +64,7 @@ func _ready() -> void:
 	player = Player.new()
 	player.position = _start_position()
 	sorted.add_child(player)
+	player.lantern.world_size = Vector2(world.width, world.height)
 	_last_pos = player.position
 
 	marker = TapMarker.new()
@@ -361,7 +362,7 @@ func _feed_lights(view: Rect2) -> void:
 		info.append(Vector4.ZERO)
 	var near: Array = []                               # everything that lights him, for robe and shadow
 	for l in all:
-		if Vector2(float(l["x"]), float(l["y"])).distance_to(player.position) < float(l["r"]) + 4.0:
+		if not l.get("own", false) and Vector2(float(l["x"]), float(l["y"])).distance_to(player.position) < float(l["r"]) + 4.0:
 			near.append(l)
 	var flies: Array[Vector4] = []                     # the fireflies' tiny lights: their own list, so the
 	for sw in get_tree().get_nodes_in_group("fireflies"):  # lamps keep their 16 slots
