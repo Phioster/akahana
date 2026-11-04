@@ -71,9 +71,25 @@ func find_path(a: Vector2, b: Vector2) -> PackedVector2Array:
 	if ca.x < 0 or cb.x < 0:
 		return out
 	var ids := grid.get_id_path(ca, cb)
+	if ids.is_empty() and ca != cell_of(a):
+		ids = _from_beside(cell_of(a), cb)
 	for id in ids:
 		out.append(Vector2(id.x * CELL + CELL * 0.5, id.y * CELL + CELL * 0.5))
 	return smooth(out)
+
+
+## He stands off the free ground (a bend swung him a pixel into the water) and the nearest free cell
+## leads nowhere: try the other free cells round him, nearest first, until one has a way.
+func _from_beside(c: Vector2i, cb: Vector2i, max_r: int = 6) -> Array[Vector2i]:
+	for r in range(1, max_r + 1):
+		for dy in range(-r, r + 1):
+			for dx in range(-r, r + 1):
+				var n := c + Vector2i(dx, dy)
+				if maxi(absi(dx), absi(dy)) == r and is_free(n):
+					var ids := grid.get_id_path(n, cb)
+					if not ids.is_empty():
+						return ids
+	return []
 
 
 ## Pull the grid staircase straight: from each point jump to the furthest later point that a straight,

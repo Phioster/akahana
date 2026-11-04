@@ -216,3 +216,18 @@ func test_one_can_walk_round_the_lake_over_the_brook_mouths() -> void:
 	for i in range(1, west.size()):
 		dist += west[i - 1].distance_to(west[i])
 	assert_true(dist < 600.0, "kein Umweg über die Brücke oben: %.0f px" % dist)
+
+## 0.10.1: at the pond he stood a pixel in the water and the nearest free cell was a lone one in the
+## shallows: no tap moved him. Another free cell beside him must be tried.
+func test_a_lone_free_cell_beside_him_does_not_trap_him() -> void:
+	var walls := [Vector2i(5, 5), Vector2i(4, 4), Vector2i(5, 4), Vector2i(3, 5), Vector2i(4, 6)]
+	var m := PackedByteArray()
+	m.resize(40 * 40)
+	for y in 40:
+		for x in 40:
+			m[y * 40 + x] = 0 if walls.has(Vector2i(x / 2, y / 2)) else 1
+	var p := Pathing.new()
+	p.build(m, 40, 40)
+	assert_eq(p.nearest_free(Vector2i(5, 5)), Vector2i(4, 5), "die einsame Zelle ist die naechste")
+	var way := p.find_path(Vector2(11, 11), Vector2(34, 34))
+	assert_true(way.size() > 0, "trotzdem ein Weg")

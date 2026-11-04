@@ -7,7 +7,7 @@ import unittest
 import numpy as np
 from PIL import Image
 
-from tools.world.split_chunks import split
+from tools.world.split_chunks import keep_main, split
 
 
 class Chunks(unittest.TestCase):
@@ -40,7 +40,7 @@ class Chunks(unittest.TestCase):
     def test_reassembled_chunks_equal_the_original(self):
         g = np.concatenate([np.concatenate([self._png(cx, cy, 'ground') for cx in range(2)], 1) for cy in range(2)], 0)
         self.assertTrue((g == self.ground).all())
-        for kind, ref in (('cells', self.cells), ('mat', self.mat)):
+        for kind, ref in (('cells', keep_main(self.cells)), ('mat', self.mat)):
             b = np.concatenate([np.concatenate([self._bin(cx, cy, kind) for cx in range(2)], 1) for cy in range(2)], 0)
             self.assertTrue((b == ref).all(), kind)
 
@@ -61,3 +61,12 @@ class Chunks(unittest.TestCase):
                 paths = np.fromfile(os.path.join(self.out, f'c_{cx}_{cy}_paths.bin'), '<i4')
                 self.assertTrue((walls == np.flatnonzero(cells == 0)).all())
                 self.assertTrue((paths == np.flatnonzero((cells != 0) & (mat != 0) & (mat != 4))).all())
+
+
+class KeepMain(unittest.TestCase):
+    def test_keep_main_closes_lone_cells(self):
+        c = np.ones((10, 10), np.uint8)
+        c[4:7, 4:7] = 0
+        c[5, 5] = 1                                   # walled in on all four sides
+        k = keep_main(c)
+        assert k[5, 5] == 0 and k[0, 0] == 1 and int(k.sum()) == 91

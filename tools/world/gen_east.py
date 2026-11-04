@@ -140,7 +140,9 @@ def lights_of(res, i):
 
 def spot_piece(name, mod, adapt):
     c = collect.collect_window(lambda: adapt(mod.render()), mod.W)
-    return Piece(name, mod.X0, mod.Y0, c, rect_weight(mod.H, mod.W), lights_of(c.result, 2))
+    p = Piece(name, mod.X0, mod.Y0, c, rect_weight(mod.H, mod.W), lights_of(c.result, 2))
+    p.ver = getattr(mod, 'VER', 0)                               # a cached spot older than its module is drawn anew
+    return p
 
 
 def forest_weight(x0, y0, h, w):
@@ -528,6 +530,16 @@ def main(src=None, out=None):
             import pickle
             with open(cache, 'wb') as f:
                 pickle.dump((pieces, ZS.render.open_), f, protocol=4)
+    spot_mods = {'s3': (s3, lambda r: r), 's4': (s4, lambda r: (r,)), 's5': (s5, lambda r: r), 's6': (s6, lambda r: r),
+                 's7': (s7, lambda r: r)}
+    stale = [i for i, p in enumerate(pieces) if p.name in spot_mods and getattr(p, 'ver', 0) < getattr(spot_mods[p.name][0], 'VER', 0)]
+    for i in stale:
+        print(' spot', pieces[i].name, 'anew', flush=True)
+        pieces[i] = spot_piece(pieces[i].name, *spot_mods[pieces[i].name])
+    if stale and cache:
+        import pickle
+        with open(cache, 'wb') as f:
+            pickle.dump((pieces, ZS.render.open_), f, protocol=4)
     pieces[0].weight = forest_weight(pieces[0].x0, pieces[0].y0, pieces[0].h, pieces[0].w)   # cheap: tunable without re-rendering the wood
     for p in [p for p in pieces if p.name in ('s3', 's4', 's5', 's6', 's7')]:   # the spots never reach into the south's ground below zone 1's top
         p.weight = spot_weight(p)
@@ -599,7 +611,15 @@ def east_materials(r, own):
         mat[mk['Steg'][reg]] = WOOD
     if 'Steinbruecke' in mk:
         mat[mk['Steinbruecke'][reg] & ndi.binary_dilation(lm.path, iterations=3)] = STONE
+    mat[stones_band(x0, y0, x1, y1)] = STONE
     return mat
+
+
+def stones_band(x0, y0, x1, y1):
+    """The pond's stepping stones as a walkable band in the window x0..x1, y0..y1."""
+    out = np.zeros((y1 - y0, x1 - x0), bool)
+    out[s4.Y0 - y0:s4.Y0 - y0 + s4.H, s4.X0 - x0:s4.X0 - x0 + s4.W] = s4.crossing_band()
+    return out
 
 
 def wat_at(wm, x0, y0, w, h):
@@ -676,6 +696,7 @@ def finish(r):
             deck |= masks[k][reg] & ndi.binary_dilation(lm.path | lm.clearing, iterations=3)
     deck &= ~blocked[reg]
     wE |= deck
+    wE |= stones_band(x0, y0, x1, y1)                             # the pond's stepping stones (spot4_pond.CROSSINGS)
     walk = np.fromfile(os.path.join(src, 'walk.bin'), np.uint8).reshape(H, WW).astype(bool)
     sub = walk[reg]
     sub[own] = wE[own]

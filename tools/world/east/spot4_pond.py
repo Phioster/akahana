@@ -21,8 +21,22 @@ import objects_lake as ol  # noqa: E402
 import objects_water as ow  # noqa: E402
 
 S = L.SPOTS['4']
+VER = 2                                     # 2: the stepping stones (gen_east draws a cached older pond anew)
 X0, Y0, X1, Y1 = int(S.x) - 135, int(S.y) - 160, int(S.x) + 135, int(S.y) + 125
 W, H = X1 - X0, Y1 - Y0
+# stepping stones over the river's mouth and the brook's outlet: without them the pond's meadow fell into three
+# parts and the way from the moss path never reached the Jizo path (Philip, 2026-11-04). Window px: x, y, angle, span
+CROSSINGS = [(220, 126, np.pi / 2, L.RIVER_W + 2), (149, 236, 0.0, 11)]
+
+
+def crossing_band(width=6):
+    """Where one walks over the stones (window pixels): a band along each row of stones, past the banks."""
+    im = Image.new('L', (W, H), 0)
+    d = ImageDraw.Draw(im)
+    for x, y, a, span in CROSSINGS:
+        h = span / 2 + 4
+        d.line([(x - np.cos(a) * h, y - np.sin(a) * h), (x + np.cos(a) * h, y + np.sin(a) * h)], fill=1, width=width)
+    return np.array(im) > 0
 
 
 def water_masks():
@@ -57,6 +71,7 @@ def render(seed=29):
     F.draw(img, items, G)
     # the shore: reeds and cattails, lilies out on the water
     ring = ndi.binary_dilation(water, iterations=4) & ~ndi.binary_dilation(water, iterations=1) & ~masks['path']
+    ring &= ~ndi.binary_dilation(crossing_band(), iterations=4)          # no reeds on the stepping stones' ends
     ys, xs = np.nonzero(ring)
     for _ in range(46):
         i = int(rng.integers(0, len(ys)))
@@ -66,6 +81,8 @@ def render(seed=29):
     for _ in range(4):
         i = int(rng.integers(0, len(ys)))
         ol.Seerosen(int(xs[i]), int(ys[i]), int(rng.integers(4, 8)), int(rng.integers(0, 10 ** 6))).draw(img, G)
+    for k, (x, y, a, span) in enumerate(CROSSINGS):
+        ow.Trittsteine(x, y, a, span, seed=40 + k).draw(img, G)
     # the giant tree first, then what stands in front of it: sitting stones, the jetty
     trow = int(S.y - Y0 - 6)
     tshore = int(np.nonzero(lake[trow])[0].min())

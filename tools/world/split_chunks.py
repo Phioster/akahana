@@ -41,6 +41,7 @@ def split(src_dir, out_dir, chunk=(180, 200), apron=8):
     assert W % cw == 0 and H % ch == 0, 'world size must be whole chunks'
     cells = np.fromfile(os.path.join(src_dir, 'walk_cells.bin'), np.uint8).reshape(H // CELL, W // CELL)
     mat = np.fromfile(os.path.join(src_dir, 'ground_mat.bin'), np.uint8).reshape(H // CELL, W // CELL)
+    cells = keep_main(cells)
     padded = np.zeros((H + 2 * apron, W + 2 * apron, 4), np.uint8)             # outside the world: empty
     padded[apron:apron + H, apron:apron + W] = flowers
     os.makedirs(out_dir, exist_ok=True)
@@ -65,6 +66,18 @@ def split(src_dir, out_dir, chunk=(180, 200), apron=8):
             np.flatnonzero(c == 0).astype('<i4').tofile(name + 'walls.bin')
             np.flatnonzero((c != 0) & (m != GRASS) & (m != SNOW)).astype('<i4').tofile(name + 'paths.bin')
     return {'chunk': [cw, ch], 'chunks': [cols, rows], 'apron': apron}
+
+
+def keep_main(cells):
+    """Only the cells joined to the big walkable area stay free. Pixel islands that touch only corner to
+    corner left single free cells in the pond's shallows: he slid onto one off a bend and no tap got him off."""
+    from scipy import ndimage
+    lab, n = ndimage.label(cells != 0)                  # 4-connected, as the route finder can move
+    if n < 2:
+        return cells
+    sizes = np.bincount(lab.ravel())
+    sizes[0] = 0
+    return np.where(lab == sizes.argmax(), cells, 0).astype(np.uint8)
 
 
 if __name__ == '__main__':
