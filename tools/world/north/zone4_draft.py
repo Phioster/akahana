@@ -142,7 +142,7 @@ def main(world, out):
     lake = ndi.binary_closing(lake | mouth, iterations=8) & ~(rb & (yy > lc[1] + 60) & ~lake)   # a funnel into the river, no snow tongues
     lake = ndi.binary_opening(lake, iterations=2)
     river = rb & ~lake
-    brook = band([C(1191, 348), C(1214, 400), C(1206, 440), C(1240, 500), C(FALL_X, 556)], 5)
+    brook = band([C(1193, 353), C(1203, 372), C(1214, 400), C(1206, 440), C(1240, 500), C(FALL_X, 556)], 5)
     step = (np.abs(yy - C(0, 566)[1] - 6 * np.sin(xx / 23.0)) < 9) & (np.abs(xx - C(FALL_X, 0)[0]) < 85 + 15 * n)
     water = lake | river | brook
 
@@ -227,8 +227,8 @@ def main(world, out):
             things.append((foot, 'old', s))
     # the spring: the brook comes out from under a heap of rocks, a little dark pool in front
     sx_, sy_ = C(1190, 348)
-    for dx, dy, r in [(-9, -7, 10), (9, -8, 9), (0, -15, 9), (-15, -1, 7), (12, -3, 6), (-4, -22, 6),
-                      (-6, 5, 6)]:                                  # tight round the pool; lower right open where the brook leaves
+    for dx, dy, r in [(-7, -2, 9), (6, -3, 8), (0, -10, 8), (-14, 2, 6), (11, 1, 5), (-3, -17, 6),
+                      (-7, 6, 5)]:                                  # tight round the pool; lower right open where the brook leaves
         things.append((sy_ + dy, 'rock', (sx_ + dx, sy_ + dy, r)))
     # the rock step the water falls over, rocks round the shore, a few loose ones up the slope
     sy, sx = np.nonzero(step & (rng.random((H, W)) < 0.05))
@@ -267,7 +267,7 @@ def main(world, out):
         elif kind == 'east':
             t, x, y = a
             paste(img, t, x, y, root)
-    pool = (((xx - C(1191, 0)[0]) / 5.0) ** 2 + ((yy - C(0, 352)[1]) / 3.0) ** 2) < 1
+    pool = (((xx - C(1191, 0)[0]) / 5.0) ** 2 + ((yy - C(0, 351)[1]) / 3.0) ** 2) < 1
     img[pool] = np.array([60, 80, 96.0])
     img[ndi.binary_dilation(pool, iterations=1) & ~pool] = ICE[4]
     draw_things(img, things, G, CL, extra)
