@@ -39,14 +39,19 @@ def fbm(rng, scale, octs=4):
 
 
 def floor_mask(rng):
-    yy, xx = np.mgrid[0:H, 0:W]
-    n = fbm(rng, 10)
+    """Worked out on a taller sheet and then cut: the passage runs on out of the bottom edge, no seam there."""
+    HH = H + 40
+    yy, xx = np.mgrid[0:HH, 0:W]
+    n = np.zeros((HH, W))
+    n[:H] = fbm(rng, 10)
+    n[H:] = n[H - 1]
     hall = ((xx - 90) / 66.0) ** 2 + ((yy - 200) / 112.0) ** 2 < 1 + 0.3 * n
     bay = ((xx - 46) / 28.0) ** 2 + ((yy - 118) / 30.0) ** 2 < 1 + 0.3 * n       # a side bay, so it is no egg
     bay2 = ((xx - 140) / 24.0) ** 2 + ((yy - 270) / 26.0) ** 2 < 1 + 0.3 * n
     passage = (np.abs(xx - 90 - 6 * np.sin(yy / 23.0)) < 15 + 2 * n) & (yy > 290)
     m = hall | bay | bay2 | passage
-    return ndi.binary_closing(ndi.binary_opening(m, iterations=2), iterations=3)
+    m = ndi.binary_closing(ndi.binary_opening(m, iterations=2), iterations=3)
+    return m[:H]
 
 
 def ground(rng, floor):
@@ -115,6 +120,12 @@ def main(out, with_monk=False):
     dist_in = ndi.distance_transform_edt(~floor)
     img[~floor] = K * 0.7                                               # behind the rocks: black rock
 
+    # the mouth: snow blown in, thinning out irregularly into the cave (no edge, no puddle)
+    blow = fbm(rng, 5)
+    reach = (yy - (H - 70)) / 70.0 + 0.35 * blow
+    snow = floor & (reach > 0.35) & (G < np.clip((reach - 0.35) * 2.2, 0, 1))
+    img[snow] = np.where((CL[snow] > 0.45)[:, None], SNOWR[5], SNOWR[4])
+
     # the walls: like the old map's cliff foot - a row of big rocks along the floor's edge, darker ones behind
     edge = floor & ~ndi.binary_erosion(floor)
     gy, gx = np.gradient(ndi.gaussian_filter(floor.astype(float), 4))
@@ -153,12 +164,6 @@ def main(out, with_monk=False):
     img[moss] = img[moss] * 0.5 + np.array([70, 92, 60.0]) * 0.5
     for k in range(9):
         img[150 + k, 152] = ICE[min(4, 4 - k // 3)]
-
-    # the mouth: snow blown in, thinning out irregularly into the cave (no edge, no puddle)
-    blow = fbm(rng, 5)
-    reach = (yy - (H - 70)) / 70.0 + 0.35 * blow
-    snow = floor & (reach > 0.35) & (G < np.clip((reach - 0.35) * 2.2, 0, 1))
-    img[snow] = np.where((CL[snow] > 0.45)[:, None], SNOWR[5], SNOWR[4])
 
     # the tatami mat: woven straw rows, a dark cloth hem on its long sides, a folded red blanket at one end
     mx, my = MAT
