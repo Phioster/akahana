@@ -248,6 +248,7 @@ def build(pre, W=1800):
     on = mist > BAY[yy % 4, xx % 4]
     img[on] = img[on] * 0.25 + np.array([214.0, 214, 212]) * 0.75
     n.ground = img.copy()                                              # shadows of the standing things go in here
+    n.wood = wood
 
     # ------------------------------------------------------------ standing things
     things = []

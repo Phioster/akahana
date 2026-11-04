@@ -124,11 +124,25 @@ def main():
 
     for name, a in out.items():
         Image.fromarray(a).save(os.path.join(OUT, name))
+    # the north's darkness (step 4): deep in the dense needle wood it is dark enough for the lantern, the snow
+    # and the pass stay light; towards today's top it runs into today's own field (the Ostwald dark, Kogarashi light)
+    wd = ndi.gaussian_filter(n.wood[:NORTH_H:2, ::2], 6)
+    r = np.clip((wd - 0.38) / 0.3, 0, 1)
+    r = r * r * (3 - 2 * r) * 0.85
+    gy = np.arange(NORTH_H // 2)[:, None] * 2.0
+    t = np.clip((gy - (NORTH_H - 300)) / 300.0, 0, 1)
+    t = t * t * (3 - 2 * t)
+    old_r = im['grade_field.png'][:1, :, 0] / 255.0
+    r = r * (1 - t) + np.maximum(r, old_r) * t
+    north_grade = np.zeros((NORTH_H // 2, W // 2, 3), np.uint8)
+    north_grade[..., 0] = np.round(r * 255).astype(np.uint8)
     for name in HALF:
         a = im[name]
         top = np.zeros((NORTH_H // 2,) + a.shape[1:], a.dtype)
         if name == 'mist_fields.png':
             top[:] = a[:1]
+        if name == 'grade_field.png':
+            top = north_grade
         Image.fromarray(grow(a, top)).save(os.path.join(OUT, name))
     walk2.astype(np.uint8).tofile(os.path.join(OUT, 'walk.bin'))
     walk2.reshape(-1, CELL, W // CELL, CELL).all(axis=(1, 3)).astype(np.uint8).tofile(os.path.join(OUT, 'walk_cells.bin'))
@@ -137,6 +151,10 @@ def main():
     keep = [s for s in w['sprites'] if id(s) not in n.drop]
     w['sprites'] = keep
     w = shift_world(w, NORTH_H)
+    if w.get('mood'):                                                # the sounds' darkness per 20 px, the north's rows too
+        rows = NORTH_H // MOOD_CELL
+        nm_ = [int(round(v * 100)) for v in r[::MOOD_CELL // 2, ::MOOD_CELL // 2][:rows].ravel()]
+        w['mood'] = nm_ + w['mood'][rows * w['mood_w']:]
     sd = os.path.join(OUT, 'sprites')
     for f in os.listdir(sd):                                         # the north's sprites of a former run
         if f.startswith('n') and f.endswith('.png'):
