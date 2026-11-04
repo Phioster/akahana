@@ -81,7 +81,8 @@ def main(out):
     # the lookout's knoll: a snowy top, its east and south sides fall away as rock
     look_top = (((xx - LOOK[0]) / 44.0) ** 2 + ((yy - LOOK[1] + 6) / 26.0) ** 2) < 1 + 0.25 * fbm(rng, 6, (H, W))
     things = []
-    keep = ndi.binary_dilation(gorge.mask(H, W), iterations=6) | path_mask | ridge | look_top | bridge.walk_mask(H, W)
+    knoll = (((xx - LOOK[0]) / 64.0) ** 2 + ((yy - LOOK[1] + 6) / np.where(yy > LOOK[1] - 6, 62.0, 40.0)) ** 2) < 1   # knoll + rim; below it reaches further: a fir there grows up over the rock
+    keep = ndi.binary_dilation(gorge.mask(H, W), iterations=6) | path_mask | ridge | knoll | bridge.walk_mask(H, W)
     things += Firs().place(rng, wood, keep, NY0, tries=30000)
     for _ in range(320):                                                # loose rocks, more of them higher up
         x, y = int(rng.integers(6, W - 6)), int(rng.integers(10, H - 4))
@@ -124,6 +125,8 @@ def main(out):
         a_ = rng.uniform(-0.5, 1.9)                                     # from east round to south-west
         x = int(LOOK[0] + np.cos(a_) * 48 + rng.normal(0, 3))
         y = int(LOOK[1] - 6 + np.sin(a_) * 28 + rng.normal(0, 2))
+        if ndi.binary_dilation(path_mask, iterations=6)[min(H - 1, y), min(W - 1, x)]:
+            continue                                                    # the path comes up here: no rock on it
         things.append((y, 'facet', (x, y, rng.uniform(5, 9), rng.uniform(4, 7), False, x * 5 + y, True)))
     things.append((LOOK[1] - 2, 'bench', (LOOK[0] - 6, LOOK[1] - 2)))
     things.append((LOOK[1] - 10, 'lantern3', (LOOK[0] + 20, LOOK[1] - 10)))
