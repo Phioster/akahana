@@ -21,12 +21,13 @@ import objects_lake as ol  # noqa: E402
 import objects_water as ow  # noqa: E402
 
 S = L.SPOTS['4']
-VER = 2                                     # 2: the stepping stones (gen_east draws a cached older pond anew)
-X0, Y0, X1, Y1 = int(S.x) - 135, int(S.y) - 160, int(S.x) + 135, int(S.y) + 125
+VER = 3                                     # 2: stepping stones; 3: window 40 px further west (gen_east redraws older)
+X0, Y0, X1, Y1 = int(S.x) - 175, int(S.y) - 160, int(S.x) + 135, int(S.y) + 125
 W, H = X1 - X0, Y1 - Y0
 # stepping stones over the river's mouth and the brook's outlet: without them the pond's meadow fell into three
-# parts and the way from the moss path never reached the Jizo path (Philip, 2026-11-04). Window px: x, y, angle, span
-CROSSINGS = [(220, 126, np.pi / 2, L.RIVER_W + 2), (149, 236, 0.0, 11)]
+# parts and the way from the moss path never reached the Jizo path (Philip, 2026-11-04). Window px: x, y, angle, span.
+# The window reaches 40 px past the south's edge (x 900): the giant tree on the west bank stands at x ~876
+CROSSINGS = [(1055 - X0, 1316 - Y0, np.pi / 2, L.RIVER_W + 2), (984 - X0, 1426 - Y0, 0.0, 11)]
 
 
 def crossing_band(width=6):

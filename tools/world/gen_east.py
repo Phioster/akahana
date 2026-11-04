@@ -447,6 +447,40 @@ def foot_block(sp, m):
     m[py[ok], px[ok]] = True
 
 
+POPPY_GONE = 0.4                     # wood share above which no poppy head is left (Philip, 2026-11-04: lone red pixels
+                                     # in the dark wood read as faults; thin out at the edge, none inside)
+
+
+def thin_poppies(forest, flowers, bend, rng):
+    """Takes the poppy heads out of the swaying layer where the wood has taken over: thinning from a wood share of 0.1,
+    none from POPPY_GONE on."""
+    sl = (slice(forest.y0, forest.y0 + forest.h), slice(forest.x0, forest.x0 + forest.w))
+    f = flowers[sl].astype(int)
+    head = (f[..., 3] > 0) & (f[..., 0] > 70) & (f[..., 0] - f[..., 1] > 30) & (f[..., 0] - f[..., 2] > 20)
+    head = ndi.binary_dilation(head, iterations=1) & (f[..., 3] > 0) & (f[..., 0] >= f[..., 1])   # with its dark rim
+    lab, n = ndi.label(head)
+    if n == 0:
+        return
+    gone = np.clip((forest.weight - 0.1) / (POPPY_GONE - 0.1), 0.0, 1.0)
+    roll = rng.random(n + 1) < np.append(0.0, ndi.maximum(gone, lab, np.arange(1, n + 1)))   # whole heads, not pixels
+    out = roll[lab] & head
+    flowers[sl][out] = 0
+    bend[sl][out] = 0
+
+
+def thin_pale_specks(forest, ground, ground0, rng):
+    """The meadow's white flowers are painted into the south's ground; where the wood has taken over they read as noise
+    too: the south's own pale pixels give way to the wood's floor at the same spot, by the poppies' rule."""
+    sl = (slice(forest.y0, forest.y0 + forest.h), slice(forest.x0, forest.x0 + forest.w))
+    g, g0 = ground[sl], ground0[sl]
+    a = g.astype(int)
+    pale = (a.min(-1) > 130) & (a.max(-1) - a.min(-1) < 50)
+    south = (g == g0).all(-1)                                    # not laid by any piece
+    gone = np.clip((forest.weight - 0.1) / (POPPY_GONE - 0.1), 0.0, 1.0)
+    out = pale & south & (rng.random(gone.shape) < gone)
+    g[out] = forest.ground[out]
+
+
 def place(pieces, ground, flowers, bend, low, masks, rng):
     """Lays every piece over the world arrays; returns the sprites that stay, with world coordinates."""
     kept = []
@@ -545,9 +579,13 @@ def main(src=None, out=None):
         p.weight = spot_weight(p)
         gx = np.arange(p.x0, p.x0 + p.w)[None, :]
         gy = np.arange(p.y0, p.y0 + p.h)[:, None]
-        p.weight = p.weight * np.where(gy >= TOP, smooth((gx - SOUTH_W) / 24.0), 1.0)
+        if p.name != 's4':                                       # the pond lies on the seam: its west bank (giant tree) is its own
+            p.weight = p.weight * np.where(gy >= TOP, smooth((gx - SOUTH_W) / 24.0), 1.0)
     masks = {}
+    ground0 = ground.copy()
     kept = place(pieces, ground, flowers, bend, low, masks, rng)
+    thin_poppies(pieces[0], flowers, bend, rng)
+    thin_pale_specks(pieces[0], ground, ground0, rng)
     lights_new = [l for p in pieces for l in p.lights]
     print('sprites', len(kept), 'lights', len(lights_new), flush=True)
     return dict(ground=ground, flowers=flowers, bend=bend, low=low, masks=masks, kept=kept, lights=lights_new,
@@ -597,6 +635,21 @@ def water_east(ground_u8, masks, pieces):
     sub[lake, 1] = (dep[lake] * 255).astype(np.uint8)
     sub[lake, 3] = KIND_LAKE
     return out
+
+
+def pond_bank(r, x0, y0, x1, y1):
+    """Where the pond's own picture shows west of the south's edge (its giant tree's bank), window x0..x1, y0..y1."""
+    pond = next(p for p in r['pieces'] if p.name == 's4')
+    pw = np.zeros((y1 - y0, x1 - x0), bool)
+    pw[pond.y0 - y0:pond.y0 - y0 + pond.h, pond.x0 - x0:pond.x0 - x0 + pond.w] = pond.weight > 0.5
+    return pw
+
+
+def own_mask(r, x0, y0, x1, y1):
+    """The east's own ground: east of the south, above zone 1's top, and the pond's west bank."""
+    gx = np.arange(x0, x1)[None, :]
+    gy = np.arange(y0, y1)[:, None]
+    return (((gx >= SOUTH_W) | (gy < TOP)) & (gx >= OW)) | pond_bank(r, x0, y0, x1, y1)
 
 
 def east_materials(r, own):
@@ -656,11 +709,15 @@ def finish(r):
                                           float(hash01(s['x'], s['foot'])) < smooth((s['x'] + s['w'] // 2 - (SOUTH_W - MIX)) / float(MIX)))]
     sprites = [s for s in sprites if not (re.fullmatch(r's\d+', s['name']) and TOP - 60 <= s['foot'] < TOP + 190 and
                                           OW <= s['x'] + s['w'] // 2 < SOUTH_W)]             # the south's block of firs makes way for the wood's own trees
+    bank = pond_bank(r, 0, 0, WW, H)                             # the south's trees make way for the pond's bank
+    sprites = [s for s in sprites if not (bank[min(s['foot'], H - 1), min(s['x'] + s['w'] // 2, WW - 1)] and
+                                          not re.fullmatch(r'e\d+', s['name']))]
     sprites = [s for s in sprites if not (s['name'].startswith('tanne') and OW - 60 <= s['x'] + s['w'] // 2 < OW + 80)]   # the old closed wall of firs at the east edge is gone: the poppies run into the wood
     sprites = [s for s in sprites if not (re.fullmatch(r's\d+', s['name']) and s['x'] + s['w'] // 2 >= UX0 and s['foot'] >= UY0)]   # the south's side firs/reeds: the shore grows on instead
     cells = np.fromfile(os.path.join(src, 'ground_mat.bin'), np.uint8).reshape(H // CELL, WW // CELL)
     earth = ndi.binary_dilation(cells == EARTH, iterations=5)
     kept = [s for s in kept if not (s['x'] + s['w'] // 2 < SOUTH_W and s['foot'] >= TOP and
+                                    not bank[min(s['foot'], H - 1), min(s['x'] + s['w'] // 2, WW - 1)] and
                                     earth[min(s['foot'] // CELL, H // CELL - 1), min((s['x'] + s['w'] // 2) // CELL, WW // CELL - 1)])]   # no wood tree on the south's paths
     clipped = []
     for s in kept:                                              # nothing hangs over the world's edge
@@ -685,7 +742,7 @@ def finish(r):
     lm = L.masks()
     gx = np.arange(x0, x1)[None, :]
     gy = np.arange(y0, y1)[:, None]
-    own = ((gx >= SOUTH_W) | (gy < TOP)) & (gx >= OW)                            # the south's own ground below zone 1's top stays as it is
+    own = own_mask(r, x0, y0, x1, y1)
     wm = water_east(gu8, masks, r['pieces'])
     wat = wm[reg][..., 3] > 0
     wE = ndi.binary_dilation(lm.path, iterations=2) | lm.clearing
@@ -762,7 +819,7 @@ def write(r):
     cells = np.fromfile(os.path.join(src, 'ground_mat.bin'), np.uint8).reshape(H // CELL, WW // CELL)
     gx = np.arange(x0, x1)[None, :]
     gy = np.arange(y0, y1)[:, None]
-    own = ((gx >= SOUTH_W) | (gy < TOP)) & (gx >= OW)
+    own = own_mask(r, x0, y0, x1, y1)
     mat = east_materials(r, own)
     cm = cells[y0 // CELL:y1 // CELL, x0 // CELL:x1 // CELL]
     cm[own[::CELL, ::CELL]] = mat[::CELL, ::CELL][own[::CELL, ::CELL]]

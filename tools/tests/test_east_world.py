@@ -117,3 +117,44 @@ class EastWorld(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class EastWorldLocal(unittest.TestCase):
+    """2026-11-04: the pond's meadow fell into three parts (no crossing over its river and brook); every path was
+    still reachable the long way round, so the global test above did not see it."""
+    @classmethod
+    def setUpClass(cls):
+        cls.w = json.load(open(os.path.join(D, 'world.json')))
+        cls.cells = _cells(cls.w, 'cells').astype(bool)
+
+    def test_the_paths_meeting_at_a_spot_join_near_it(self):
+        for key, s in L.SPOTS.items():
+            ends = [pts[1] if a == key else pts[-2] for a, b, pts in L._EDGES.values() if key in (a, b)]
+            if len(ends) < 2:
+                continue
+            R = s.r + 50
+            y0, x0 = max(0, int(s.y - R) // 2), max(0, int(s.x - R) // 2)
+            sub = self.cells[y0:int(s.y + R) // 2, x0:int(s.x + R) // 2]
+            starts = []
+            for p in ends:
+                q = np.array(p, float) + (L.OX, L.OY)
+                v = q - (s.x, s.y)
+                q = np.array((s.x, s.y)) + v / np.hypot(*v) * min(np.hypot(*v), s.r + 20)
+                ys, xs = np.nonzero(sub)
+                k = np.argmin((xs - (q[0] // 2 - x0)) ** 2 + (ys - (q[1] // 2 - y0)) ** 2)
+                starts.append((ys[k], xs[k]))
+            got = reach(sub, starts[:1], diagonal=False)
+            for st in starts[1:]:
+                self.assertTrue(got[st], f'spot {key} ({s.kind}): its paths do not meet near it')
+
+    def test_no_poppy_heads_deep_in_the_wood(self):
+        x0, x1, y0, y1 = 800, 900, 1100, 2200          # wood share above 0.4 here (gen_east.POPPY_GONE)
+        red = 0
+        for cy in range(y0 // 200, y1 // 200):
+            for cx in range(x0 // 180, (x1 - 1) // 180 + 1):
+                f = np.array(Image.open(os.path.join(D, 'chunks', f'c_{cx}_{cy}_flowers.png')).convert('RGBA'))[8:208, 8:188].astype(int)
+                gx = np.arange(cx * 180, cx * 180 + 180)[None, :]
+                inside = (gx >= x0) & (gx < x1)
+                head = (f[..., 3] > 0) & (f[..., 0] > 70) & (f[..., 0] - f[..., 1] > 30) & (f[..., 0] - f[..., 2] > 20)
+                red += int((head & inside).sum())
+        self.assertEqual(red, 0)
