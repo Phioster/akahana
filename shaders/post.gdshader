@@ -69,6 +69,7 @@ void fragment() {
 	float L = 0.0;
 	float Lw = 0.0;
 	float Lc = 0.0;                                                 // light of the cool fireflies
+	float Lf = 0.0;                                                 // light of the warm fireflies
 	vec3 bloom = vec3(0.0);
 	vec3 bloomw = vec3(0.0);
 	vec3 bloomc = vec3(0.0);
@@ -104,12 +105,14 @@ void fragment() {
 			bloomc += vec3(190.0, 250.0, 215.0) * bl;
 		} else {
 			L += li;
+			Lf += li;
 			bloom += vec3(250.0, 190.0, 90.0) * bl;
 		}
 	}
 	bloom *= vec3(1.0, 0.80, 0.55);
 	a *= 1.0 + L * LCOL * 1.4 + Lw * WCOL * 1.2 + Lc * CCOL * 1.4;
 	a += CCOL * 255.0 * Lc * 0.55;                                   // the cool flies also add light: multiplying alone does nothing on the dark wood floor
+	a += LCOL * 255.0 * Lf * 0.55 * gf.r;                            // so do warm ones that strayed into the dark (0.11.6); on the meadow (gf.r 0) as before
 
 	vec2 m1 = (world - vec2(3.5 * TIME, 0.0)) / vec2(256.0);      // mist drifts right, two layers at two speeds
 	vec2 m2 = (world - vec2(6.0 * TIME, 0.0)) / vec2(256.0);
