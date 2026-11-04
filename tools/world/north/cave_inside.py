@@ -151,7 +151,7 @@ def main(out, with_monk=False):
     gy, gx = np.gradient(ndi.gaussian_filter(floor.astype(float), 4))
     ey, ex = np.nonzero(edge)
     rows = []
-    for depth, step, deep in ((26, 15, True), (10, 11, False)):
+    for depth, step, deep in ((28, 14, True), (14, 10, True), (5, 8, False)):
         last = []
         for k in rng.permutation(len(ey)):
             x0, y0 = int(ex[k]), int(ey[k])
@@ -159,11 +159,22 @@ def main(out, with_monk=False):
                 continue
             last.append((x0, y0))
             nl = np.hypot(gx[y0, x0], gy[y0, x0]) + 1e-6
-            push = depth * rng.uniform(0.5, 1.0)
+            push = depth * rng.uniform(0.4, 1.0) if deep else rng.uniform(-1.0, 3.0)   # the front row reaches over the edge
             rows.append((y0 - gy[y0, x0] / nl * push, x0 - gx[y0, x0] / nl * push,
                          rng.uniform(8, 14) * (1.2 if deep else 1), rng.uniform(6, 10) * (1.2 if deep else 1), deep))
     for y, x, rx, ry, deep in sorted(rows, key=lambda r: (not r[4], r[0])):
         rock(img, x, y, rx, ry, deep, seed=int(x * 7 + y * 13))
+    # close every gap: wherever bare black still shows near the floor, another rock
+    black = np.all(np.abs(img - K * 0.7) < 0.5, axis=-1)
+    for _ in range(400):
+        gap = black & (dist_in > 0) & (dist_in < 16)
+        gy_, gx_ = np.nonzero(gap)
+        if len(gy_) < 6:
+            break
+        k = int(rng.integers(len(gy_)))
+        x, y = int(gx_[k]), int(gy_[k])
+        rock(img, x, y, rng.uniform(5, 10), rng.uniform(4, 8), dist_in[y, x] > 6, seed=x * 3 + y * 11)
+        black = np.all(np.abs(img - K * 0.7) < 0.5, axis=-1)
     for _ in range(14):                                                 # a few loose stones on the floor
         x, y = int(rng.integers(20, W - 20)), int(rng.integers(80, 360))
         if floor[y, x] and dist_floor_edge(floor, x, y) > 8:

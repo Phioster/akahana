@@ -330,13 +330,18 @@ class CaveMound:
         s.x, s.y, s.rx, s.top, s.wall, s.mouth, s.seed = x, y, rx, top, wall, mouth, seed
 
     def _shape(s, W):
+        """Never a half circle: the left reaches further than the right, the far rim and the wall go in lumps."""
         rng = np.random.default_rng(s.seed)
-        xs = np.arange(int(s.x - s.rx), int(s.x + s.rx) + 1)
-        u = (xs - s.x) / s.rx
-        jag = ndi.gaussian_filter1d(rng.normal(0, 1, len(xs)), 3) * 4
-        hgt = np.clip(s.wall * (1 - u * u) ** 0.8 + 0.4 * jag, 0, None)        # the wall's height per column
-        foot = s.y + (u * u) * 6 + 0.5 * jag                                      # the ground line bends back at the sides
-        back = foot - hgt - s.top * np.sqrt(np.clip(1 - u * u, 0, 1)) + jag      # the top's far edge
+        left, right = s.rx * 1.15, s.rx * 0.8
+        xs = np.arange(int(s.x - left), int(s.x + right) + 1)
+        u = np.where(xs < s.x, (xs - s.x) / left, (xs - s.x) / right)
+        lumps = ndi.gaussian_filter1d(rng.normal(0, 1, len(xs)), 7) * 9               # big bulges of the rim
+        jag = ndi.gaussian_filter1d(rng.normal(0, 1, len(xs)), 2) * 3                 # small ragged steps
+        dent = ndi.gaussian_filter1d(rng.normal(0, 1, len(xs)), 5) * 6
+        prof = np.clip(1 - np.abs(u) ** 1.6, 0, 1)
+        hgt = np.clip(s.wall * prof ** 0.7 + dent * prof + 0.5 * jag, 0, None)        # the wall, dented
+        foot = s.y + (u * u) * 7 + 2.5 * np.sin(xs / 11.0) * np.abs(u) + 0.6 * jag   # the foot wanders at the sides
+        back = foot - hgt - s.top * prof ** 0.5 * (1 + 0.25 * np.sin(xs / 17.0 + 1)) + lumps * prof + jag
         return xs, hgt, foot, back
 
     def solid(s, H, W):
