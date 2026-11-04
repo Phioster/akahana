@@ -28,6 +28,62 @@ def through(pts, n=600):
 details.curve = through       # footpath() then follows its points instead of one Bezier over all of them
 
 
+def footpaths(img, ways, G, bank=1.5, spacing=4.2, rng_seed=0):
+    """All ways at once as one trodden network: like details.footpath, but the floor, shadow and banks come from
+    the distance to the nearest of all the lines, so where ways meet they merge into one fork instead of two
+    trenches lying across each other (Philip 2026-11-04). ways: [(points, width, fade_from or None)]."""
+    H, W, _ = img.shape
+    line = np.zeros((H, W), bool)
+    wmap, tmap, fmap = np.zeros((H, W)), np.zeros((H, W)), np.full((H, W), 2.0)
+    curves = []
+    for pts, width, fade in ways:
+        c = through(pts, max(200, int(np.hypot(*np.diff(np.array(pts, float), axis=0).T).sum())))
+        curves.append((c, width, fade))
+        for k, (x, y) in enumerate(c):
+            i, j = int(round(x)), int(round(y))
+            if 0 <= i < W and 0 <= j < H and not line[j, i]:
+                line[j, i] = True
+                wmap[j, i], tmap[j, i] = width, k / (len(c) - 1)
+                fmap[j, i] = 2.0 if fade is None else fade
+    dist, (iy, ix) = ndi.distance_transform_edt(~line, return_indices=True)
+    rng = np.random.default_rng(rng_seed)
+    wob = ndi.gaussian_filter(rng.normal(0, 1, (H, W)), 3) * 6
+    t, ff, width = tmap[iy, ix], fmap[iy, ix], wmap[iy, ix]
+    A = np.where(ff > 1, 1.0, np.clip(1 - (t - ff) / np.maximum(1 - ff, 1e-3), 0, 1) ** 1.3)
+    hw = (width + 0.35 * wob) * (0.4 + 0.6 * A)
+    keep = G < 0.15 + 0.85 * A
+    orig = img.copy()
+    yy = np.mgrid[0:H, 0:W][0]
+    above = yy < iy
+    floor = dist <= hw
+    rim = (dist > hw) & (dist <= hw + bank) & (G < 0.92)
+    sm = ndi.uniform_filter(img, size=(5, 9, 1))
+    img[floor] = sm[floor] * np.array([0.82, 0.84, 0.90])
+    sh2 = floor & above & (dist > hw - 1.0)
+    img[sh2] = img[sh2] * 0.84
+    lit = rim & above
+    img[lit] = np.minimum(img[lit] * 1.28 + 8, 255)
+    low = rim & ~above
+    img[low] = np.minimum(img[low] * np.where(dist[low] > hw[low] + 0.8, 1.22, 1.05)[:, None], 255)
+    for c, width, fade in curves:                                    # prints, alternating left and right
+        seg = np.hypot(*np.diff(c, axis=0).T)
+        s_ = np.concatenate([[0], np.cumsum(seg)])
+        side, d = 1, spacing * 0.5
+        while d < s_[-1]:
+            k = np.searchsorted(s_, d)
+            x, y = c[min(k, len(c) - 1)]
+            tx, ty = c[min(k + 3, len(c) - 1)] - c[max(k - 3, 0)]
+            L = np.hypot(tx, ty) + 1e-6
+            off = min(0.7, width * 0.45)
+            i, j = int(round(x - ty / L * off * side)), int(round(y + tx / L * off * side))
+            if 0 <= i < W and 1 <= j < H - 1 and floor[j, i] and (fade is None or rng.random() < A[j, i] * 1.2):
+                img[j, i] = img[j, i] * 0.66
+                img[j - 1, i] = np.minimum(img[j - 1, i] * 1.15, 255)
+            side, d = -side, d + spacing
+    a = (A * keep)[..., None]
+    img[:] = orig * (1 - a) + img * a
+
+
 def fbm(rng, scale, shape, octs=4):
     out = np.zeros(shape)
     a, t = 1.0, 0.0

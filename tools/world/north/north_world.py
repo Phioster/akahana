@@ -21,7 +21,7 @@ from scipy import ndimage as ndi
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path[:0] = [HERE, os.path.join(HERE, '..', 'lib'), os.path.join(HERE, '..', 'east'), os.path.join(HERE, '..', 'south')]
-from common import fbm, smooth, snow_ground, Firs, noise_maps, footpath, through, HN, HUT  # noqa: E402
+from common import fbm, smooth, snow_ground, Firs, noise_maps, footpaths, through, HN, HUT  # noqa: E402
 from objects_north import Gorge, FootBridge, CaveMound, facet_rock, boulder, ICE  # noqa: E402
 from berg_objects import Cabin, WoodShed, ChoppingBlock, Stump, FallenLog, Pine, SNOWR  # noqa: E402
 from details import lantern as iron_lantern  # noqa: E402
@@ -90,7 +90,7 @@ def paths(gorge_cy, gorge_hw):
                         (640, 346), (596, 318), (514, 300), (462, 270), (500, 236), (556, 206), (540, 176),
                         (494, 152), PASS], 1.4),
         'aussicht': ([(640, 490), (700, 474), (752, 446), (786, 418), (794, 410)], 1.4),   # ends before the bench
-        'see': ([(806, 410), (830, 420), (870, 455), (960, 520), (1040, 610), (1078, 660), (1094, 690), (1140, 694)], 1.5),
+        'see': ([(794, 410), (830, 422), (870, 455), (960, 520), (1040, 610), (1078, 660), (1094, 690), (1140, 694)], 1.5),
         'fluss': ([(1300, 792), (1296, 862), (1264, 960), (1294, 1070), (1282, 1160), (1290, 1300), (1310, 1400),
                    (1338, 1520), (1372, 1600), (1440, 1700), (1420, 1780), (1374, 1852)], 1.5),
     }
@@ -144,6 +144,7 @@ def build(pre, W=1800):
     mouth = rb & (yy < LAKE[1] + 120)
     lake = ndi.binary_closing(lake | mouth, iterations=8) & ~(rb & (yy > LAKE[1] + 60) & ~lake)
     lake = ndi.binary_opening(lake, iterations=2)
+    lake &= yy > 588 + 3 * np.sin(xx / 17.0)                          # a strip of snowy shore under the fall's step (zone 4)
     river = rb & ~lake & (yy < HN + 304)                               # it meets today's river at (1260, 300)
     ice = lake & (xx + 0.5 * (yy - LAKE[1]) < LAKE[0] - 55 + 30 * fbm(rng, 8, (H, W)))
     brook_pts = [(1193, 353), (1203, 372), (1214, 400), (1206, 440), (1240, 500), (FALL_X, 556)]
@@ -194,14 +195,13 @@ def build(pre, W=1800):
     # ------------------------------------------------------------ flat things, into the ground
     G0.draw(img, G, CL)
     mound.draw(img, G, CL)
-    for k, (pts, wd) in P.items():
-        if k == 'see':                                                 # it ends on the shore, not out on the ice
-            c = through(pts, 400)
-            near = ndi.binary_dilation(lake, iterations=6)
-            stop = next((i for i, (x, y) in enumerate(c) if near[int(y), int(x)]), len(c) - 1)
-            pts = [tuple(p) for p in c[:stop:40]] + [tuple(c[stop])]
-            P[k] = (pts, wd)
-        footpath(img, pts, G, width=wd, bank=1.5, rng_seed=31 + len(k), fade_from=0.93 if k == 'tor' else None)
+    if True:                                                           # the lake path ends on the shore, not out on the ice
+        pts, wd = P['see']
+        c = through(pts, 400)
+        near = ndi.binary_dilation(lake, iterations=6)
+        stop = next((i for i, (x, y) in enumerate(c) if near[int(y), int(x)]), len(c) - 1)
+        P['see'] = ([tuple(p) for p in c[:stop:40]] + [tuple(c[stop])], wd)
+    footpaths(img, [(pts, wd, 0.93 if k == 'tor' else None) for k, (pts, wd) in P.items()], G, rng_seed=31)
     earth = _band(P['fluss'][0], 3, H, W) & (yy > HN - 260)            # in the east wood the river path is earth
     k_ = smooth((yy - (HN - 260)) / 160.0)[earth]
     img[earth] = img[earth] * (1 - k_[:, None]) + np.array([104, 90, 76.0]) * k_[:, None]
@@ -233,10 +233,10 @@ def build(pre, W=1800):
         big = 1.0 + 0.8 * smooth((200 - y) / 200.0)
         frock(img, int(x), int(y), rng.uniform(9, 17) * big, rng.uniform(7, 12) * big, False,
                                 int(x * 3 + y * 7), True)
-    sy, sx = np.nonzero(step & (rng.random((H, W)) < 0.05))
-    for y, x in sorted(zip(sy, sx)):
+    sy, sx = np.nonzero(step & (rng.random((H, W)) < 0.05))          # big and overlapping: their shadows darken
+    for y, x in sorted(zip(sy, sx)):                                   # each other's faces, as in zone 4
         if abs(x - FALL_X) > 5:
-            frock(img, int(x), int(y), rng.uniform(7, 12), rng.uniform(5, 9), False, int(x * 3 + y), True)
+            frock(img, int(x), int(y), rng.uniform(9, 14), rng.uniform(6, 10), False, int(x * 3 + y), True)
     path_near = ndi.binary_dilation(path_mask, iterations=6)
     for k in range(70):
         a_ = rng.uniform(-0.5, 1.9)
