@@ -19,8 +19,6 @@ var _objects := Activator.new()
 var _objects_ready := false
 var _prefetch := Activator.new()
 var _fetched := {}                   # sprite path -> true while its picture loads or waits in the background
-var woke := 0                        # objects made / pictures loaded on the spot this frame (FrameLog)
-var woke_sync := 0
 var _animated := {}                  # Sprite2D -> [frames, fps]
 var _t := 0.0
 var _trail := [[], []]
@@ -53,8 +51,6 @@ func update(view: Rect2) -> void:
 	for c in keep:
 		if not _chunks.has(c) and store.is_ready(c):
 			_make_chunk(c)
-	woke = 0
-	woke_sync = 0
 	_prefetch.update(view)
 	_objects.update(view)
 
@@ -167,7 +163,6 @@ func _texture(path: String) -> Texture2D:
 			_fetched[path] = ResourceLoader.load_threaded_get(path)
 		if _fetched[path] != null:
 			return _fetched[path]
-	woke_sync += 1
 	var t := TextureLoader.load_texture(path)
 	if _fetched.has(path) and _fetched[path] == null:
 		ResourceLoader.load_threaded_get(path)       # finish the background request (load() shared its result)
@@ -176,7 +171,6 @@ func _texture(path: String) -> Texture2D:
 
 
 func _make_object(s: Dictionary) -> Node:
-	woke += 1
 	var sp := Sprite2D.new()
 	sp.texture = _texture(_path(s))
 	sp.centered = false
