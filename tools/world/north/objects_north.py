@@ -537,13 +537,33 @@ class CaveMound:
                 else:                                                    # 'slope': no wall, the snowy side just falls away
                     c = (L1 if g < 0.5 + 0.4 * (1 - t) else MG) if t < 0.7 else (MG if g < 0.6 else DG)
                 img[j, x] = c
-            if s.style == 'earth' and rng.random() < 0.12:              # a root hanging down
-                L = int(rng.integers(3, 8))
-                for d in range(L):
-                    jj = t0 + 2 + d
-                    ii = x + (1 if d > L // 2 and rng.random() < 0.5 else 0)
-                    if 0 <= jj < H and 0 <= ii < W:
-                        img[jj, ii] = np.array([48, 36, 30.0])
+        if s.style == 'earth':                                           # a few real roots hanging out of the top
+            ROOT, ROOT_L = np.array([58, 44, 36.0]), np.array([96, 76, 60.0])
+            cand = [(x, h, f) for x, h, f in zip(xs, hgt, foot) if h > 12 and abs(x - s.x) > s.mouth[0] // 2 + 4]
+            for n_root in range(4):
+                if not cand:
+                    break
+                x, h, f = cand[int(rng.integers(len(cand)))]
+                stack = [(float(x), float(f - h + 1), 0.0, int(rng.integers(7, 13)), 2)]   # x, y, drift, length, thickness
+                while stack:
+                    rx_, ry_, dr, L, th = stack.pop()
+                    for step in range(L):
+                        dr = np.clip(dr + rng.normal(0, 0.35), -0.8, 0.8)      # it wanders as it grows down
+                        rx_ += dr
+                        ry_ += 1
+                        i, j = int(round(rx_)), int(round(ry_))
+                        if not (0 <= i < W and 0 <= j < H):
+                            break
+                        img[j, i] = ROOT
+                        if th > 1 and step < L * 0.6:
+                            if 0 <= i + 1 < W:
+                                img[j, i + 1] = ROOT * 0.8                        # thicker near where it comes out
+                            if 0 <= i - 1 < W:
+                                img[j, i - 1] = ROOT_L                            # lit on its left
+                        if th > 1 and step > 2 and rng.random() < 0.18:          # a side root, thinner and shorter
+                            stack.append((rx_, ry_, dr + rng.choice([-0.6, 0.6]), max(2, (L - step) // 2), 1))
+                    if 0 <= int(round(ry_)) + 1 < H and 0 <= int(round(rx_)) < W:
+                        img[int(round(ry_)) + 1, int(round(rx_))] = ROOT_L       # a fine pale tip
         if s.style == 'slope':                                           # a collar of stones round the frame only
             mw, mh = s.mouth
             for a_ in np.linspace(-0.3, np.pi + 0.3, 11):
