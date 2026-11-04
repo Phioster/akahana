@@ -7,7 +7,6 @@ clumps, the old ground runs up mirrored, firs of the north grow down into Kogara
 wood's trees, the cliff wall becomes scattered rocks over a broad band.
 python3 zone1_draft.py WORLD_DIR out.png"""
 import json
-os_env = __import__('os').environ.setdefault('AXE', 'wald')   # the small forest axe fits the small block
 import os
 import sys
 
@@ -231,7 +230,7 @@ def main(world, out):
         elif kind == 'shed':
             WoodShed(a[0], a[1], w=20, h=10, roof=7, seed=12).draw(img, G, CL)
         elif kind == 'block':
-            ChoppingBlock(a[0], a[1], R=6, seed=13).draw(img, G, CL)
+            ChoppingBlock(a[0], a[1], R=5, seed=13, tall=5, handle=8, head='klein').draw(img, G, CL)
         elif kind == 'stump':
             Stump(a[0], a[1], r=4, seed=int(a[0])).draw(img, G, CL)
         elif kind == 'log':

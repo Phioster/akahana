@@ -253,8 +253,9 @@ def rng_skip(cx, row):
 
 class ChoppingBlock:
     """Big stump with an axe stuck in it, seen so the head shows its side profile (narrow poll, flaring bit)."""
-    def __init__(s, x, y, R=9, seed=5):
+    def __init__(s, x, y, R=9, seed=5, tall=9, handle=20, head=None):
         s.x, s.y, s.R, s.seed = x, y, R, seed                # (x, y) = middle of the stump's foot
+        s.tall, s.handle, s.head = tall, handle, head          # the game's block: lower, short handle, 'klein' head
 
     # side profile of the head, bit pointing down; '.' empty, d/m/l/e = dark/mid/light/edge steel
     # side profiles, bit pointing down; '.' empty, d/m/l/e = dark/mid/light/edge iron; (rows, eye column, eye row)
@@ -284,6 +285,10 @@ class ChoppingBlock:
                    "dmmlhmmlmmd",
                    "dbbbbbbbbbd",       # ground bevel, a lighter band above the edge
                    ".eeeeeeeee."], 9, 1),
+        'klein': ([".mmm.",              # the game's axe: a hand-sized head, 5x4
+                   "dmll.",
+                   "dmlld",
+                   "deeee"], 4, 1),
         'wald': ([".mmmmm...",            # forest axe: square poll, short neck, fanned bit
                   ".dmmld...",
                   ".dmmld...",
@@ -298,9 +303,9 @@ class ChoppingBlock:
         q, put, wob, hump = _tools(img, G, CL, s.seed)
         x, y, R = s.x, s.y, s.R
         rng = np.random.default_rng(s.seed)
-        tf = y - 9                                            # centre row of the top face
-        for k in range(26):                                   # chips around the stump
-            a = rng.uniform(0, 2 * np.pi); r = rng.uniform(R + 1, R + 9)
+        tf = y - s.tall                                       # centre row of the top face
+        for k in range(int(26 * s.tall / 9)):                 # chips around the stump
+            a = rng.uniform(0, 2 * np.pi); r = rng.uniform(R + 1, R + s.tall)
             i, j = int(round(x + r * np.cos(a))), int(round(y + 1 + r * 0.5 * np.sin(a)))
             put(i, j, q(CUT, 0.55 + 0.3 * rng.random(), j, i))
         for j in range(y - 2, y + 4):                         # soft shadow
@@ -314,16 +319,17 @@ class ChoppingBlock:
                 put(i, j, q(LOG, v, j, i))
         drift(img, q, put, x - R - 4, x + R + 5, lambda i: y + 1 - (1 if ((i - x) / (R + 0.2)) ** 2 > 0.8 else 0),
               hump, wob, up=2, down=2)
+        fh = 3.6 * R / 9                                      # the face's half height, after the radius
         for j in range(tf - 4, tf + 4):                       # top face with growth rings
             for i in range(x - R, x + R + 1):
-                e = ((i - x) / (R + 0.4)) ** 2 + ((j - tf) / 3.6) ** 2
+                e = ((i - x) / (R + 0.4)) ** 2 + ((j - tf) / fh) ** 2
                 if e <= 1:
                     ring = 0.13 * (np.sin(np.sqrt(e) * 13) > 0.35)
                     put(i, j, q(CUT, 0.78 - ring - 0.12 * (i - x) / R, j, i))
         put(x + 4, tf + 1, q(CUT, 0.3, tf + 1, x + 4)); put(x + 5, tf + 2, q(CUT, 0.3, tf + 2, x + 5))   # an old split
         # head: its bit sits in the wood at the face's centre row, the rest stands above
         import os
-        HEAD, ecol, erow = s.HEADS[os.environ.get('AXE', 'faell')]
+        HEAD, ecol, erow = s.HEADS[s.head or os.environ.get('AXE', 'faell')]
         hx0, hy0 = x - len(HEAD[0]) // 2 - 1, tf - len(HEAD) + 1
         P = {'d': 0, 'm': 1, 'l': 2, 'b': 3, 'e': 4, 'r': 5, 'h': 6}                  # dark forged iron, only the ground bit is bright
         for v, row in enumerate(HEAD):
@@ -333,12 +339,15 @@ class ChoppingBlock:
             put(hx0 + u, tf, q(CUT, 0.4, tf, hx0 + u))
         # handle out of the eye to the right, rising a little; ash wood, darker underside, snow on top
         ex, ey = hx0 + ecol, hy0 + erow
-        for k in range(20):
+        L = s.handle
+        for k in range(L):
             i, j = ex + k, ey - int(round(k * 0.3))
-            put(i, j, q(CUT, 0.62 - 0.01 * k, j, i)); put(i, j + 1, q(LOG, 0.42, j + 1, i))
-            if 2 <= k <= 18 and G[(j - 1) % img.shape[0], (i * 3) % img.shape[1]] < 0.8:
+            put(i, j, q(CUT, 0.62 - 0.01 * k, j, i))
+            if L > 10: put(i, j + 1, q(LOG, 0.42, j + 1, i))   # a thin handle is one row
+            if 2 <= k <= L - 2 and L > 10 and G[(j - 1) % img.shape[0], (i * 3) % img.shape[1]] < 0.8:
                 put(i, j - 1, q(SNOWR, 0.88 - 0.015 * k, j - 1, i))
-        put(ex + 20, ey - 6, q(CUT, 0.45, ey - 6, ex + 20)); put(ex + 20, ey - 5, q(LOG, 0.4, ey - 5, ex + 20))
+        if L >= 20:
+            put(ex + 20, ey - 6, q(CUT, 0.45, ey - 6, ex + 20)); put(ex + 20, ey - 5, q(LOG, 0.4, ey - 5, ex + 20))
 
 
 NEEDLE = pal(['#0b1416', '#111e21', '#18292c', '#213538', '#2c4446', '#3a5555'])
