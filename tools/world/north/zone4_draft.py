@@ -227,8 +227,8 @@ def main(world, out):
             things.append((foot, 'old', s))
     # the spring: the brook comes out from under a heap of rocks, a little dark pool in front
     sx_, sy_ = C(1190, 348)
-    for dx, dy, r in [(-11, -7, 10), (10, -8, 10), (0, -15, 9), (-20, 0, 7), (19, -1, 7), (-5, -24, 6),
-                      (-8, 5, 6), (7, 6, 5)]:                       # the front two half hide the pool
+    for dx, dy, r in [(-9, -7, 10), (9, -8, 9), (0, -15, 9), (-15, -1, 7), (12, -3, 6), (-4, -22, 6),
+                      (-6, 5, 6)]:                                  # tight round the pool; lower right open where the brook leaves
         things.append((sy_ + dy, 'rock', (sx_ + dx, sy_ + dy, r)))
     # the rock step the water falls over, rocks round the shore, a few loose ones up the slope
     sy, sx = np.nonzero(step & (rng.random((H, W)) < 0.05))
