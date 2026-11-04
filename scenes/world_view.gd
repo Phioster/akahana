@@ -67,8 +67,9 @@ func load_around(p: Vector2) -> void:
 		store.load_now(c)
 
 
-func set_wanderer(feet: Vector2) -> void:
+func set_wanderer(feet: Vector2, open_share: float) -> void:
 	_canopy.set_shader_parameter("wanderer", feet)
+	_canopy.set_shader_parameter("open_share", open_share)
 
 
 func set_trail(points: Array, k: Array) -> void:

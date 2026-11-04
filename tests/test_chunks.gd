@@ -269,7 +269,7 @@ func test_a_step_skips_small_moves_but_not_large_ones() -> void:
 func test_standing_objects_open_over_the_wanderer() -> void:
 	# one walks among the trees: what stands in front of him is screened open (canopy.gdshader)
 	var v := _view(Rect2(180, 400, 180, 400))
-	v.set_wanderer(Vector2(250, 600))
+	v.set_wanderer(Vector2(250, 600), 0.6)
 	var seen := 0
 	for n in v.sorted.get_children():
 		if n is Sprite2D:
@@ -279,3 +279,9 @@ func test_standing_objects_open_over_the_wanderer() -> void:
 			assert_eq(m.get_shader_parameter("wanderer"), Vector2(250, 600))
 	assert_true(seen > 0, "Objekte da")
 	v.queue_free()
+
+func test_the_canopy_opens_more_while_he_stands() -> void:
+	var main := load("res://scenes/main.gd")
+	assert_true(main.CANOPY_REST > main.CANOPY_WALK, "im Stehen weiter offen")
+	assert_almost_eq(main.CANOPY_WALK, 0.6, 0.001)
+	assert_almost_eq(main.CANOPY_REST, 0.8, 0.001)

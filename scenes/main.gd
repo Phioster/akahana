@@ -11,6 +11,11 @@ const CAM_EASE := 5.0                # how quickly the view catches up: starting
 const CAM_MIN_SPEED := 4.0           # art px/s: the slowest it glides before arriving
 const CAM_CALM := Vector2(10, 14)    # a box round the middle: small steps inside it leave the world still
 
+const CANOPY_WALK := 0.6               # share of a crown left out over him while he walks ...
+const CANOPY_REST := 0.8               # ... and standing, when he is hardest to find (Philip, 2026-11-04)
+const CANOPY_EASE := 0.8               # seconds for the whole way between the two
+
+var _canopy := CANOPY_REST
 var world: WorldData
 var pathing := Pathing.new()
 var player: Player
@@ -283,7 +288,8 @@ func _process(delta: float) -> void:
 	_last_pos = player.position
 	var u: Array = trail.uniforms()
 	view_node.set_trail(u[0], u[1])
-	view_node.set_wanderer(player.position)
+	_canopy = move_toward(_canopy, CANOPY_WALK if player.is_walking() else CANOPY_REST, delta * (CANOPY_REST - CANOPY_WALK) / CANOPY_EASE)
+	view_node.set_wanderer(player.position, _canopy)
 
 	var view := get_viewport().get_visible_rect().size
 	var c := player.position + _cam_offset                # no rounding: the camera glides in screen pixels
