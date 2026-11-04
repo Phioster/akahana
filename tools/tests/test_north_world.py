@@ -42,6 +42,13 @@ class NorthWorld(unittest.TestCase):
             small = [i for i in range(1, k + 1) if size[i] < ISLAND and i not in edge]
             self.assertEqual(small, [], name)
 
+    def test_the_mist_wall_stands_at_the_world_s_edges_only(self):
+        # 0.11.0: today's top row's wall was carried up the whole north: a grey wall through the hut's wood
+        b = np.array(Image.open(os.path.join(D, 'mist_fields.png')).convert('RGB'))[..., 2]
+        inner = b[40:self.n // 2 + 200, 20:860]                # half size: under the top, off the east edge (its wall reaches ~45 px in)
+        self.assertEqual(int(inner.max()), 0)
+        self.assertGreater(int(b[0, 450]), 200, 'oben am Weltrand steht die Nebelwand')
+
 
 if __name__ == '__main__':
     unittest.main()

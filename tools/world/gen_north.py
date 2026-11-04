@@ -162,7 +162,14 @@ def main():
         a = im[name]
         top = np.zeros((NORTH_H // 2,) + a.shape[1:], a.dtype)
         if name == 'mist_fields.png':
-            top[:] = a[:1]
+            # B is the mist wall at the world's edge: the old one along today's top moves up to the new top,
+            # the one along the east edge runs on up (taking today's top row on (0.11.0) made a wall 1200 px high)
+            a = a.copy()
+            side = a[100:101, :, 2]                                  # the east edge's wall, from a row away from the top
+            prof = a[:30, 450, 2].astype(float)[:, None]             # the top wall's fall-off
+            a[:30, :, 2] = side                                      # today's top: no wall any more
+            top[..., 2] = side
+            top[:30, :, 2] = np.maximum(side, prof).astype(np.uint8)
         if name == 'grade_field.png':
             top = north_grade
         Image.fromarray(grow(a, top)).save(os.path.join(OUT, name))
