@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.join(HERE, '..', 'lib'))
 sys.path.insert(0, os.path.join(HERE, '..'))
 from field6 import L1, MG, DG, K, R as POPPY, RD as POPPY_D  # noqa: E402
 from berg_objects import SNOWR  # noqa: E402
-from objects_north import ICE, boulder  # noqa: E402
+from objects_north import ICE, boulder, facet_rock  # noqa: E402
 import mood_map  # noqa: E402
 
 W, H = 180, 400
@@ -69,38 +69,7 @@ def ground(rng, floor):
 
 
 def rock(img, x, y, rx, ry, deep=False, seed=0):
-    """An angular rock: an irregular outline of 5-7 corners and flat facets meeting at a peak up and left
-    of its middle; each facet one flat tone after how it faces the light (upper left). Not round, not square."""
-    from PIL import Image as _I, ImageDraw as _D
-    rng = np.random.default_rng(seed)
-    n = int(rng.integers(5, 8))
-    ang = np.sort(rng.uniform(0, 2 * np.pi, n))
-    ang += np.linspace(0, 0, n)
-    pts = [(x + np.cos(a_) * rx * rng.uniform(0.75, 1.1), y + np.sin(a_) * ry * rng.uniform(0.75, 1.1)) for a_ in ang]
-    peak = (x - 0.22 * rx + rng.uniform(-0.1, 0.1) * rx, y - 0.3 * ry)
-    tones = (K, DG, MG, L1) if deep else (DG, MG, L1, WH_SOFT)
-    x0, y0 = int(x - rx * 1.3) - 2, int(y - ry * 1.3) - 2
-    w, h = int(rx * 2.6) + 5, int(ry * 2.6) + 5
-    # its shadow first, down and to the right
-    sh = _I.new('L', (w, h), 0)
-    _D.Draw(sh).polygon([(px - x0 + 2, py - y0 + 2) for px, py in pts], fill=255)
-    shm = np.array(sh) > 0
-    for k in range(n):
-        a_, b_ = pts[k], pts[(k + 1) % n]
-        mid = ((a_[0] + b_[0]) / 2 - peak[0], (a_[1] + b_[1]) / 2 - peak[1])
-        L = np.hypot(*mid) + 1e-6
-        face = -(mid[0] * 0.75 + mid[1] * 0.66) / L                     # +1 turned to the upper left
-        t = 3 if face > 0.55 else 2 if face > 0.0 else 1 if face > -0.6 else 0
-        m = _I.new('L', (w, h), 0)
-        _D.Draw(m).polygon([(peak[0] - x0, peak[1] - y0), (a_[0] - x0, a_[1] - y0), (b_[0] - x0, b_[1] - y0)], fill=255)
-        mm = np.array(m) > 0
-        if k == 0:
-            ys, xs = np.nonzero(shm)
-            ok = (ys + y0 >= 0) & (ys + y0 < H) & (xs + x0 >= 0) & (xs + x0 < W)
-            img[ys[ok] + y0, xs[ok] + x0] = K
-        ys, xs = np.nonzero(mm)
-        ok = (ys + y0 >= 0) & (ys + y0 < H) & (xs + x0 >= 0) & (xs + x0 < W)
-        img[ys[ok] + y0, xs[ok] + x0] = tones[t]
+    return facet_rock(img, x, y, rx, ry, deep, seed)
 
 
 WH_SOFT = np.array([206.0, 202.0, 196.0])

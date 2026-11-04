@@ -9,6 +9,47 @@ from scipy import ndimage as ndi
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'lib'))
 from berg_objects import STONE, SNOWR, LOG, FL, pal, _tools, drift  # noqa: E402
 
+def facet_rock(img, x, y, rx, ry, deep=False, seed=0, snow=False):
+    """An angular rock: an irregular outline of 5-7 corners and flat facets meeting at a peak up and left of its
+    middle; each facet one flat tone after how it faces the light (upper left). Not round, not square. Out in the
+    cold the facets turned up carry snow. Returns the mask of what it covered (rows, cols)."""
+    from PIL import Image as _I, ImageDraw as _D
+    from field6 import L1, MG, DG, K
+    WHS = np.array([206.0, 202.0, 196.0])
+    H, W = img.shape[:2]
+    rng = np.random.default_rng(seed)
+    n = int(rng.integers(5, 8))
+    ang = np.sort(rng.uniform(0, 2 * np.pi, n))
+    pts = [(x + np.cos(a_) * rx * rng.uniform(0.75, 1.1), y + np.sin(a_) * ry * rng.uniform(0.75, 1.1)) for a_ in ang]
+    peak = (x - 0.22 * rx + rng.uniform(-0.1, 0.1) * rx, y - 0.3 * ry)
+    tones = (K, DG, MG, L1) if deep else (DG, MG, L1, WHS)
+    x0, y0 = int(x - rx * 1.3) - 2, int(y - ry * 1.3) - 2
+    w, h = int(rx * 2.6) + 5, int(ry * 2.6) + 5
+    sh = _I.new('L', (w, h), 0)                                         # its shadow first, down and to the right
+    _D.Draw(sh).polygon([(px - x0 + 2, py - y0 + 2) for px, py in pts], fill=255)
+    ys, xs = np.nonzero(np.array(sh) > 0)
+    ok = (ys + y0 >= 0) & (ys + y0 < H) & (xs + x0 >= 0) & (xs + x0 < W)
+    img[ys[ok] + y0, xs[ok] + x0] = img[ys[ok] + y0, xs[ok] + x0] * 0.55 if snow else K
+    cov_y, cov_x = [], []
+    for k in range(n):
+        a_, b_ = pts[k], pts[(k + 1) % n]
+        mid = ((a_[0] + b_[0]) / 2 - peak[0], (a_[1] + b_[1]) / 2 - peak[1])
+        L = np.hypot(*mid) + 1e-6
+        face = -(mid[0] * 0.75 + mid[1] * 0.66) / L                     # +1 turned to the upper left
+        t = 3 if face > 0.55 else 2 if face > 0.0 else 1 if face > -0.6 else 0
+        m = _I.new('L', (w, h), 0)
+        _D.Draw(m).polygon([(peak[0] - x0, peak[1] - y0), (a_[0] - x0, a_[1] - y0), (b_[0] - x0, b_[1] - y0)], fill=255)
+        ys, xs = np.nonzero(np.array(m) > 0)
+        ok = (ys + y0 >= 0) & (ys + y0 < H) & (xs + x0 >= 0) & (xs + x0 < W)
+        c = tones[t]
+        if snow and mid[1] < -0.2 * ry:
+            c = WHS if t >= 2 else L1                                   # snow on what faces up
+        img[ys[ok] + y0, xs[ok] + x0] = c
+        cov_y.append(ys[ok] + y0)
+        cov_x.append(xs[ok] + x0)
+    return np.concatenate(cov_y), np.concatenate(cov_x)
+
+
 ICE = pal(['#3b4c5c', '#5a7488', '#86a2b6', '#b4cad8', '#dce8ee'])
 DARK = pal(['#0e0f14', '#16181f', '#1f222b', '#2a2e38'])
 
@@ -383,15 +424,33 @@ class CaveMound:
                 img[j, x] = c
             if 0 <= int(top_end) < H:
                 img[int(top_end), x] = WH                                       # the lit lip of snow
-            for j in range(max(0, int(top_end) + 1), min(H, int(f) + 1)):     # the wall: earth and rock in layers
-                t = (j - top_end) / max(1.0, h)
-                band = int((j + 1.6 * np.sin(x / 9.0) + 0.8 * np.sin(x / 3.7)) / 3) % 3   # wavy, roughly level layers
-                c = (MG, DG, DG)[band] if u < 0.2 else (DG, DG, K)[band]
-                if t > 0.8:
-                    c = K                                                      # dark at the foot
-                if G[j, x] < 0.08:
-                    c = L1                                                     # snow caught on a ledge
-                img[j, x] = c
+        # the wall: the same angular rocks as inside the cave, heaped until no gap is left
+        wall = np.zeros((H, W), bool)
+        for x, h, f in zip(xs, hgt, foot):
+            if 0 <= x < W and h > 1:
+                wall[max(0, int(f - h)):max(0, int(f) + 1), x] = True
+        covered = np.zeros((H, W), bool)
+        rng = np.random.default_rng(s.seed + 7)
+
+        def one(x_, y_):
+            hh = float(hgt[min(len(hgt) - 1, max(0, x_ - xs[0]))])
+            ry_ = float(np.clip(rng.uniform(0.3, 0.5) * max(hh, 8), 4, 10))   # big rocks, as inside the cave
+            ff = float(foot[min(len(foot) - 1, max(0, x_ - xs[0]))])
+            high = y_ < ff - 0.85 * hh                                  # only the very top keeps snow
+            cy_, cx_ = facet_rock(img, x_, y_, rng.uniform(7, 12), ry_, deep=not high, seed=x_ * 5 + y_ * 7, snow=high)
+            covered[cy_, cx_] = True
+        wy, wx = np.nonzero(wall)                                       # a first course, far rocks before near ones
+        picks = sorted({(int(y_) // 9 * 9 + int(rng.integers(0, 4)), int(x_) // 13 * 13 + int(rng.integers(0, 5)))
+                        for y_, x_ in zip(wy, wx)})
+        for y_, x_ in picks:
+            if 0 <= y_ < H and 0 <= x_ < W and wall[y_, x_]:
+                one(x_, y_)
+        for _ in range(300):
+            gy_, gx_ = np.nonzero(wall & ~covered)
+            if len(gy_) < 4:
+                break
+            k = int(rng.integers(len(gy_)))
+            one(int(gx_[k]), int(gy_[k]))                                # then fill whatever gap is left
         # the mouth, a timber frame, from outside only the candle far inside
         x, y = s.x, s.y
         for j in range(y - mh, y + 1):
