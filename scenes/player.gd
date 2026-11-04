@@ -138,6 +138,21 @@ func hang_phase() -> int:
 	return k if _hang_up else 3 - k
 
 
+## Where he is drawn right now, for what stands in front of him (shaders/canopy.gdshader):
+## the sheet, his frame's world rect and its uv rect, and the hung lantern's world rect (size 0 if none).
+func silhouette() -> Dictionary:
+	var tex := sprite.texture
+	var size := Vector2(tex.get_size()) / Vector2(sprite.hframes, sprite.vframes)
+	var cell := Vector2(sprite.frame % sprite.hframes, sprite.frame / sprite.hframes)
+	var top := global_position.round() + sprite.offset
+	var lamp := Rect2()
+	if lantern != null and lantern.carried and not is_hanging():
+		var c := Vector2(lantern.hang_point()) + Lantern.FRAME_OFFSET + global_position.round()
+		lamp = Rect2(c + Vector2(-1, -3), Vector2(3, 6))     # hook row down to the bottom knob
+	return {"tex": tex, "rect": Rect2(top, size), "uv": Rect2(cell * size / Vector2(tex.get_size()),
+			size / Vector2(tex.get_size())), "lamp": lamp}
+
+
 func _show_sheet(hang: bool) -> void:
 	for s in [sprite, mirror]:
 		s.texture = _hang_tex if hang else _plain

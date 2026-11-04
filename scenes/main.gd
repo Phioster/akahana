@@ -290,7 +290,7 @@ func _process(delta: float) -> void:
 	var u: Array = trail.uniforms()
 	view_node.set_trail(u[0], u[1])
 	_canopy = move_toward(_canopy, CANOPY_WALK if player.is_walking() else CANOPY_REST, delta * (CANOPY_REST - CANOPY_WALK) / CANOPY_EASE)
-	view_node.set_wanderer(player.position, _canopy)
+	view_node.set_wanderer(player.position, _canopy, player.silhouette())
 
 	var view := get_viewport().get_visible_rect().size
 	var c := player.position + _cam_offset                # no rounding: the camera glides in screen pixels

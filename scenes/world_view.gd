@@ -67,9 +67,17 @@ func load_around(p: Vector2) -> void:
 		store.load_now(c)
 
 
-func set_wanderer(feet: Vector2, open_share: float) -> void:
+func set_wanderer(feet: Vector2, open_share: float, look: Dictionary = {}) -> void:
 	_canopy.set_shader_parameter("wanderer", feet)
 	_canopy.set_shader_parameter("open_share", open_share)
+	if not look.is_empty():
+		var r: Rect2 = look["rect"]
+		var uv: Rect2 = look["uv"]
+		var lamp: Rect2 = look["lamp"]
+		_canopy.set_shader_parameter("monk_tex", look["tex"])
+		_canopy.set_shader_parameter("monk_rect", Vector4(r.position.x, r.position.y, r.size.x, r.size.y))
+		_canopy.set_shader_parameter("monk_uv", Vector4(uv.position.x, uv.position.y, uv.size.x, uv.size.y))
+		_canopy.set_shader_parameter("lamp_rect", Vector4(lamp.position.x, lamp.position.y, lamp.size.x, lamp.size.y))
 
 
 func set_trail(points: Array, k: Array) -> void:

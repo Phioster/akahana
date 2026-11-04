@@ -867,3 +867,21 @@ func test_the_light_sits_on_the_lantern_in_his_hand_while_he_lifts_it() -> void:
 			var p: Vector2i = Lantern.HELD[row][k]
 			var c := img.get_pixel(k * 16 + p.x + 2, row * 16 + p.y)
 			assert_true(c.r > 0.95 and c.g > 0.65 and c.g < 0.8, "Richtung %d Phase %d: kein Glutpixel bei %s" % [row, k, p])
+
+
+func test_his_outline_stays_open_under_the_crowns() -> void:
+	# Philip 0.10.7: under the leaves one saw the lantern's glow, hardly him - crowns in front keep his shape open
+	var tree := Engine.get_main_loop() as SceneTree
+	var p := Player.new()
+	tree.root.add_child(p)
+	p.position = Vector2(100.3, 200.6)
+	var s: Dictionary = p.silhouette()
+	assert_eq(s["rect"], Rect2(Vector2(100, 201) + Vector2(-6, -15), Vector2(12, 16)))
+	var uv: Rect2 = s["uv"]
+	assert_almost_eq(uv.size.x, 1.0 / Player.COLS, 0.0001)
+	assert_eq(s["lamp"], Rect2(), "keine Laterne auf der Wiese")
+	p.lantern.carried = true
+	var lamp: Rect2 = p.silhouette()["lamp"]
+	assert_eq(lamp.size, Vector2(3, 6))
+	assert_true(Rect2(s["rect"]).grow(3).encloses(lamp), "Laterne bei ihm")
+	p.queue_free()
