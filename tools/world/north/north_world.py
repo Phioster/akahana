@@ -78,16 +78,19 @@ def paths(gorge_cy, gorge_hw):
     s_end, n_end = (BRIDGE_X, int(by + bh) + 5), (BRIDGE_X, int(by - bh) - 6)
     hy = HUT[1]
     return {                                                     # name: (points, width) - the round way and its spurs
-        'tor': ([(318, hy + 8), (296, hy + 90), (286, hy + 170), (258, HN - 150), (282, HN - 70), (266, HN + 10),
-                 (274, HN + 50), (277, HN + 100)], 1.6),
-        'hof': ([(318, hy + 6), (342, hy + 4), (360, hy + 18)], 1.0),
-        'schlucht': ([(345, 864), (392, 800), (452, 730), (520, 660), (548, 612), s_end], 1.5),
-        'hoehle': ([(300, 858), (262, 806), (205, 752), (160, 716)], 1.5),
+        # the hut's yard (Philip 2026-11-04: paths ended under the shed, things stood on them): the way from the
+        # gate ends at the door, a short one to the woodpile, the spurs leave the yard round the hut's sides
+        'tor': ([(326, hy + 5), (322, hy + 30), (300, hy + 90), (286, hy + 170), (258, HN - 150), (282, HN - 70),
+                 (266, HN + 10), (274, HN + 50), (277, HN + 100)], 1.6),
+        'hof': ([(323, hy + 26), (342, hy + 16), (357, hy + 6)], 1.0),
+        'schlucht': ([(324, hy + 28), (370, hy + 30), (394, hy + 10), (404, 830), (452, 730), (520, 660), (548, 612),
+                      s_end], 1.5),
+        'hoehle': ([(320, hy + 30), (286, hy + 22), (270, hy - 6), (250, 820), (205, 752), (160, 716)], 1.5),
         'serpentine': ([n_end, (592, 508), (640, 490), (604, 462), (544, 444), (486, 424), (530, 392), (612, 366),
                         (640, 346), (596, 318), (514, 300), (462, 270), (500, 236), (556, 206), (540, 176),
                         (494, 152), PASS], 1.4),
-        'aussicht': ([(640, 490), (700, 474), (752, 446), (786, 418), LOOK], 1.4),
-        'see': ([LOOK, (870, 455), (960, 520), (1040, 610), (1078, 660), (1094, 690), (1140, 694)], 1.5),
+        'aussicht': ([(640, 490), (700, 474), (752, 446), (786, 418), (794, 410)], 1.4),   # ends before the bench
+        'see': ([(806, 410), (830, 420), (870, 455), (960, 520), (1040, 610), (1078, 660), (1094, 690), (1140, 694)], 1.5),
         'fluss': ([(1300, 792), (1296, 862), (1264, 960), (1294, 1070), (1282, 1160), (1290, 1300), (1310, 1400),
                    (1338, 1520), (1372, 1600), (1440, 1700), (1420, 1780), (1374, 1852)], 1.5),
     }
@@ -304,11 +307,11 @@ def build(pre, W=1800):
         things.append((y, 'rock', (x, y, int(rng.integers(3, 9)))))
     # the hut's clearing (zone 1)
     hx, hy = HUT
-    things += [(hy, 'cabin', (hx - 20, hy)), (hy + 1, 'shed', (hx + 17, hy + 1)), (hy + 25, 'block', (hx + 30, hy + 25)),
-               (hy + 34, 'stump', (hx - 34, hy + 34)), (hy + 16, 'stump', (hx - 60, hy + 16)),
-               (hy - 10, 'stump', (hx + 58, hy - 10)),
-               (hy + 44, 'log', (hx - 68, hy + 40, hx - 48, hy + 46)), (hy + 40, 'log', (hx + 48, hy + 42, hx + 66, hy + 34)),
-               (hy + 30, 'iron', (hx, hy + 20))]
+    things += [(hy, 'cabin', (hx - 20, hy)), (hy + 1, 'shed', (hx + 17, hy + 1)), (hy + 10, 'block', (hx + 44, hy + 10)),
+               (hy + 50, 'stump', (hx - 34, hy + 50)), (hy + 44, 'stump', (hx + 40, hy + 44)),
+               (hy - 26, 'stump', (hx + 26, hy - 26)),
+               (hy + 64, 'log', (hx - 74, hy + 58, hx - 54, hy + 64)), (hy + 62, 'log', (hx + 50, hy + 64, hx + 68, hy + 56)),
+               (hy + 26, 'iron', (hx + 8, hy + 16))]
     for (dx, dy, h) in ((-30, -34, 16), (22, -40, 14), (-8, -46, 17)):   # small firs up on the mound
         things.append((CAVE[1] + dy, 'pine', (CAVE[0] + dx, CAVE[1] + dy, h, 900 + dx, 0.9)))
     # zone 3: the lookout's bench and lantern, the pass with its cairns, Jizo and lantern; stones kept at the bends
@@ -472,6 +475,13 @@ def build(pre, W=1800):
                                   frames=z4.FALL_FRAMES, fps=8))
     n.lights.append(dict(x=float(CAVE[0]), y=float(CAVE[1] - 4), r=14.0, k=0.45, kind='lantern'))   # the candle inside
 
+    core = np.zeros((H, W), bool)                                      # the paths' trodden middle
+    for pts, _ in P.values():
+        core |= _band(pts, 3, H, W)
+    hit = block & core & (yy < HN)
+    if hit.any():
+        ys, xs = np.nonzero(hit)
+        raise SystemExit('Norden: etwas steht auf einem Weg bei %s' % sorted(set(zip((xs // 10 * 10).tolist(), (ys // 10 * 10).tolist())))[:12])
     # ------------------------------------------------------------ where one can walk, and on what
     walk = np.ones((H, W), bool)
     walk &= ~(gmask & ~bridge.walk_mask(H, W))

@@ -59,6 +59,24 @@ def shift_world(w, dy):
     return w
 
 
+ISLAND = 2500                         # half-size px (about 100 x 100 world px): smaller light or dark patches go
+
+
+def island_free(dark, least):
+    """dark with every light hole and every dark speck smaller than `least` filled in by its surroundings."""
+    from scipy import ndimage as ndi
+    out = dark.copy()
+    for want in (False, True):
+        lab, k = ndi.label(out == want)
+        if not k:
+            continue
+        size = np.bincount(lab.ravel())
+        edge = set(np.unique(np.r_[lab[0], lab[-1], lab[:, 0], lab[:, -1]]).tolist())
+        small = [i for i in range(1, k + 1) if size[i] < least and i not in edge]
+        out[np.isin(lab, small)] = not want
+    return out
+
+
 def grow(a, top):
     return np.concatenate([top, a], 0)
 
@@ -126,9 +144,13 @@ def main():
         Image.fromarray(a).save(os.path.join(OUT, name))
     # the north's darkness (step 4): deep in the dense needle wood it is dark enough for the lantern, the snow
     # and the pass stay light; towards today's top it runs into today's own field (the Ostwald dark, Kogarashi light)
-    wd = ndi.gaussian_filter(n.wood[:NORTH_H:2, ::2], 6)
-    r = np.clip((wd - 0.38) / 0.3, 0, 1)
-    r = r * r * (3 - 2 * r) * 0.85
+    # Philip 2026-11-04: little light holes in the wood made him put the lantern away and take it out again a few
+    # steps on. So: broad, then every light island smaller than a clearing is filled dark and every dark speck
+    # in the open taken out, then softened again.
+    wd = ndi.gaussian_filter(n.wood[:NORTH_H:2, ::2], 18)
+    dark = wd > 0.56                                                 # only the dense wood (zone 1: about 0.8; the open slopes 0.5)
+    dark = island_free(dark, ISLAND)
+    r = ndi.gaussian_filter(dark.astype(float), 5) * 0.85
     gy = np.arange(NORTH_H // 2)[:, None] * 2.0
     t = np.clip((gy - (NORTH_H - 300)) / 300.0, 0, 1)
     t = t * t * (3 - 2 * t)
