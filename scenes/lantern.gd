@@ -75,7 +75,7 @@ func hang_point() -> Vector2i:
 
 func light_data() -> Dictionary:
 	var p := player.global_position.round() + Vector2(hang_point()) + FRAME_OFFSET + Vector2(0.5, 0.5)
-	return {"x": p.x, "y": p.y, "r": 30.0, "k": 0.9 * lit, "kind": "lantern", "own": true}   # own: not on his robe
+	return {"x": p.x, "y": p.y, "r": 32.0, "k": 1.0 * lit, "kind": "lantern", "own": true}   # own: not on his robe
 
 
 func _draw() -> void:
