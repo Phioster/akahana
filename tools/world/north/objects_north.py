@@ -367,8 +367,9 @@ class CaveMound:
     top (flat tones, lit) whose front drops as a wall of earth and rock - highest in the middle, running out
     into the ground at both sides - and the cave mouth in that wall with a timber frame. The wall casts its
     shadow down and to the right. (x, y) = foot of the mouth."""
-    def __init__(s, x, y, rx=58, top=30, wall=27, mouth=(12, 12), seed=51):
+    def __init__(s, x, y, rx=58, top=30, wall=27, mouth=(12, 12), seed=51, style='earth'):
         s.x, s.y, s.rx, s.top, s.wall, s.mouth, s.seed = x, y, rx, top, wall, mouth, seed
+        s.style = style                     # how the front shows: facet / old / earth / cliff / slope
 
     def _shape(s, W):
         """Never a half circle: the left reaches further than the right, the far rim and the wall go in lumps."""
@@ -424,33 +425,37 @@ class CaveMound:
                 img[j, x] = c
             if 0 <= int(top_end) < H:
                 img[int(top_end), x] = WH                                       # the lit lip of snow
-        # the wall: the same angular rocks as inside the cave, heaped until no gap is left
-        wall = np.zeros((H, W), bool)
-        for x, h, f in zip(xs, hgt, foot):
-            if 0 <= x < W and h > 1:
-                wall[max(0, int(f - h)):max(0, int(f) + 1), x] = True
-        covered = np.zeros((H, W), bool)
-        rng = np.random.default_rng(s.seed + 7)
+        if s.style == 'facet':
+            # the wall: the same angular rocks as inside the cave, heaped until no gap is left
+            wall = np.zeros((H, W), bool)
+            for x, h, f in zip(xs, hgt, foot):
+                if 0 <= x < W and h > 1:
+                    wall[max(0, int(f - h)):max(0, int(f) + 1), x] = True
+            covered = np.zeros((H, W), bool)
+            rng = np.random.default_rng(s.seed + 7)
 
-        def one(x_, y_):
-            hh = float(hgt[min(len(hgt) - 1, max(0, x_ - xs[0]))])
-            ry_ = float(np.clip(rng.uniform(0.3, 0.5) * max(hh, 8), 4, 10))   # big rocks, as inside the cave
-            ff = float(foot[min(len(foot) - 1, max(0, x_ - xs[0]))])
-            high = y_ < ff - 0.85 * hh                                  # only the very top keeps snow
-            cy_, cx_ = facet_rock(img, x_, y_, rng.uniform(7, 12), ry_, deep=not high, seed=x_ * 5 + y_ * 7, snow=high)
-            covered[cy_, cx_] = True
-        wy, wx = np.nonzero(wall)                                       # a first course, far rocks before near ones
-        picks = sorted({(int(y_) // 9 * 9 + int(rng.integers(0, 4)), int(x_) // 13 * 13 + int(rng.integers(0, 5)))
-                        for y_, x_ in zip(wy, wx)})
-        for y_, x_ in picks:
-            if 0 <= y_ < H and 0 <= x_ < W and wall[y_, x_]:
-                one(x_, y_)
-        for _ in range(300):
-            gy_, gx_ = np.nonzero(wall & ~covered)
-            if len(gy_) < 4:
-                break
-            k = int(rng.integers(len(gy_)))
-            one(int(gx_[k]), int(gy_[k]))                                # then fill whatever gap is left
+            def one(x_, y_):
+                hh = float(hgt[min(len(hgt) - 1, max(0, x_ - xs[0]))])
+                ry_ = float(np.clip(rng.uniform(0.3, 0.5) * max(hh, 8), 4, 10))   # big rocks, as inside the cave
+                ff = float(foot[min(len(foot) - 1, max(0, x_ - xs[0]))])
+                high = y_ < ff - 0.85 * hh                                  # only the very top keeps snow
+                cy_, cx_ = facet_rock(img, x_, y_, rng.uniform(7, 12), ry_, deep=not high, seed=x_ * 5 + y_ * 7, snow=high)
+                covered[cy_, cx_] = True
+            wy, wx = np.nonzero(wall)                                       # a first course, far rocks before near ones
+            picks = sorted({(int(y_) // 9 * 9 + int(rng.integers(0, 4)), int(x_) // 13 * 13 + int(rng.integers(0, 5)))
+                            for y_, x_ in zip(wy, wx)})
+            for y_, x_ in picks:
+                if 0 <= y_ < H and 0 <= x_ < W and wall[y_, x_]:
+                    one(x_, y_)
+            for _ in range(300):
+                gy_, gx_ = np.nonzero(wall & ~covered)
+                if len(gy_) < 4:
+                    break
+                k = int(rng.integers(len(gy_)))
+                one(int(gx_[k]), int(gy_[k]))                                # then fill whatever gap is left
+
+        else:
+            s._front(img, G, CL, xs, hgt, foot, q, put)
         # the mouth, a timber frame, from outside only the candle far inside
         x, y = s.x, s.y
         for j in range(y - mh, y + 1):
@@ -469,3 +474,80 @@ class CaveMound:
               hump, wob, up=3, down=3)
         drift(img, q, put, x + mw // 2 + 3, int(x + s.rx * 0.8), lambda i: int(foot[min(len(foot) - 1, max(0, i - xs[0]))]) + 1,
               hump, wob, up=3, down=3)
+
+
+    def _front(s, img, G, CL, xs, hgt, foot, q, put):
+        """The other ways the mound's front can show (Philip asked for alternatives, 2026-11-04)."""
+        from field6 import WH, L1, MG, DG, K
+        H, W, _ = img.shape
+        rng = np.random.default_rng(s.seed + 11)
+        yy, xx = np.mgrid[0:H, 0:W]
+        if s.style == 'old':                                            # the old map's cliff foot: flat-toned boulders
+            spots = []
+            for x, h, f in zip(xs, hgt, foot):
+                if h > 2 and rng.random() < 0.3:                          # two courses, like the old cliff foot
+                    spots.append((f - rng.uniform(0.55, 0.8) * h, x, rng.uniform(7, 12), rng.uniform(6, 0.35 * h + 6)))
+                    spots.append((f - rng.uniform(0.1, 0.3) * h, x + rng.uniform(-4, 4), rng.uniform(5, 9), rng.uniform(4, 6)))
+            for y, x, rx, ry in sorted(spots):
+                e = ((xx - x) / rx) ** 2 + ((yy - y) / ry) ** 2
+                sh = (e <= 1.6) & (yy > y) & (xx > x - 1)
+                img[sh] = DG
+                m = e <= 1.0
+                lit = (xx - x) + (yy - y) * 1.3 < -0.5
+                img[m] = MG
+                img[m & lit] = L1
+                img[m & lit & (e < 0.3)] = WH
+                img[m & (yy > y + ry * 0.4)] = DG
+                img[m & (yy < y - ry * 0.3) & (G < 0.8)] = WH
+            return
+        mix = ndi.gaussian_filter(rng.normal(0, 1, (H, W)), 2.2) * 2.2       # clumps of brown earth in the grey gravel
+        for k, (x, h, f) in enumerate(zip(xs, hgt, foot)):
+            if not 0 <= x < W or h <= 1:
+                continue
+            t0 = int(f - h)
+            for j in range(max(0, t0), min(H, int(f) + 1)):
+                t = (j - t0) / max(1.0, h)
+                g, cl = G[j, x], CL[j, x]
+                if s.style == 'earth':                                   # gravel and earth mixed: grey with brown in it
+                    brown = mix[j, x] > 0.15
+                    light = cl > 0.45
+                    if brown:
+                        c = np.array([104, 88, 74.0]) if light else np.array([80, 68, 58.0])
+                    else:
+                        c = np.array([116, 112, 108.0]) if light else np.array([88, 85, 83.0])
+                    if t > 0.75:
+                        c = c * 0.72                                      # the foot in shade
+                    if g < 0.09:
+                        c = L1                                            # a pebble catching the light ...
+                    elif G[max(0, j - 1), x] < 0.09:
+                        c = DG                                            # ... and its little shadow
+                    if cl > 0.9:
+                        c = MG                                            # a bigger stone
+                    if t < 0.12:
+                        c = WH if g < 0.75 else L1                        # snow hanging over the top
+                elif s.style == 'cliff':                                 # rock ribs: lit left side, dark right side, clefts
+                    rib = (x + int(2 * np.sin(j / 5.0))) % 7
+                    c = L1 if rib < 2 else MG if rib < 4 else DG
+                    if rib == 6 or (rib == 5 and g < 0.4):
+                        c = K                                             # the cleft
+                    if t > 0.8:
+                        c = DG if rib < 4 else K
+                    if t < 0.1 and g < 0.7:
+                        c = WH
+                else:                                                    # 'slope': no wall, the snowy side just falls away
+                    c = (L1 if g < 0.5 + 0.4 * (1 - t) else MG) if t < 0.7 else (MG if g < 0.6 else DG)
+                img[j, x] = c
+            if s.style == 'earth' and rng.random() < 0.12:              # a root hanging down
+                L = int(rng.integers(3, 8))
+                for d in range(L):
+                    jj = t0 + 2 + d
+                    ii = x + (1 if d > L // 2 and rng.random() < 0.5 else 0)
+                    if 0 <= jj < H and 0 <= ii < W:
+                        img[jj, ii] = np.array([48, 36, 30.0])
+        if s.style == 'slope':                                           # a collar of stones round the frame only
+            mw, mh = s.mouth
+            for a_ in np.linspace(-0.3, np.pi + 0.3, 11):
+                cx = s.x + np.cos(a_) * (mw / 2.0 + 4)
+                cy = s.y - mh / 2.0 - np.sin(a_) * (mh / 2.0 + 4)
+                facet_rock(img, int(cx), int(cy), rng.uniform(3, 5), rng.uniform(2.5, 4), deep=True,
+                           seed=int(cx * 3 + cy), snow=True)

@@ -27,7 +27,7 @@ def gorge_line(rng):
     return xs, cy - NY0, np.maximum(hw, 0)
 
 
-def main(out):
+def main(out, style='earth'):
     rng = np.random.default_rng(52)
     yy, xx = np.mgrid[0:H, 0:W]
     ny = yy + NY0
@@ -36,7 +36,7 @@ def main(out):
     gm = gorge.mask(H, W)
     by = cy[BRIDGE_X]
     bridge = FootBridge(BRIDGE_X, int(by - hw[BRIDGE_X]) - 2, int(by + hw[BRIDGE_X]) + 1)
-    cave = CaveMound(CAVE[0], CAVE[1] - NY0)
+    cave = CaveMound(CAVE[0], CAVE[1] - NY0, style=style)
     cave_solid = cave.solid(H, W)
 
     # ground: snow over field6 grain, bare wind-swept rock growing in above the gorge
@@ -90,4 +90,4 @@ def main(out):
 
 
 if __name__ == '__main__':
-    main(sys.argv[1])
+    main(sys.argv[1], sys.argv[2] if len(sys.argv) > 2 else 'earth')
