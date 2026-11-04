@@ -119,24 +119,21 @@ def main(world, out):
 
     # ---- ground: the north's own, the old one mirrored upward, the two interlocking in clumps over BAND rows
     north = snow_ground(rng, wood)
-    mirror = np.zeros((H, W, 3))
-    k = np.clip(SEAM - yy, 0, OLD - 70)
-    src = old_g.copy()                                               # paths must not be mirrored up: fill them from beside
+    # one continuous old ground: today's rows below the cliff wall, reflected upward about the wall's foot (AX),
+    # so the wall and its rocks vanish and nothing meets at a line; the north's ground takes over in clumps
+    AX = SEAM + 64
+    src = old_g.copy()                                               # paths must not be reflected up: fill them from beside
     pathish = ((src[..., 0] - src[..., 2]) > 22) & (src[..., 0] > 140)
     pathish = ndi.binary_dilation(pathish, iterations=2)
     for _ in range(6):
         src[pathish] = np.roll(src, 9, axis=1)[pathish]
         pathish &= ((src[..., 0] - src[..., 2]) > 22) & (src[..., 0] > 140)
-    mirror = src[64 + k, xx]                                         # row SEAM-d shows today's row 64+d (under the cliff)
-    reach = np.where(yy < SEAM, smooth((yy - (SEAM - BAND)) / BAND), 1 - 0.3 * smooth((yy - SEAM) / 120.0))
+    row = np.where(yy >= AX, yy - SEAM, np.clip(2 * (AX - SEAM) - (yy - SEAM), 0, OLD - 1))
+    ref = np.where((yy >= AX)[..., None], old_g[np.clip(row, 0, OLD - 1), xx], src[row, xx])
+    reach = np.where(yy < AX, smooth((yy - (AX - BAND)) / BAND), 1 - 0.3 * smooth((yy - AX) / 120.0))
     clumps = 0.5 + 0.28 * fbm(rng, 14) + 0.12 * fbm(rng, 3)          # patches, never single pixels
     take_old = clumps < reach
-    img = np.where(take_old[..., None], mirror, north)
-    img[yy >= SEAM] = np.where(take_old[yy >= SEAM][..., None], old_g[(yy - SEAM)[yy >= SEAM], xx[yy >= SEAM]],
-                               north[yy >= SEAM])
-    # today's cliff wall (rows 0..45, x < 560) dissolves: the north ground replaces it, rocks get strewn instead
-    wall = (yy >= SEAM) & (yy < SEAM + 62 + 10 * fbm(rng, 8)) & (xx < 560 - 30 * fbm(rng, 12))
-    img[wall] = north[wall]
+    img = np.where(take_old[..., None], ref, north)
 
     G = rng.random((H, W))
     CL = ndi.gaussian_filter(rng.random((H, W)), 0.65)
