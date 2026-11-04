@@ -12,7 +12,7 @@ from scipy import ndimage as ndi
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import (fbm, smooth, wood_density, snow_ground, Firs, hut_things, draw_things, noise_maps,  # noqa: E402
                     footpath, through, HN)
-from objects_north import Gorge, FootBridge, CaveHill  # noqa: E402
+from objects_north import Gorge, FootBridge, CaveMound  # noqa: E402
 
 NY0, NY1, W = 250, 1000, 1000
 H = NY1 - NY0
@@ -36,7 +36,7 @@ def main(out):
     gm = gorge.mask(H, W)
     by = cy[BRIDGE_X]
     bridge = FootBridge(BRIDGE_X, int(by - hw[BRIDGE_X]) - 2, int(by + hw[BRIDGE_X]) + 1)
-    cave = CaveHill(CAVE[0], CAVE[1] - NY0)
+    cave = CaveMound(CAVE[0], CAVE[1] - NY0)
     cave_solid = cave.solid(H, W)
 
     # ground: snow over field6 grain, bare wind-swept rock growing in above the gorge
@@ -79,6 +79,8 @@ def main(out):
             continue
         things.append((y, 'rock', (x, y, int(rng.integers(3, 9)))))
     things.append((bridge.y1, 'bridge', bridge))
+    for (dx, dy, h) in ((-30, -34, 16), (22, -40, 14), (-8, -46, 17)):   # small firs up on the mound: it is land
+        things.append((CAVE[1] - NY0 + dy, 'pine', (CAVE[0] + dx, CAVE[1] - NY0 + dy, h, 900 + dx, 0.9)))
 
     def extra(kind, a):
         a.draw(img, G, CL)

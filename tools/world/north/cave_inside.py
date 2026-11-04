@@ -50,36 +50,57 @@ def floor_mask(rng):
 
 
 def ground(rng, floor):
-    """The world's flat tones and checker patterns (field6.ground), a shade darker, no grass: earth and grit."""
-    yy, xx = np.mgrid[0:H, 0:W]
-    chk = (xx + yy) % 2 == 0
-    f = 0.45 + 0.16 * fbm(rng, 12) + ndi.gaussian_filter(rng.normal(0, 0.05, (H, W)), 1.0)
-    img = np.empty((H, W, 3))
-    pale, mid, dark = f > 0.56, (f <= 0.56) & (f > 0.36), f <= 0.36
-    img[pale] = np.where(chk[pale, None], L1, MG)
-    img[mid] = np.where(chk[mid, None], MG, DG)
-    img[dark] = np.where(chk[dark, None], DG, K)
-    img *= np.array([1.03, 1.0, 0.95])                                  # a touch of earth in the grey
-    pebbles = (rng.random((H, W)) < 0.01) & floor
-    img[pebbles] = L1
-    img[np.roll(pebbles, 1, axis=0) & ~pebbles] = K                     # each with its little shadow
+    """The world's own ground generator (field6.ground_organic: grainy stochastic tones, soft patches,
+    pebbles with a lit corner) - only darker and without its grass tufts."""
+    fog = np.full((H, W), 0.34)
+    patch = fbm(rng, 10)
+    tone = fog * 0.62 + 0.12 - 0.24 * np.clip(patch, -1.5, 1.5) / 1.5
+    grain = ndi.gaussian_filter(rng.random((H, W)), 0.6)
+    grain = (grain - grain.mean()) / grain.std()
+    idx = np.digitize(tone + 0.10 * grain, [0.30, 0.48, 0.70])
+    img = np.array([DG, MG, L1, WH_SOFT], float)[idx] * np.array([1.02, 1.0, 0.96])
+    for _ in range(int(H * W * 0.0015)):
+        x, y = int(rng.integers(2, W - 3)), int(rng.integers(2, H - 3))
+        w, h = int(rng.integers(2, 4)), int(rng.integers(1, 3))
+        img[y:y + h, x:x + w] = MG
+        img[y, x] = WH_SOFT
+        img[y + h - 1, x + w - 1] = DG
     return img
 
 
-def rock(img, x, y, rx, ry, deep=False):
-    """A rock in the old map's manner (gen_world.boulder): flat tones, lit to the upper left, dark foot."""
-    yy, xx = np.mgrid[0:H, 0:W]
-    e = ((xx - x) / rx) ** 2 + ((yy - y) / ry) ** 2
-    sh = (e <= 1.5) & (yy > y) & (xx > x - 1)
-    img[sh] = K
-    m = e <= 1.0
-    lit = (xx - x) + (yy - y) * 1.3 < -0.5
-    base, hi, top = (DG, MG, L1) if deep else (MG, L1, WH_SOFT)
-    img[m] = base
-    img[m & lit] = hi
-    img[m & lit & (e < 0.3)] = top
-    img[m & (yy > y + ry * 0.4)] = K if deep else DG
-    img[m & (np.abs(xx - x - 0.2 * rx) < 0.6) & (yy > y - ry * 0.2) & (yy < y + ry * 0.5)] = K   # a crack
+def rock(img, x, y, rx, ry, deep=False, seed=0):
+    """An angular rock: an irregular outline of 5-7 corners and flat facets meeting at a peak up and left
+    of its middle; each facet one flat tone after how it faces the light (upper left). Not round, not square."""
+    from PIL import Image as _I, ImageDraw as _D
+    rng = np.random.default_rng(seed)
+    n = int(rng.integers(5, 8))
+    ang = np.sort(rng.uniform(0, 2 * np.pi, n))
+    ang += np.linspace(0, 0, n)
+    pts = [(x + np.cos(a_) * rx * rng.uniform(0.75, 1.1), y + np.sin(a_) * ry * rng.uniform(0.75, 1.1)) for a_ in ang]
+    peak = (x - 0.22 * rx + rng.uniform(-0.1, 0.1) * rx, y - 0.3 * ry)
+    tones = (K, DG, MG, L1) if deep else (DG, MG, L1, WH_SOFT)
+    x0, y0 = int(x - rx * 1.3) - 2, int(y - ry * 1.3) - 2
+    w, h = int(rx * 2.6) + 5, int(ry * 2.6) + 5
+    # its shadow first, down and to the right
+    sh = _I.new('L', (w, h), 0)
+    _D.Draw(sh).polygon([(px - x0 + 2, py - y0 + 2) for px, py in pts], fill=255)
+    shm = np.array(sh) > 0
+    for k in range(n):
+        a_, b_ = pts[k], pts[(k + 1) % n]
+        mid = ((a_[0] + b_[0]) / 2 - peak[0], (a_[1] + b_[1]) / 2 - peak[1])
+        L = np.hypot(*mid) + 1e-6
+        face = -(mid[0] * 0.75 + mid[1] * 0.66) / L                     # +1 turned to the upper left
+        t = 3 if face > 0.55 else 2 if face > 0.0 else 1 if face > -0.6 else 0
+        m = _I.new('L', (w, h), 0)
+        _D.Draw(m).polygon([(peak[0] - x0, peak[1] - y0), (a_[0] - x0, a_[1] - y0), (b_[0] - x0, b_[1] - y0)], fill=255)
+        mm = np.array(m) > 0
+        if k == 0:
+            ys, xs = np.nonzero(shm)
+            ok = (ys + y0 >= 0) & (ys + y0 < H) & (xs + x0 >= 0) & (xs + x0 < W)
+            img[ys[ok] + y0, xs[ok] + x0] = K
+        ys, xs = np.nonzero(mm)
+        ok = (ys + y0 >= 0) & (ys + y0 < H) & (xs + x0 >= 0) & (xs + x0 < W)
+        img[ys[ok] + y0, xs[ok] + x0] = tones[t]
 
 
 WH_SOFT = np.array([206.0, 202.0, 196.0])
@@ -142,28 +163,22 @@ def main(out, with_monk=False):
             rows.append((y0 - gy[y0, x0] / nl * push, x0 - gx[y0, x0] / nl * push,
                          rng.uniform(8, 14) * (1.2 if deep else 1), rng.uniform(6, 10) * (1.2 if deep else 1), deep))
     for y, x, rx, ry, deep in sorted(rows, key=lambda r: (not r[4], r[0])):
-        rock(img, x, y, rx, ry, deep)
+        rock(img, x, y, rx, ry, deep, seed=int(x * 7 + y * 13))
     for _ in range(14):                                                 # a few loose stones on the floor
         x, y = int(rng.integers(20, W - 20)), int(rng.integers(80, 360))
         if floor[y, x] and dist_floor_edge(floor, x, y) > 8:
-            rock(img, x, y, rng.uniform(2, 3.5), rng.uniform(1.5, 2.5))
+            rock(img, x, y, rng.uniform(2.5, 4), rng.uniform(2, 3), seed=x + y * 5)
     # moss on the rocks by the mouth, where daylight reaches; a drip of ice down one wall
     moss = (~floor) & (yy > 300) & (dist_in < 10) & (fbm(rng, 4) > 0.3)
     img[moss] = img[moss] * 0.5 + np.array([70, 92, 60.0]) * 0.5
     for k in range(9):
         img[150 + k, 152] = ICE[min(4, 4 - k // 3)]
 
-    # the mouth: snow blown in, icicles hanging over, a puddle of melt in front
-    for y in range(H - 22, H):
-        for x in range(64, 117):
-            if floor[y, x] and G[y, x] < (y - (H - 22)) / 22.0:
-                img[y, x] = SNOWR[5] if CL[y, x] > 0.4 else SNOWR[4]
-    for x in range(70, 111, 3):
-        for L in range(int(rng.integers(1, 4))):
-            img[H - 30 + L, x] = ICE[4 - L]
-    pud = (((xx - 84) / 9.0) ** 2 + ((yy - 340) / 3.5) ** 2 < 1) & floor
-    img[pud] = np.array([52, 60, 72.0])
-    img[pud & (np.abs(yy - 339) < 1) & (xx > 80) & (xx < 88)] = np.array([150, 166, 178.0])   # daylight in it
+    # the mouth: snow blown in, thinning out irregularly into the cave (no edge, no puddle)
+    blow = fbm(rng, 5)
+    reach = (yy - (H - 70)) / 70.0 + 0.35 * blow
+    snow = floor & (reach > 0.35) & (G < np.clip((reach - 0.35) * 2.2, 0, 1))
+    img[snow] = np.where((CL[snow] > 0.45)[:, None], SNOWR[5], SNOWR[4])
 
     # the tatami mat: woven straw rows, a dark cloth hem on its long sides, a folded red blanket at one end
     mx, my = MAT
@@ -213,7 +228,7 @@ def main(out, with_monk=False):
     img[cy - 3, cx] = np.array([217, 130, 46.0])
     # a little tower of three stones, a dried poppy in a clay cup
     for (sx, sy, rrx, rry) in ((122, 168, 4, 2.6), (122, 164, 3, 2.0), (122, 161, 2, 1.5)):
-        rock(img, sx, sy, rrx, rry)
+        rock(img, sx, sy, rrx, rry, seed=sy)
     ux, uy = 58, 176
     for (u, v) in ((-1, 0), (0, 0), (1, 0), (-1, 1), (0, 1), (1, 1)):
         img[uy + v, ux + u] = np.array([132, 96, 72.0]) if v == 0 else np.array([100, 70, 52.0])

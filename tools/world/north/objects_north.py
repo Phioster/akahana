@@ -318,3 +318,90 @@ class CaveHill:
                     img[j, i] = img[j, i] * (1 - a) + FL[2] * a
         drift(img, q, put, x - cut - 6, x - mw // 2 - 2, y + 1, hump, wob, up=3, down=3)
         drift(img, q, put, x + mw // 2 + 3, x + cut + 7, y + 1, hump, wob, up=3, down=3)
+
+
+
+class CaveMound:
+    """The land heaves up in front of the slope, read as height the way the old map shows its cliff: a snowy
+    top (flat tones, lit) whose front drops as a wall of earth and rock - highest in the middle, running out
+    into the ground at both sides - and the cave mouth in that wall with a timber frame. The wall casts its
+    shadow down and to the right. (x, y) = foot of the mouth."""
+    def __init__(s, x, y, rx=58, top=30, wall=27, mouth=(12, 12), seed=51):
+        s.x, s.y, s.rx, s.top, s.wall, s.mouth, s.seed = x, y, rx, top, wall, mouth, seed
+
+    def _shape(s, W):
+        rng = np.random.default_rng(s.seed)
+        xs = np.arange(int(s.x - s.rx), int(s.x + s.rx) + 1)
+        u = (xs - s.x) / s.rx
+        jag = ndi.gaussian_filter1d(rng.normal(0, 1, len(xs)), 3) * 4
+        hgt = np.clip(s.wall * (1 - u * u) ** 0.8 + 0.4 * jag, 0, None)        # the wall's height per column
+        foot = s.y + (u * u) * 6 + 0.5 * jag                                      # the ground line bends back at the sides
+        back = foot - hgt - s.top * np.sqrt(np.clip(1 - u * u, 0, 1)) + jag      # the top's far edge
+        return xs, hgt, foot, back
+
+    def solid(s, H, W):
+        m = np.zeros((H, W), bool)
+        xs, hgt, foot, back = s._shape(W)
+        mw, mh = s.mouth
+        for x, f, b in zip(xs, foot, back):
+            if 0 <= x < W and abs(x - s.x) > mw // 2 - 2:
+                m[max(0, int(b)):max(0, int(f)), x] = True
+            elif 0 <= x < W:
+                m[max(0, int(b)):max(0, int(f) - mh), x] = True
+        return m
+
+    def draw(s, img, G, CL):
+        q, put, wob, hump = _tools(img, G, CL, s.seed)
+        H, W, _ = img.shape
+        xs, hgt, foot, back = s._shape(W)
+        mw, mh = s.mouth
+        from field6 import WH, L1, MG, DG, K
+        # shadow of the wall, down and to the right on the snow
+        for x, h, f in zip(xs, hgt, foot):
+            for j in range(int(f), int(f + 0.45 * h) + 1):
+                i = int(x + (j - f) * 0.9 + 2)
+                if 0 <= i < W and 0 <= j < H and G[j, i] < 0.9:
+                    img[j, i] = img[j, i] * 0.8
+        for k, (x, h, f, b) in enumerate(zip(xs, hgt, foot, back)):
+            if not 0 <= x < W:
+                continue
+            top_end = f - h
+            u = (x - s.x) / s.rx
+            for j in range(max(0, int(b)), min(H, int(top_end))):               # the snowy top, lit from the upper left
+                t = (j - b) / max(1.0, top_end - b)
+                lit = CL[j, x] * 0.6 + G[j, x] * 0.4 > 0.35 + 0.5 * u + 0.4 * t   # light fades to the right and the front
+                c = (WH if CL[j, x] > 0.35 else L1) if lit else (L1 if CL[j, x] > 0.4 else MG)
+                if CL[j, x] > 0.88:
+                    c = MG                                                     # a rock pokes through
+                if j - b < 1.5 or (u > 0.55 and G[j, x] < (u - 0.55) * 2.5):
+                    c = MG if G[j, x] < 0.7 else L1                            # its far rim and the shaded right flank
+                img[j, x] = c
+            if 0 <= int(top_end) < H:
+                img[int(top_end), x] = WH                                       # the lit lip of snow
+            for j in range(max(0, int(top_end) + 1), min(H, int(f) + 1)):     # the wall: earth and rock in layers
+                t = (j - top_end) / max(1.0, h)
+                band = int((j + 1.6 * np.sin(x / 9.0) + 0.8 * np.sin(x / 3.7)) / 3) % 3   # wavy, roughly level layers
+                c = (MG, DG, DG)[band] if u < 0.2 else (DG, DG, K)[band]
+                if t > 0.8:
+                    c = K                                                      # dark at the foot
+                if G[j, x] < 0.08:
+                    c = L1                                                     # snow caught on a ledge
+                img[j, x] = c
+        # the mouth, a timber frame, from outside only the candle far inside
+        x, y = s.x, s.y
+        for j in range(y - mh, y + 1):
+            for i in range(x - mw // 2, x + mw // 2 + 1):
+                img[j, i] = K * (0.5 + 0.3 * abs(i - x) / (mw / 2.0))
+        for j in range(y - mh - 1, y + 1):
+            put(x - mw // 2 - 1, j, q(LOG, 0.5, j, x - mw // 2 - 1))
+            put(x + mw // 2 + 1, j, q(LOG, 0.25, j, x + mw // 2 + 1))
+        for i in range(x - mw // 2 - 2, x + mw // 2 + 3):
+            put(i, y - mh - 1, q(LOG, 0.55, y - mh - 1, i))
+            put(i, y - mh - 2, q(LOG, 0.4, y - mh - 2, i))
+        put(x, y - mh + 5, FL[3]); put(x, y - mh + 6, FL[2])
+        put(x - 1, y - mh + 6, img[y - mh + 6, x - 1] * 0.6 + FL[1] * 0.4)
+        put(x + 1, y - mh + 6, img[y - mh + 6, x + 1] * 0.6 + FL[1] * 0.4)
+        drift(img, q, put, int(x - s.rx * 0.8), x - mw // 2 - 2, lambda i: int(foot[min(len(foot) - 1, max(0, i - xs[0]))]) + 1,
+              hump, wob, up=3, down=3)
+        drift(img, q, put, x + mw // 2 + 3, int(x + s.rx * 0.8), lambda i: int(foot[min(len(foot) - 1, max(0, i - xs[0]))]) + 1,
+              hump, wob, up=3, down=3)
