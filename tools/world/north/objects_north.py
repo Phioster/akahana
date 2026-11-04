@@ -193,3 +193,124 @@ class CaveRock:
         # snow drifts at the foot of the face either side of the mouth
         drift(img, q, put, int(x - 1.2 * rx), x - mw // 2 - 1, y, hump, wob, up=3, down=3)
         drift(img, q, put, x + mw // 2 + 2, int(x + 1.2 * rx), y, hump, wob, up=3, down=3)
+
+
+def boulder(img, x, y, r, G, CL, seed):
+    """A whole little rock, not a slab: two or three rounded lumps, lit from the upper left, snow on what faces
+    up, a dark foot where it sits and a soft shadow on the snow to the right. (x, y) = middle of its foot."""
+    H, W, _ = img.shape
+    rng = np.random.default_rng(seed)
+    lumps = [(0.0, 0.0, r, 0.8 * r)]
+    for _ in range(int(rng.integers(1, 3))):
+        lumps.append((rng.uniform(-0.6, 0.6) * r, rng.uniform(-0.3, 0.1) * r, rng.uniform(0.5, 0.8) * r,
+                      rng.uniform(0.4, 0.65) * r))
+    for j in range(int(y - 0.4 * r), int(y + 2)):                     # shadow first, under and right
+        for i in range(int(x - r * 0.6), int(x + r * 1.6)):
+            if 0 <= i < W and 0 <= j < H and ((i - x - 0.45 * r) / (1.1 * r)) ** 2 + ((j - y + 0.2) / 1.6) ** 2 < 1:
+                img[j, i] = img[j, i] * 0.78
+    for j in range(int(y - 2 * r) - 1, int(y) + 1):
+        for i in range(int(x - 2 * r) - 1, int(x + 2 * r) + 2):
+            if not (0 <= i < W and 0 <= j < H):
+                continue
+            best = None
+            for (dx, dy, ax, ay) in lumps:
+                cx, cyy = x + dx, y - ay + dy                          # each lump sits on the ground line
+                u, v = (i - cx) / ax, (j - cyy) / ay
+                e = u * u + v * v
+                if e < 1 and (best is None or j - cyy > best[2]):
+                    best = (u, v, j - cyy)
+            if best is None:
+                continue
+            u, v, _ = best
+            nz = np.sqrt(max(0.0, 1 - u * u - v * v))
+            lit = 0.45 + 0.45 * (-0.55 * u - 0.6 * v + 0.6 * nz) + 0.12 * (CL[j, i] - 0.5)
+            g = G[j, i]
+            if v < -0.25 and nz > 0.35 and g < 0.8:                    # snow on the top
+                img[j, i] = _q(SNOWR, 0.7 + 0.3 * lit, g)
+            elif j >= y - 1:
+                img[j, i] = _q(STONE, 0.15, g)                         # where it sits, in its own shade
+            else:
+                img[j, i] = _q(STONE, lit, g)
+
+
+class CaveHill:
+    """The land heaves up into a snowy hill (no outline: it only shades the ground it rises from); at its
+    front a face is cut, and in it the cave runs in like a mine adit, a timber frame round the mouth.
+    Just inside: straw mat, tea bowl and a candle whose light falls out onto the snow."""
+    def __init__(s, x, y, rx=70, ry=44, cut=22, mouth=(12, 12), seed=51):
+        s.x, s.y, s.rx, s.ry, s.cut, s.mouth, s.seed = x, y, rx, ry, cut, mouth, seed   # (x, y) = foot of the mouth
+
+    def height(s, H, W):
+        yy, xx = np.mgrid[0:H, 0:W]
+        cx, cy = s.x + 4, s.y - s.ry * 0.75                           # the crown lies behind the mouth
+        d2 = ((xx - cx) / s.rx) ** 2 + ((yy - cy) / s.ry) ** 2
+        rng = np.random.default_rng(s.seed)
+        n = ndi.gaussian_filter(rng.normal(0, 1, (H, W)), 12) * 12
+        return np.clip(1 - d2 + 0.08 * n, 0, None) ** 1.3                  # a smooth mound, a little uneven
+
+    def solid(s, H, W):
+        yy, xx = np.mgrid[0:H, 0:W]
+        h = s.height(H, W)
+        mw, mh = s.mouth
+        inside = (np.abs(xx - s.x) <= mw // 2 - 2) & (yy > s.y - 8) & (yy <= s.y)
+        return (h > 0.35) & ~inside
+
+    def draw(s, img, G, CL):
+        q, put, wob, hump = _tools(img, G, CL, s.seed)
+        H, W, _ = img.shape
+        x, y = s.x, s.y
+        mw, mh = s.mouth
+        h = s.height(H, W)
+        # 1) the hill: the ground shaded by its slope (lit from the upper left), a few rocks breaking through
+        gy, gx = np.gradient(ndi.gaussian_filter(h, 1.2))
+        shade = np.clip(1 + 24.0 * (gx * 0.7 + gy * 0.9), 0.6, 1.2)       # n.L with light from the upper left
+        on = h > 0.02
+        img[on] = np.clip(img[on] * shade[on][:, None], 0, 255)
+        rng = np.random.default_rng(s.seed)
+        for _ in range(int(s.rx * s.ry / 220)):
+            i, j = int(rng.integers(x - s.rx, x + s.rx)), int(rng.integers(y - 2 * s.ry, y))
+            if 0 <= i < W and 0 <= j < H and 0.25 < h[j, i] and rng.random() < 0.6:
+                boulder(img, i, j, int(rng.integers(2, 4)), G, CL, i * 13 + j)
+        # 2) the cut face: earth and rock from the slope's front down to the foot, wider than the mouth
+        cut = s.cut
+        jag = ndi.gaussian_filter1d(rng.normal(0, 1, 4 * cut + 8), 1.5) * 1.5
+        for k, i in enumerate(range(x - cut, x + cut + 1)):
+            u = (i - x) / cut
+            depth = int(round((mh + 6) * np.sqrt(max(0.0, 1 - u ** 4)) + jag[k]))   # deepest in the middle
+            for j in range(y - depth, y + 1):
+                t = (j - (y - depth)) / max(1, depth)
+                v = 0.62 - 0.4 * t - 0.15 * u + 0.1 * np.sin(j * 0.9 + i * 0.4) + 0.12 * (CL[j % H, i % W] - .5)
+                put(i, j, q(STONE, v, j, i))
+            put(i, y - depth - 1, q(SNOWR, 0.85, y - depth - 1, i))       # snow lip over the cut
+        # 3) the mouth, black at the back, warm low down
+        for j in range(y - mh, y + 1):
+            for i in range(x - mw // 2, x + mw // 2 + 1):
+                depth = 1 - abs(i - x) / (mw / 2.0)
+                v = 0.15 + 0.4 * (1 - depth) + 0.1 * CL[j % H, i % W]
+                put(i, j, q(DARK, v, j, i))
+                warm = max(0.0, 1 - np.hypot(i - x, (j - (y - mh + 5)) * 1.2) / 4.0)   # a faint halo round the far flame
+                if warm > 0:
+                    put(i, j, img[j, i] * (1 - 0.45 * warm) + FL[1] * 0.45 * warm)
+        # 4) the timber frame: two posts and a lintel, snow on the lintel, icicles under it
+        for j in range(y - mh - 1, y + 1):
+            put(x - mw // 2 - 1, j, q(LOG, 0.5, j, x - mw // 2 - 1))
+            put(x + mw // 2 + 1, j, q(LOG, 0.25, j, x + mw // 2 + 1))
+        for i in range(x - mw // 2 - 2, x + mw // 2 + 3):
+            put(i, y - mh - 1, q(LOG, 0.55 - 0.2 * (i - x) / mw, y - mh - 1, i))
+            put(i, y - mh - 2, q(LOG, 0.4, y - mh - 2, i))
+            put(i, y - mh - 3, q(SNOWR, 0.9, y - mh - 3, i))
+        for k in range(-mw // 2 + 1, mw // 2):
+            if rng.random() < 0.5:
+                for L in range(int(rng.integers(1, 3))):
+                    put(x + k, y - mh + L, q(ICE, 0.95 - 0.3 * L, y - mh + L, x + k))
+        # 5) from outside only the candle shows, far back in the dark
+        put(x, y - mh + 4, FL[3]); put(x, y - mh + 5, FL[2])
+        # 6) candle light out onto the snow, and drifts heaped against the cut either side
+        for j in range(y, min(H, y + 8)):
+            for i in range(x - 8, x + 9):
+                dd = np.hypot((i - x) / 8.0, (j - y + 1) / 6.0)
+                a = max(0.0, 1 - dd) ** 1.4 * 0.25                          # only a faint warmth reaches the snow
+                if a > 0.03 and G[j % H, i % W] < a * 1.6:
+                    img[j, i] = img[j, i] * (1 - a) + FL[2] * a
+        drift(img, q, put, x - cut - 6, x - mw // 2 - 2, y + 1, hump, wob, up=3, down=3)
+        drift(img, q, put, x + mw // 2 + 3, x + cut + 7, y + 1, hump, wob, up=3, down=3)

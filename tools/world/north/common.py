@@ -134,7 +134,8 @@ def draw_things(img, things, G, CL, extra=None):
             x, y, h, seed, snow = a
             Pine(x, y, h, seed % 100000).draw(img, np.where(G < snow, G, 1.0), CL)
         elif kind == 'rock':
-            rock(img, a[0], a[1], a[2], G, CL, int(a[0] * 7 + a[1]))
+            from objects_north import boulder                       # whole little rocks, not half-buried slabs
+            boulder(img, a[0], a[1], max(2, int(a[2] * 0.9)), G, CL, int(a[0] * 7 + a[1]))
         elif kind == 'cabin':
             Cabin(a[0], a[1], w=34, wall=13, roof=14, seed=11, win=5, winh=5, doorw=5).draw(img, G, CL)
         elif kind == 'shed':

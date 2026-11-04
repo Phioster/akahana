@@ -12,7 +12,7 @@ from scipy import ndimage as ndi
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import (fbm, smooth, wood_density, snow_ground, Firs, hut_things, draw_things, noise_maps,  # noqa: E402
                     footpath, through, HN)
-from objects_north import Gorge, FootBridge, CaveRock  # noqa: E402
+from objects_north import Gorge, FootBridge, CaveHill  # noqa: E402
 
 NY0, NY1, W = 250, 1000, 1000
 H = NY1 - NY0
@@ -36,7 +36,7 @@ def main(out):
     gm = gorge.mask(H, W)
     by = cy[BRIDGE_X]
     bridge = FootBridge(BRIDGE_X, int(by - hw[BRIDGE_X]) - 2, int(by + hw[BRIDGE_X]) + 1)
-    cave = CaveRock(CAVE[0], CAVE[1] - NY0, rx=34, face=20)
+    cave = CaveHill(CAVE[0], CAVE[1] - NY0)
     cave_solid = cave.solid(H, W)
 
     # ground: snow over field6 grain, bare wind-swept rock growing in above the gorge
@@ -64,6 +64,7 @@ def main(out):
     path_mask = np.array(pm) > 0
 
     gorge.draw(img, G, CL)                                       # the crack lies in the ground: drawn first
+    cave.draw(img, G, CL)                                        # so does the hill: it shades the ground it rises from
     for k, (pts, fade) in paths.items():
         footpath(img, P(pts), G, width=1.5, bank=1.5, rng_seed=hash(k) % 1000, fade_from=fade)
 
@@ -77,13 +78,13 @@ def main(out):
         if rng.random() > 0.15 + 0.85 * smooth((700 - (y + NY0)) / 300.0) or keep[y, x]:
             continue
         things.append((y, 'rock', (x, y, int(rng.integers(3, 9)))))
-    things.append((cave.y, 'cave', cave))
     things.append((bridge.y1, 'bridge', bridge))
 
     def extra(kind, a):
         a.draw(img, G, CL)
     draw_things(img, things, G, CL, extra)
     Image.fromarray(np.clip(img, 0, 255).astype(np.uint8)).save(out)
+
 
 
 if __name__ == '__main__':
