@@ -4,6 +4,7 @@ Jizo way), the wood thins into fog behind.
 
     python3 spot5_ritual.py OUT.png [scale]
 """
+VER = 1                                     # 1: the small stone lantern (gen_east redraws older)
 import json
 import os
 import sys

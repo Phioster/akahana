@@ -244,26 +244,39 @@ class Lantern3:
              (13,4,'box'),(14,4,'box'),(15,4,'box'),(16,4,'box'),(17,4,'box'),(18,4,'box'),
              (19,8,'roof'),(20,7,'roof'),(21,6,'roof'),(22,4,'roof'),(23,3,'roof'),(24,2,'roof'),
              (25,1,'jewel'),(26,2,'jewel'),(27,2,'jewel'),(28,1,'jewel')]
-    def __init__(s,x,y,rng): s.x,s.y=x,y
+    # the game's size (Philip 2026-11-04: lanterns were twice the monk's height): about 18 rows, a little taller than him
+    PROFILE_SMALL=[(0,5,'base'),(1,4,'base'),(2,3,'base'),
+             (3,1,'shaft'),(4,1,'shaft'),(5,1,'shaft'),
+             (6,4,'shelf'),(7,3,'shelf'),
+             (8,3,'box'),(9,3,'box'),(10,3,'box'),(11,3,'box'),
+             (12,5,'roof'),(13,4,'roof'),(14,3,'roof'),(15,2,'roof'),
+             (16,1,'jewel'),(17,1,'jewel')]
+    def __init__(s,x,y,rng,small=True):
+        s.x,s.y,s.small=x,y,small
+        # window rows, the row under the roof, glow height and radius, how far the roof corners reach
+        s.win,s.under,s.gy,s.R,s.curl,s.k=((9,10),11,9.5,9,6,0.7) if small else ((14,17),17,15.5,13,9,1.0)
     def footprint(s,H,W):
-        yy,xx=np.mgrid[0:H,0:W]; return ((xx-s.x)/9)**2+((yy-s.y+13)/16)**2<=1
+        yy,xx=np.mgrid[0:H,0:W]
+        if s.small: return ((xx-s.x)/6)**2+((yy-s.y+8)/10)**2<=1
+        return ((xx-s.x)/9)**2+((yy-s.y+13)/16)**2<=1
     def draw(s,img,t,L):
         t=t%L; H,W,_=img.shape; x,y=s.x,s.y; ph=2*np.pi*t/L
         g=np.random.default_rng(41).random((40,20)); bn=ndi.gaussian_filter(np.random.default_rng(42).normal(0,1,(40,20)),0.9); bn/=bn.std()
         mossn=ndi.gaussian_filter(np.random.default_rng(43).normal(0,1,(40,20)),1.3)
         fl=0.5+0.12*np.sin(ph*13+np.sin(ph*7))+0.05*np.sin(ph*29)       # calm candle flicker
-        prof={r:(hw,part) for r,hw,part in s.PROFILE}
+        prof={r:(hw,part) for r,hw,part in (s.PROFILE_SMALL if s.small else s.PROFILE)}
+        k_=s.k; w0,w1=s.win
         def q(pal,v,gx,gy):
             v=np.clip(v,0,0.999)*len(pal); i=int(v); return pal[min(len(pal)-1,i+(g[gy%40,gx%20]<(v-i)*0.9))]
         # cast shadow to the lower right (light comes from the upper left)
         sh=np.random.default_rng(44).normal(0,1,(12,24))
         for dy in range(-6,3):
             for dx in range(0,14):
-                e=((dx-6)/8)**2+((dy+1.5)/3.5)**2+0.2*sh[(dy+6)%12,dx%24]
+                e=((dx-6*k_)/(8*k_))**2+((dy+1.5*k_)/(3.5*k_))**2+0.2*sh[(dy+6)%12,dx%24]
                 if e<1: put(img,x+dx,y+dy,DG if e<0.7 else MG)
         # light falling onto the ground: a flat, diffuse gold-red pool around the foot
         yy_,xx_=np.mgrid[0:H,0:W]
-        pd=np.hypot((xx_-x)/15,(yy_-y-1)/6.5)
+        pd=np.hypot((xx_-x)/(15*k_),(yy_-y-1)/(6.5*k_))
         pa=np.clip(1-pd,0,1)**1.4*(0.40+0.08*fl)
         pool=np.array([250,150,64],float)
         sel=pa>0.01
@@ -279,12 +292,12 @@ class Lantern3:
                 if abs(i)>below: v-=0.22                                 # underside of a ledge
                 if part=='roof':
                     v-=0.05
-                    if r==17: v-=0.25                                    # roof underside in shade...
+                    if r==s.under: v-=0.25                               # roof underside in shade...
                 c=q(STONE,v,gx,gy)
-                if part=='box' and abs(i)<=1 and 14<=r<=17:              # window into the chamber
-                    core=fl+0.25*(1-abs(i))-0.1*abs(r-15.5)
+                if part=='box' and abs(i)<=1 and w0<=r<=w1:              # window into the chamber
+                    core=fl+0.25*(1-abs(i))-0.1*abs(r-(w0+w1)/2)
                     c=FL[7] if core>0.95 else FL[6] if core>0.7 else FL[5] if core>0.45 else FL[4]
-                if part=='box' and abs(i)==2 and 14<=r<=17: c=STONE[0]   # window reveal
+                if part=='box' and abs(i)==2 and w0<=r<=w1: c=STONE[0]   # window reveal
                 # cracks and weathering
                 if (part in('base','shaft','roof')) and g[(gy*3)%40,(gx*7)%20]<0.06: c=STONE[0]
                 # moss on the shaded side and on ledge tops
@@ -292,9 +305,10 @@ class Lantern3:
                     c=MOSS3[2] if v>0.55 else MOSS3[1] if v>0.35 else MOSS3[0]
                 put(img,xx,yy,c)
         # roof corners curl upward (warabite)
-        put(img,x-9,y-20,STONE[3]); put(img,x-9,y-21,STONE[4]); put(img,x+9,y-20,STONE[1]); put(img,x+9,y-21,STONE[2])
+        cr=s.curl; ry=(12 if s.small else 19)
+        put(img,x-cr,y-ry-1,STONE[3]); put(img,x-cr,y-ry-2,STONE[4]); put(img,x+cr,y-ry-1,STONE[1]); put(img,x+cr,y-ry-2,STONE[2])
         # glow: warm light from the chamber tints everything around it, fading out, breathing with the flame
-        cx,cy=x,y-15.5; R=13
+        cx,cy=x,y-s.gy; R=s.R
         yy_,xx_=np.mgrid[0:H,0:W]
         d=np.hypot(xx_-cx,(yy_-cy)*1.1)/R
         a=np.clip(1-d,0,1)**2*(0.30+0.08*fl)
@@ -302,7 +316,7 @@ class Lantern3:
         sel=a>0.01
         img[sel]=np.clip(img[sel]*(1-a[sel,None])+warm*a[sel,None],0,255).astype(np.uint8)
         # a little moss tuft at the foot
-        for (dx,dy) in [(5,1),(6,0),(-6,1)]: put(img,x+dx,y+dy,MOSS3[1])
+        for (dx,dy) in ([(3,1),(4,0),(-4,1)] if s.small else [(5,1),(6,0),(-6,1)]): put(img,x+dx,y+dy,MOSS3[1])
 WOOD=[hx(c) for c in ['#2e2420','#4a3a31','#6a5545','#8c735c','#ab9277']]
 TILE=[hx(c) for c in ['#24262a','#383b40','#52565c','#71767b','#959a9d']]
 ROPE=[hx(c) for c in ['#7d6a46','#a68f5d','#c9b37c']]

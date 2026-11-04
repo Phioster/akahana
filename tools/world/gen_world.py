@@ -443,12 +443,12 @@ walk[:44, :] = False
 # ------------------------------------------------------------------ lights (world coordinates)
 lights = [
     dict(x=fsx, y=fsy - 5, r=46, k=0.9, kind='fire'),
-    dict(x=lx, y=ly - 15.5, r=30, k=0.70, kind='lantern'),
+    dict(x=lx, y=ly - 9.5, r=24, k=0.65, kind='lantern'),                # the small lantern's window
     dict(x=S(110.5, 236)[0], y=S(110.5, 236)[1], r=20, k=0.55, kind='wood'),
     dict(x=S(122, 116)[0], y=S(122, 116)[1], r=24, k=0.65, kind='candle'),
     dict(x=S(138.5, 129)[0], y=S(138.5, 129)[1], r=20, k=0.55, kind='wood'),
     dict(x=468.5, y=841, r=20, k=0.55, kind='wood'),
-    dict(x=308, y=488.5, r=26, k=0.60, kind='lantern'),
+    dict(x=308, y=494.5, r=22, k=0.55, kind='lantern'),
     dict(x=327, y=477, r=18, k=0.40, kind='candle'),        # cottage window
 ]
 

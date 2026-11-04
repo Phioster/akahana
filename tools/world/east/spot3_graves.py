@@ -3,6 +3,7 @@ two slender steles, cairns, little offering bowls, staffs with faded cloth pushe
 
     python3 spot3_graves.py OUT.png [scale]
 """
+VER = 1                                     # 1: the small stone lantern (gen_east redraws older)
 import json
 import os
 import sys

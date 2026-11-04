@@ -228,6 +228,9 @@ def forest_piece(rows=None):
     return p
 
 
+ZONE0_VER = 1                        # 1: the small stone lantern; a cached zone0 older than this is drawn anew
+
+
 def zone0_piece():
     """The poppy meadow runs out into the wood: ground, poppy heads (the sway layer), firs, ferns, gate lanterns."""
     x0, y0, w, h = Z0.X0, Z0.Y0, Z0.W, Z0.H
@@ -259,7 +262,9 @@ def zone0_piece():
     c.sway_h = np.where(m, 255, 0).astype(np.uint8)
     gx = np.arange(w)[None, :] + x0
     wt = rect_weight(h, w, 24) * (1 - smooth((gx - 700) / 100.0))
-    return Piece('zone0', x0, y0, c, wt, c.result[1])
+    pc = Piece('zone0', x0, y0, c, wt, c.result[1])
+    pc.ver = ZONE0_VER
+    return pc
 
 
 def ext_map(cols, w, seed):
@@ -564,6 +569,14 @@ def main(src=None, out=None):
             import pickle
             with open(cache, 'wb') as f:
                 pickle.dump((pieces, ZS.render.open_), f, protocol=4)
+    for i, p in enumerate(pieces):
+        if p.name == 'zone0' and getattr(p, 'ver', 0) < ZONE0_VER:
+            print(' zone0 anew', flush=True)
+            pieces[i] = zone0_piece()
+            if cache:
+                import pickle
+                with open(cache, 'wb') as f:
+                    pickle.dump((pieces, ZS.render.open_), f, protocol=4)
     spot_mods = {'s3': (s3, lambda r: r), 's4': (s4, lambda r: (r,)), 's5': (s5, lambda r: r), 's6': (s6, lambda r: r),
                  's7': (s7, lambda r: r)}
     stale = [i for i, p in enumerate(pieces) if p.name in spot_mods and getattr(p, 'ver', 0) < getattr(spot_mods[p.name][0], 'VER', 0)]

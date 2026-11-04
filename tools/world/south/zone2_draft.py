@@ -135,7 +135,7 @@ class Steinlaterne:
         return (s.x - 18, s.y - 34, s.x + 20, s.y + 10)
 
     def lights(s):
-        return [{'x': s.x + 0.5, 'y': s.y - 15.0, 'r': 28.0, 'k': 0.65, 'kind': 'lantern'}]
+        return [{'x': s.x + 0.5, 'y': s.y - 9.5, 'r': 22.0, 'k': 0.6, 'kind': 'lantern'}]   # the small lantern's window
 
     def draw(s, img, G):
         x0, y0, x1, y1 = s.box()

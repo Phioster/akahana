@@ -3,6 +3,7 @@ way from the south joins in.
 
     python3 spot7_jizo.py OUT.png [scale]
 """
+VER = 1                                     # 1: the small stone lantern (gen_east redraws older)
 import json
 import os
 import sys
