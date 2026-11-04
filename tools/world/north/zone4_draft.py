@@ -66,6 +66,47 @@ def band(pts, width, n=500):
     return np.array(im) > 0
 
 
+FALL_FRAMES = 8
+FRAMES_OUT = os.environ.get('FALL_FRAMES_OUT')   # e.g. /tmp/f%02d.png: the waterfall's frames for a preview
+
+
+def fall_frame(img, G, f):
+    """One frame of the waterfall: the streaks run down 1 px a frame, foam and icicle-drips change."""
+    # the waterfall: a ragged ribbon of white water down the rock step, streaks running down, icicles at its sides
+    fx = C(FALL_X, 0)[0]
+    top, bot = C(0, 556)[1], C(0, 596)[1]
+    frng = np.random.default_rng(9)
+    ffoam = np.random.default_rng(100 + f).random(G.shape)             # the spray flickers
+    flow = np.random.default_rng(7).random((16, G.shape[1]))           # the water's grain, flowing 2 px a frame (loops in 8)
+    wob = ndi.gaussian_filter1d(frng.normal(0, 1, bot - top + 1), 2) * 2
+    streaks = frng.random(16)
+    for y in range(top, bot):
+        k = y - top
+        half = 2.5 + 1.2 * k / (bot - top) + 0.8 * wob[k]               # widening as it falls
+        cx = fx + 0.6 * wob[k]
+        for x in range(int(cx - half - 1), int(cx + half + 2)):
+            u = abs(x - cx) / half
+            if u > 1.1:
+                continue
+            col = streaks[(x - fx) % 16]
+            if u > 0.85:
+                c = np.array([150, 184, 204.0])                          # the thin edge, the rock showing through
+            elif col < 0.25 and (y - f + int(col * 40)) % 8 < 4:
+                c = SNOWR[4]                                             # a darker streak running down
+            else:
+                c = SNOWR[6] if flow[(y - 2 * f) % 16, x] < 0.7 else SNOWR[5]
+            img[y, x] = c
+        for side in (-1, 1):                                             # icicles hanging off the step beside it
+            if frng.random() < 0.35 and k < (bot - top) * 0.6:
+                ix = int(cx + side * (half + 2 + frng.integers(0, 4)))
+                img[y, ix] = ICE[4] if frng.random() < 0.6 else ICE[3]
+    for y in range(bot - 3, bot + 9):                                    # foam and spray where it meets the lake
+        for x in range(fx - 13, fx + 14):
+            d = np.hypot((x - fx) / 13.0, (y - bot - 2) / 6.0)
+            if d < 1 and ffoam[y, x] < (1 - d) * 0.9:
+                img[y, x] = SNOWR[6] if ffoam[y, x] < 0.45 else SNOWR[5]
+
+
 def main(world, out):
     rng = np.random.default_rng(54)
     yy, xx = np.mgrid[0:H, 0:W]
@@ -86,7 +127,7 @@ def main(world, out):
     lake = ndi.binary_closing(lake | mouth, iterations=8) & ~(rb & (yy > lc[1] + 60) & ~lake)   # a funnel into the river, no snow tongues
     lake = ndi.binary_opening(lake, iterations=2)
     river = rb & ~lake
-    brook = band([C(1196, 320), C(1226, 380), C(1206, 440), C(1240, 500), C(FALL_X, 556)], 4)
+    brook = band([C(1191, 348), C(1214, 400), C(1206, 440), C(1240, 500), C(FALL_X, 556)], 4)
     step = (np.abs(yy - C(0, 566)[1] - 6 * np.sin(xx / 23.0)) < 9) & (np.abs(xx - C(FALL_X, 0)[0]) < 85 + 15 * n)
     water = lake | river | brook
 
@@ -120,9 +161,11 @@ def main(world, out):
     drift = ice & (fbm(rng, 6, (H, W)) + 0.3 * (rng.random((H, W)) - .5) > 0.75)
     img[drift] = SNOWR[6]
     img[ndi.binary_dilation(ice, iterations=1) & ~ice & ~lake] = SNOWR[4]      # its edge rimed white
-    # the brook above the fall: frozen over, snow on its banks, open dark water in a few holes
-    hole = fbm(rng, 4, (H, W)) > 0.7
-    img[brook] = np.where(hole[brook][:, None], np.array([46, 60, 74.0]), np.where((G0 := rng.random((H, W)))[brook][:, None] < 0.3, ICE[4], ICE[3]))
+    # the brook above the fall: ice under a dusting of snow, open water only in a few small holes
+    bv = rng.random((H, W))
+    img[brook] = np.where((bv < 0.5)[brook][:, None], ICE[3], np.where((bv < 0.8)[brook][:, None], ICE[4], SNOWR[6]))
+    hole = brook & (fbm(rng, 2, (H, W)) > 1.1) & ~ndi.binary_erosion(~brook, iterations=1)
+    img[hole] = np.array([72, 94, 110.0])
     bank_ = ndi.binary_dilation(brook, iterations=1) & ~brook
     img[bank_ & (rng.random((H, W)) < 0.7)] = SNOWR[5]
 
@@ -165,6 +208,10 @@ def main(world, out):
             things.append((foot, 'east', (east_trees[int(rng.integers(len(east_trees)))], cx, foot)))
         else:
             things.append((foot, 'old', s))
+    # the spring: the brook comes out from under a heap of rocks, a little dark pool in front
+    sx_, sy_ = C(1190, 348)
+    for dx, dy, r in [(-9, -6, 7), (8, -7, 7), (0, -12, 6), (-16, -1, 5), (15, -2, 5), (-4, -18, 4)]:
+        things.append((sy_ + dy, 'rock', (sx_ + dx, sy_ + dy, r)))
     # the rock step the water falls over, rocks round the shore, a few loose ones up the slope
     sy, sx = np.nonzero(step & (rng.random((H, W)) < 0.05))
     for y, x in sorted(zip(sy, sx)):
@@ -204,37 +251,16 @@ def main(world, out):
             paste(img, t, x, y, root)
     draw_things(img, things, G, CL, extra)
 
-    # the waterfall: a ragged ribbon of white water down the rock step, streaks running down, icicles at its sides
-    fx = C(FALL_X, 0)[0]
-    top, bot = C(0, 556)[1], C(0, 596)[1]
-    frng = np.random.default_rng(9)
-    wob = ndi.gaussian_filter1d(frng.normal(0, 1, bot - top + 1), 2) * 2
-    streaks = frng.random(16)
-    for y in range(top, bot):
-        k = y - top
-        half = 2.5 + 1.2 * k / (bot - top) + 0.8 * wob[k]               # widening as it falls
-        cx = fx + 0.6 * wob[k]
-        for x in range(int(cx - half - 1), int(cx + half + 2)):
-            u = abs(x - cx) / half
-            if u > 1.1:
-                continue
-            col = streaks[(x - fx) % 16]
-            if u > 0.85:
-                c = np.array([150, 184, 204.0])                          # the thin edge, the rock showing through
-            elif col < 0.25 and (y + int(col * 40)) % 7 < 4:
-                c = SNOWR[4]                                             # a darker streak running down
-            else:
-                c = SNOWR[6] if G[y, x] < 0.7 else SNOWR[5]
-            img[y, x] = c
-        for side in (-1, 1):                                             # icicles hanging off the step beside it
-            if frng.random() < 0.35 and k < (bot - top) * 0.6:
-                ix = int(cx + side * (half + 2 + frng.integers(0, 4)))
-                img[y, ix] = ICE[4] if frng.random() < 0.6 else ICE[3]
-    for y in range(bot - 3, bot + 9):                                    # foam and spray where it meets the lake
-        for x in range(fx - 13, fx + 14):
-            d = np.hypot((x - fx) / 13.0, (y - bot - 2) / 6.0)
-            if d < 1 and G[y, x] < (1 - d) * 0.9:
-                img[y, x] = SNOWR[6] if G[y, x] < 0.45 else SNOWR[5]
+    pool = (((xx - C(1191, 0)[0]) / 5.0) ** 2 + ((yy - C(0, 352)[1]) / 3.0) ** 2) < 1
+    img[pool] = np.array([60, 80, 96.0])
+    img[ndi.binary_dilation(pool, iterations=1) & ~pool] = ICE[4]
+    base = img.copy()
+    fall_frame(img, G, 0)
+    if FRAMES_OUT:
+        for f in range(FALL_FRAMES):
+            fr = base.copy()
+            fall_frame(fr, G, f)
+            Image.fromarray(np.clip(fr, 0, 255).astype(np.uint8)).save(FRAMES_OUT % f)
     Image.fromarray(np.clip(img, 0, 255).astype(np.uint8)).save(out)
 
 
