@@ -38,6 +38,11 @@ Philip (2026-11-04): „nach dem Plan einen Entwurf, wieder mit Abnahme-Seite“
   - Die alte Felswand am oberen Rand löst sich in verstreute Felsen auf.
   - Bäume, die heute am oberen Weltrand flach abgeschnitten sind, werden ganz neu gezeichnet.
 
+- **Höhle (abgenommen 2026-11-04, Zone 2):**
+  - Außen ein Hügel mit Kuppe und Tannen, die Front aus Kies und Erde mit Wurzeln (CaveMound 'earth'). Der Eingang hat einen Holzrahmen, von außen glimmt nur die Kerze.
+  - Innen ein EIGENER Bildschirm (180×400, kein Scrollen, `tools/world/north/cave_inside.py`): kantige Felswände, Boden aus dem Bodengenerator, Rastplatz mit Tatami, roter Decke, Teeschale, Kerze und Mohn im Becher.
+  - **Laterne:** Gleich hinter dem Eingang holt er sie heraus und hängt sie auf (die Höhle gilt immer als dunkel). Nach dem Hinausgehen nimmt er sie ab, wenn es draußen hell genug ist.
+
 ## Nicht-Ziele
 - Keine Kämpfe, Kletter-Mechanik, Rätsel, Erklärtexte.
 - Keine begehbaren Häuser: Die Hütte bleibt außen, nur das Gewächshaus im Westen ist begehbar.
