@@ -42,9 +42,9 @@ func test_the_lake_map_knows_deep_water() -> void:
 	var l := LakeLife.new()
 	l.world = w
 	l.load_map()
-	assert_true(l.depth_at(Vector2(430, 3060)) > 80, "Mitte des Sees ist tief")
-	assert_eq(l.depth_at(Vector2(100, 900)), 0, "das Mohnfeld ist kein See")
-	var spot := l.random_spot(Rect2(300, 2950, 260, 200), 80)
+	assert_true(l.depth_at(Vector2(430, 4260)) > 80, "Mitte des Sees ist tief")
+	assert_eq(l.depth_at(Vector2(100, 2100)), 0, "das Mohnfeld ist kein See")
+	var spot := l.random_spot(Rect2(300, 4150, 260, 200), 80)
 	assert_true(spot.x >= 0.0 and l.depth_at(spot) > 80, "ein Platz im tiefen Wasser")
 	l.free()
 
@@ -57,16 +57,16 @@ func test_lake_life_keeps_a_few_animals_near_the_view_only() -> void:
 	l.sorted = l
 	l.player = Node2D.new()
 	l.add_child(l.player)
-	l.player.position = Vector2(100, 900)
+	l.player.position = Vector2(100, 2100)
 	var most := 0
 	for i in 400:
-		l.step(0.05, Rect2(300, 2900, 180, 400))
+		l.step(0.05, Rect2(300, 4100, 180, 400))
 		most = maxi(most, l.fish_count())                # not just the last frame: a fish may just have sunk away (CI flake 2026-11-02)
 		assert_true(l.fish_count() <= LakeLife.MAX_FISH, "nicht zu viele Fische: %d" % l.fish_count())
 	assert_true(most >= 1, "ein paar Fische: %d" % most)
 	assert_true(l.duck_count() <= LakeLife.MAX_DUCKS)
 	for i in 40:
-		l.step(0.05, Rect2(100, 700, 180, 400))
+		l.step(0.05, Rect2(100, 1900, 180, 400))
 	assert_eq(l.fish_count(), 0, "weit weg vom See keine Fische")
 	l.queue_free()
 
@@ -80,7 +80,7 @@ func test_a_duck_at_the_shallows_turns_once_and_does_not_flicker() -> void:
 	# phone 0.7.0: a duck by a stone turned every frame and its face flickered left/right
 	var l := _lake()
 	var d := LakeLife.Duck.new()
-	d.setup(l, Vector2(519, 3223), Vector2(900, 3223))        # heading east, into the shallows
+	d.setup(l, Vector2(519, 4423), Vector2(900, 4423))        # heading east, into the shallows
 	d.heading = Vector2.RIGHT
 	var faces := []
 	for i in 120:
@@ -98,7 +98,7 @@ func test_a_duck_at_the_shallows_turns_once_and_does_not_flicker() -> void:
 func test_a_fish_at_the_shallows_turns_away_and_keeps_its_course() -> void:
 	var l := _lake()
 	var f := LakeLife.Fish.new()
-	f.setup(l, Vector2(593, 3225))
+	f.setup(l, Vector2(593, 4425))
 	f.circling = false
 	f.heading = Vector2.RIGHT
 	f.brain = FishBrain.new(30.0)
@@ -118,7 +118,7 @@ func test_ducks_keep_off_stones_in_the_water() -> void:
 	var l := _lake()
 	var ow := Image.load_from_file(ProjectSettings.globalize_path("res://assets/world/open_water.png"))
 	var stone := Vector2(-1, -1)
-	for y in range(2900, 3500, 3):                             # a lake pixel that is not open water: a stone
+	for y in range(4100, 4700, 3):                             # a lake pixel that is not open water: a stone
 		for x in range(100, 800, 3):
 			if l.depth_at(Vector2(x, y)) > 60 and ow.get_pixel(x, y).r < 0.5:
 				stone = Vector2(x, y)
@@ -133,7 +133,7 @@ func test_a_duck_taking_off_runs_over_the_water_first_then_climbs() -> void:
 	# approved flight (step 30): a run over the water (wings beating low, splash), then flat climb, with a shadow
 	var l := _lake()
 	var d := LakeLife.Duck.new()
-	d.setup(l, Vector2(430, 3060), Vector2(900, 3060))
+	d.setup(l, Vector2(430, 4260), Vector2(900, 4260))
 	d.heading = Vector2.RIGHT
 	d.brain.state = DuckBrain.FLY
 	var start := d.pos
@@ -203,7 +203,7 @@ func test_a_new_duck_spot_lies_outside_the_view_and_is_found_nearly_every_time()
 	# phone 0.8.7: no duck on a whole round of the lake. random_spot gave the first deep point, mostly one
 	# inside the view; the duck was then dropped and the next try came 14-30 s later.
 	var l := _lake()
-	var view := Rect2(300, 2950, 180, 400)
+	var view := Rect2(300, 4150, 180, 400)
 	var found := 0
 	for i in 40:
 		var p := l.random_spot(view.grow(70.0), LakeLife.DUCK_DEPTH, view)

@@ -20,6 +20,22 @@ def _cells(w, name):
         for cx in range(cols)], 1) for cy in range(rows)], 0)
 
 
+def north(w):
+    """How many rows the north added on top (0.11); tests written for the old frame add it."""
+    return int(w.get('north_h', 0))
+
+
+def pre_north(w):
+    """world.json as it was before the north grew on top: every y moved back up."""
+    n = north(w)
+    w = dict(w)
+    w['height'] -= n
+    w['start'] = dict(w['start'], y=w['start']['y'] - n)
+    w['sprites'] = [dict(s, y=s['y'] - n, foot=s['foot'] - n) for s in w['sprites'] if s['foot'] >= n]
+    w['lights'] = [dict(l, y=l['y'] - n) for l in w['lights'] if l['y'] >= n]
+    return w
+
+
 class WorldAssets(unittest.TestCase):
     def setUp(self):
         self.w = json.load(open(os.path.join(D, 'world.json')))
@@ -66,9 +82,9 @@ class WorldAssets(unittest.TestCase):
                     kinds |= set(np.unique(np.array(wt)[..., 3]).tolist())
         self.assertTrue({1, 2, 3} <= kinds, 'alter Bach, neue Baeche, See')
 
-    def test_the_world_is_ten_chunks_wide_and_eighteen_tall(self):
-        self.assertEqual((self.w['width'], self.w['height']), (1800, 3600))
-        self.assertEqual(self.w['chunks'], [10, 18])
+    def test_the_world_is_ten_chunks_wide_and_twenty_four_tall(self):
+        self.assertEqual((self.w['width'], self.w['height']), (1800, 4800))   # 0.11: the north on top
+        self.assertEqual(self.w['chunks'], [10, 24])
 
     def _from_start(self):
         st = self.w['start']
@@ -85,7 +101,7 @@ class WorldAssets(unittest.TestCase):
         mat = _cells(self.w, 'mat')
         got = self._from_start()
         south = np.zeros(mat.shape, bool)
-        south[600:] = True
+        south[600 + north(self.w) // 2:] = True
         for kind, share, what in ((3, 0.97, 'Bruecken, Brett, Stege'), (2, 0.9, 'Trittsteine'),
                                   (5, 0.8, 'flacher Seerand und Pfuetzen')):
             sel = south & (mat == kind) & self.cells.astype(bool)
@@ -107,7 +123,8 @@ class WorldAssets(unittest.TestCase):
 
     def test_the_ford_over_the_stepping_stones_can_be_walked(self):
         # drawn as a crossing, but each stone was an island: water between them shut the ford
-        part = self.cells[310:370, 45:75].astype(bool)     # world y 620-740, x 90-150 round the stones
+        n = north(self.w) // 2
+        part = self.cells[310 + n:370 + n, 45:75].astype(bool)     # world y 620-740, x 90-150 round the stones
         got = reach(part, [(0, x) for x in range(part.shape[1])], diagonal=True)
         self.assertTrue(got[-1].any(), 'Nord- und Suedufer verbunden')
 

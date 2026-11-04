@@ -35,7 +35,7 @@ func test_real_world_bridge_route_exists() -> void:
 	var w := WorldData.load_default()
 	var p := Pathing.new()
 	p.build_from(_whole(w), Rect2i(0, 0, w.width / Pathing.CELL, w.height / Pathing.CELL))
-	var way := p.find_path(w.start, Vector2(272, 560))       # from the meadow over the stream
+	var way := p.find_path(w.start, Vector2(272, 1760))       # from the meadow over the stream
 	assert_true(way.size() > 0, "über die Brücke")
 
 func test_walking_keeps_to_the_paths() -> void:
@@ -204,14 +204,14 @@ func test_one_can_walk_round_the_lake_over_the_brook_mouths() -> void:
 	var s := _whole(w)
 	var p := Pathing.new()
 	p.build_from(s, Rect2i(0, 0, w.width / Pathing.CELL, w.height / Pathing.CELL))
-	var west := p.find_path(Vector2(300, 2800), Vector2(540, 2960))       # the west bank to the jetty
+	var west := p.find_path(Vector2(300, 4000), Vector2(540, 4160))       # the west bank to the jetty
 	assert_true(west.size() > 1, "Weg gefunden")
 	var far := 0.0
 	for pt in west:
 		far = maxf(far, pt.y)
-	assert_true(far < 3000.0, "über die Mündungen, nicht durch tiefes Wasser: y bis %.0f" % far)
+	assert_true(far < 4200.0, "über die Mündungen, nicht durch tiefes Wasser: y bis %.0f" % far)
 	var last: Vector2 = west[west.size() - 1]
-	assert_true(last.distance_to(Vector2(540, 2960)) < 12.0, "kommt am Steg an: %s" % last)
+	assert_true(last.distance_to(Vector2(540, 4160)) < 12.0, "kommt am Steg an: %s" % last)
 	var dist := 0.0
 	for i in range(1, west.size()):
 		dist += west[i - 1].distance_to(west[i])

@@ -74,11 +74,15 @@ class EastLayout(unittest.TestCase):
         import os
         from PIL import Image
         d = os.path.join(os.path.dirname(__file__), '..', '..', 'assets', 'world', 'chunks')
+        import json
+        n = json.load(open(os.path.join(d, '..', 'world.json'))).get('north_h', 0)   # the north on top (0.11)
         hx, hy = L.HUT
+        hy += n
         mat = np.fromfile(os.path.join(d, f'c_{hx // 180}_{hy // 200}_mat.bin'), np.uint8).reshape(100, 90)
         near = mat[(hy % 200) // 2 - 2:(hy % 200) // 2 + 3, (hx % 180) // 2 - 3:(hx % 180) // 2 + 4]
         self.assertTrue((near == 1).any(), 'the branch starts on the south path (EARTH ground)')
         bx, by = (int(v) for v in L.bach()[-1])
+        by += n
         w = np.array(Image.open(os.path.join(d, f'c_{bx // 180}_{by // 200}_water.png')).convert('RGBA'))
         win = w[max(0, by % 200 - 12):by % 200 + 13, max(0, bx % 180 - 12):bx % 180 + 13, 3]
         self.assertTrue((win == 2).any(), 'the bach ends at brook B (water kind 2) of the south')

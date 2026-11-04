@@ -8,7 +8,7 @@ import numpy as np
 from PIL import Image
 
 from tools.tests.flood import reach
-from tools.tests.test_world_assets import D, _cells
+from tools.tests.test_world_assets import D, _cells, north, pre_north
 from tools.world.east import layout as L
 
 TOP = 1040                                      # zone 1's top row: the south below it keeps its ground
@@ -17,9 +17,11 @@ TOP = 1040                                      # zone 1's top row: the south be
 class EastWorld(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.w = json.load(open(os.path.join(D, 'world.json')))
-        cls.cells = _cells(cls.w, 'cells').astype(bool)
-        cls.mat = _cells(cls.w, 'mat')
+        full = json.load(open(os.path.join(D, 'world.json')))
+        cls.n = north(full)                          # the tests below speak in the frame before the north
+        cls.w = pre_north(full)
+        cls.cells = _cells(full, 'cells').astype(bool)[cls.n // 2:]
+        cls.mat = _cells(full, 'mat')[cls.n // 2:]
         st = cls.w['start']
         cls.got = reach(cls.cells, [(int(st['y']) // 2, int(st['x']) // 2)], diagonal=True)
 
@@ -99,7 +101,7 @@ class EastWorld(unittest.TestCase):
         kinds = set()
         for cy in range(2, 17):
             for cx in range(5, 10):
-                with Image.open(os.path.join(D, 'chunks', f'c_{cx}_{cy}_water.png')) as wt:
+                with Image.open(os.path.join(D, 'chunks', f'c_{cx}_{cy + self.n // 200}_water.png')) as wt:
                     kinds |= set(np.unique(np.array(wt)[..., 3]).tolist())
         self.assertTrue({2, 3} <= kinds)
 
@@ -119,8 +121,10 @@ class EastWorldLocal(unittest.TestCase):
     still reachable the long way round, so the global test above did not see it."""
     @classmethod
     def setUpClass(cls):
-        cls.w = json.load(open(os.path.join(D, 'world.json')))
-        cls.cells = _cells(cls.w, 'cells').astype(bool)
+        full = json.load(open(os.path.join(D, 'world.json')))
+        cls.n = north(full)
+        cls.w = pre_north(full)
+        cls.cells = _cells(full, 'cells').astype(bool)[cls.n // 2:]
 
     def test_the_paths_meeting_at_a_spot_join_near_it(self):
         for key, s in L.SPOTS.items():
@@ -147,7 +151,7 @@ class EastWorldLocal(unittest.TestCase):
         red = 0
         for cy in range(y0 // 200, y1 // 200):
             for cx in range(x0 // 180, (x1 - 1) // 180 + 1):
-                f = np.array(Image.open(os.path.join(D, 'chunks', f'c_{cx}_{cy}_flowers.png')).convert('RGBA'))[8:208, 8:188].astype(int)
+                f = np.array(Image.open(os.path.join(D, 'chunks', f'c_{cx}_{cy + self.n // 200}_flowers.png')).convert('RGBA'))[8:208, 8:188].astype(int)
                 gx = np.arange(cx * 180, cx * 180 + 180)[None, :]
                 inside = (gx >= x0) & (gx < x1)
                 head = (f[..., 3] > 0) & (f[..., 0] > 70) & (f[..., 0] - f[..., 1] > 30) & (f[..., 0] - f[..., 2] > 20)

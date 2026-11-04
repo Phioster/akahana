@@ -19,7 +19,7 @@ const HOT := Color8(255, 186, 104)
 const DEEP := Color8(120, 34, 30)
 
 var player: Player
-var world_size := Vector2(1800, 3600)   # main sets the real one
+var world_size := Vector2(1800, 4800)   # main sets the real one
 var lit := 0.0
 var carried := false                 # it hangs on the staff
 var _field: Image

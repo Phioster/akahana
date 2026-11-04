@@ -4,7 +4,7 @@
 class_name Ambience
 extends Node2D
 
-const RUIN := Vector2(229, 352)
+const RUIN := Vector2(229, 1552)
 # Levels are set as (how loud it should arrive up close) minus (how loud the recording is, measured with
 # ffmpeg volumedetect): music arrives at about -26 dB, steps at about -29.
 const FIRE_DB := -4.0                # recording (rumble off, hiss tamed) -29 -> about -33, under the steps

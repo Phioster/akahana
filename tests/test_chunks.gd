@@ -155,9 +155,9 @@ func test_water_moves_on_the_ground_of_a_brook_chunk() -> void:
 	v.queue_free()
 
 func test_the_lake_mirrors_what_stands_on_its_shore() -> void:
-	# the jetty chunk (3, 14): the still things' reflections come baked, with an apron for the ripples
-	var v := _view(Rect2(540, 2880, 120, 120))
-	var c := Vector2i(3, 14)
+	# the jetty chunk (3, 20): the still things' reflections come baked, with an apron for the ripples
+	var v := _view(Rect2(540, 4080, 120, 120))
+	var c := Vector2i(3, 20)
 	assert_true(v._chunks.has(c), "Kachel am Steg geladen")
 	var m := (v._chunks[c][0] as Sprite2D).material as ShaderMaterial
 	var rt: Texture2D = m.get_shader_parameter("refl_tex")
@@ -172,9 +172,9 @@ func test_the_lake_mirrors_what_stands_on_its_shore() -> void:
 	v.queue_free()
 
 func test_the_jetty_lantern_throws_its_light_path_on_the_chunk_below_the_jetty() -> void:
-	# the jetty's end lies at y 3009, on chunk (3, 15): its water gets the lamp
-	var v := _view(Rect2(540, 2960, 120, 120))
-	var c := Vector2i(3, 15)
+	# the jetty's end lies at y 4209, on chunk (3, 21): its water gets the lamp
+	var v := _view(Rect2(540, 4160, 120, 120))
+	var c := Vector2i(3, 21)
 	assert_true(v._chunks.has(c), "Kachel unter dem Steg geladen")
 	var m := (v._chunks[c][0] as Sprite2D).material as ShaderMaterial
 	var lamps: PackedVector2Array = m.get_shader_parameter("lamps")
@@ -231,15 +231,15 @@ func test_ground_arriving_before_its_flowers_is_not_lost() -> void:
 func test_the_jetty_reaches_out_over_deep_water() -> void:
 	# phone 0.8.0: the planks ended at the shore, the shallows behind them were walkable - he stood on the water
 	var s := _store()
-	s.load_now(Vector2i(3, 14))
-	s.load_now(Vector2i(3, 15))                          # the jetty's end (y 3004) lies on the chunk below
-	assert_true(s.walkable(Vector2(578, 2965)), "Steg am Ufer")
-	assert_true(s.walkable(Vector2(578, 2990)), "auf den Planken über dem Wasser")
-	assert_true(s.walkable(Vector2(578, 3008)), "am Stegende")
-	assert_true(s.walkable(Vector2(580, 3009)), "bis zur letzten Plankenzeile (0.8.2: 3-4 Pixel fehlten)")
-	assert_false(s.walkable(Vector2(578, 3012)), "hinter dem Ende tiefes Wasser")
-	assert_false(s.walkable(Vector2(566, 2995)), "neben dem Steg kein Waten im Tiefen")
-	assert_false(s.walkable(Vector2(592, 3000)), "neben dem Steg kein Waten im Tiefen")
+	s.load_now(Vector2i(3, 20))
+	s.load_now(Vector2i(3, 21))                          # the jetty's end (y 4204) lies on the chunk below
+	assert_true(s.walkable(Vector2(578, 4165)), "Steg am Ufer")
+	assert_true(s.walkable(Vector2(578, 4190)), "auf den Planken über dem Wasser")
+	assert_true(s.walkable(Vector2(578, 4208)), "am Stegende")
+	assert_true(s.walkable(Vector2(580, 4209)), "bis zur letzten Plankenzeile (0.8.2: 3-4 Pixel fehlten)")
+	assert_false(s.walkable(Vector2(578, 4212)), "hinter dem Ende tiefes Wasser")
+	assert_false(s.walkable(Vector2(566, 4195)), "neben dem Steg kein Waten im Tiefen")
+	assert_false(s.walkable(Vector2(592, 4200)), "neben dem Steg kein Waten im Tiefen")
 
 ## 0.10.2: the picture prefetch registers entries that make no node; they must be made once, not every frame.
 func test_an_entry_without_a_node_is_made_once_and_dropped_once() -> void:
@@ -268,15 +268,15 @@ func test_a_step_skips_small_moves_but_not_large_ones() -> void:
 
 func test_standing_objects_open_over_the_wanderer() -> void:
 	# one walks among the trees: what stands in front of him is screened open (canopy.gdshader)
-	var v := _view(Rect2(180, 400, 180, 400))
-	v.set_wanderer(Vector2(250, 600), 0.6)
+	var v := _view(Rect2(180, 1600, 180, 400))
+	v.set_wanderer(Vector2(250, 1800), 0.6)
 	var seen := 0
 	for n in v.sorted.get_children():
 		if n is Sprite2D:
 			seen += 1
 			var m := (n as Sprite2D).material as ShaderMaterial
 			assert_true(m != null and m.shader.resource_path.ends_with("canopy.gdshader"), "Objekt ohne Kronen-Shader")
-			assert_eq(m.get_shader_parameter("wanderer"), Vector2(250, 600))
+			assert_eq(m.get_shader_parameter("wanderer"), Vector2(250, 1800))
 	assert_true(seen > 0, "Objekte da")
 	v.queue_free()
 

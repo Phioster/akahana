@@ -4,17 +4,18 @@
 class_name TestTravel
 extends RefCounted
 
+## World coordinates since the north grew on top (0.11: +1200 rows).
 const PLACES := [
-	["Lager", Vector2(243, 1070)],
-	["Bachbrücke", Vector2(270, 655)],
-	["Norden", Vector2(250, 170)],
-	["Grasland", Vector2(300, 1400)],
-	["Glühwürmchen", Vector2(362, 1950)],
-	["Bäche", Vector2(594, 2300)],
-	["Steg", Vector2(574, 2945)],
-	["Hütte am See", Vector2(770, 3320)],
-	["Waldteich", Vector2(1000, 1380)],
-	["Ostwald", Vector2(1250, 1700)],
+	["Lager", Vector2(243, 2270)],
+	["Bachbrücke", Vector2(270, 1855)],
+	["Kogarashi", Vector2(250, 1370)],
+	["Grasland", Vector2(300, 2600)],
+	["Glühwürmchen", Vector2(362, 3150)],
+	["Bäche", Vector2(594, 3500)],
+	["Steg", Vector2(574, 4145)],
+	["Hütte am See", Vector2(770, 4520)],
+	["Waldteich", Vector2(1000, 2580)],
+	["Ostwald", Vector2(1250, 2900)],
 ]
 
 

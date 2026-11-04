@@ -15,22 +15,23 @@ REF_SOUTH = ('db83c886008044a18cbfe7631b5239cd', 'b78dcfabfb6a425aaef3146450f5d5
 
 def _ground(cols):
     rows = [np.concatenate([np.array(Image.open(os.path.join(D, 'chunks', f'c_{cx}_{cy}_ground.png')).convert('RGB'))
-                            for cx in cols], 1) for cy in range(18)]
+                            for cx in cols], 1) for cy in range(24)]
     return np.concatenate(rows, 0)
 
 
 class WorldWidth(unittest.TestCase):
     def test_the_world_is_ten_chunks_wide(self):
         w = json.load(open(os.path.join(D, 'world.json')))
-        self.assertEqual((w['width'], w['height'], w['chunks']), (1800, 3600, [10, 18]))
+        self.assertEqual((w['width'], w['height'], w['chunks']), (1800, 4800, [10, 24]))
         for cx in (0, 9):
-            self.assertTrue(os.path.exists(os.path.join(D, 'chunks', f'c_{cx}_17_cells.bin')))
+            self.assertTrue(os.path.exists(os.path.join(D, 'chunks', f'c_{cx}_23_cells.bin')))
 
     def test_the_old_west_and_the_south_are_pixel_identical(self):
         g = _ground(range(5))
-        self.assertEqual(hashlib.md5(g[:1200, :380].tobytes()).hexdigest(), REF_WEST)
-        self.assertEqual(hashlib.md5(g[1160:, :400].tobytes()).hexdigest(), REF_SOUTH[0])
-        self.assertEqual(hashlib.md5(g[1260:, 460:640].tobytes()).hexdigest(), REF_SOUTH[1])
+        N = 1200                                   # the north on top (0.11)
+        self.assertEqual(hashlib.md5(g[N:N + 1200, :380].tobytes()).hexdigest(), REF_WEST)
+        self.assertEqual(hashlib.md5(g[N + 1160:, :400].tobytes()).hexdigest(), REF_SOUTH[0])
+        self.assertEqual(hashlib.md5(g[N + 1260:, 460:640].tobytes()).hexdigest(), REF_SOUTH[1])
 
 
 if __name__ == '__main__':

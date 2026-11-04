@@ -35,3 +35,15 @@ func test_volume_maps_to_decibels_and_silence() -> void:
 	assert_almost_eq(AudioSetup.to_db(1.0), 0.0)
 	assert_true(AudioSetup.to_db(0.5) < -5.0 and AudioSetup.to_db(0.5) > -7.0, "halb = ca. -6 dB")
 	assert_true(AudioSetup.to_db(0.0) <= -80.0, "null = stumm")
+
+func test_old_position_moves_down_when_the_north_grew_on_top() -> void:
+	var c := ConfigFile.new()                  # a save from before 0.11: no world height stored
+	c.set_value("weg", "position", Vector2(243, 1070))
+	c.save(PATH)
+	var r := SaveData.load_from(PATH)
+	r.fit_to(4800)
+	assert_eq(r.position, Vector2(243, 2270))
+	r.save_to(PATH)
+	var again := SaveData.load_from(PATH)
+	again.fit_to(4800)
+	assert_eq(again.position, Vector2(243, 2270), "nur einmal verschieben")

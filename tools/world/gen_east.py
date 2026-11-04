@@ -907,6 +907,7 @@ def write(r):
     w['places'] = {'ritual': [s5.X0 + s5.CX, s5.Y0 + s5.CY + 4], 'pond': [int(L.SPOTS['4'].x), int(L.SPOTS['4'].y)],
                    'graves': [int(L.SPOTS['3'].x), int(L.SPOTS['3'].y)]}
     w['lights'] = list(w['lights']) + [l for l in r['lights']]
+    w['wisps'] = [dict(x=1300.0, y=800.0)]                       # the will-o'-the-wisp lives deep in the Ostwald (Philip 2026-11-04)
     with open(os.path.join(out, 'world.json'), 'w') as f:
         json.dump(w, f, indent=1)
     print('ok', len(w['sprites']), 'sprites,', len(w['lights']), 'lights', flush=True)

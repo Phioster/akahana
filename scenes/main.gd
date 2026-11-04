@@ -156,6 +156,7 @@ func _make_swarm(s: Dictionary) -> Node:
 
 
 func _start_position() -> Vector2:
+	save.fit_to(world.height)
 	if save.has_position:
 		store.load_now(world.grid.chunk_of(save.position))
 		if store.walkable(save.position):
@@ -222,6 +223,7 @@ func _on_camera_mode(on: bool) -> void:
 func _store() -> void:
 	if world != null and store.walkable(player.position):
 		save.set_position(player.position)
+		save.world_h = world.height
 	save.save_to()
 
 

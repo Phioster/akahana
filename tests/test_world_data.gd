@@ -92,9 +92,9 @@ func test_a_lantern_sprite_holds_only_the_lantern_not_its_glow() -> void:
 func test_the_wood_depth_and_the_ostwald_places_are_known() -> void:
 	var w := WorldData.load_default()
 	assert_true(w.places.has("ritual") and w.places.has("pond") and w.places.has("graves"), "Orte")
-	assert_true(w.wood_at(Vector2(100, 820)) < 0.05, "Mohnwiese hell")
-	assert_true(w.wood_at(Vector2(1200, 1000)) > 0.9, "tiefer Wald dunkel")
-	assert_true(w.wood_at(Vector2(400, 2500)) < 0.05, "der Sueden hell")
+	assert_true(w.wood_at(Vector2(100, 2020)) < 0.05, "Mohnwiese hell")
+	assert_true(w.wood_at(Vector2(1200, 2200)) > 0.9, "tiefer Wald dunkel")
+	assert_true(w.wood_at(Vector2(400, 3700)) < 0.05, "der Sueden hell")
 
 func test_the_song_crossfades_between_meadow_and_dark_version() -> void:
 	var a := Music.mix_db(0.0)
