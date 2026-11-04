@@ -255,6 +255,11 @@ class Lantern3:
         s.x,s.y,s.small=x,y,small
         # window rows, the row under the roof, glow height and radius, how far the roof corners reach
         s.win,s.under,s.gy,s.R,s.curl,s.k=((9,10),11,9.5,9,6,0.7) if small else ((14,17),17,15.5,13,9,1.0)
+    def core(s):
+        """The lantern's own stone pixels (its glow and light pool are light, not the sprite)."""
+        pts=[(s.x+i,s.y-r) for r,hw,_ in (s.PROFILE_SMALL if s.small else s.PROFILE) for i in range(-hw,hw+1)]
+        ry=(12 if s.small else 19)
+        return pts+[(s.x+d*s.curl,s.y-ry-k) for d in (-1,1) for k in (1,2)]
     def footprint(s,H,W):
         yy,xx=np.mgrid[0:H,0:W]
         if s.small: return ((xx-s.x)/6)**2+((yy-s.y+8)/10)**2<=1

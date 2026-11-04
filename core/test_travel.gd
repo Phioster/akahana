@@ -12,10 +12,17 @@ const PLACES := [
 	["Grasland", Vector2(300, 2600)],
 	["Glühwürmchen", Vector2(362, 3150)],
 	["Bäche", Vector2(594, 3500)],
-	["Steg", Vector2(574, 4145)],
+	["Seesteg", Vector2(574, 4145)],
 	["Hütte am See", Vector2(770, 4520)],
 	["Waldteich", Vector2(1000, 2580)],
 	["Ostwald", Vector2(1250, 2900)],
+	["Felstor", Vector2(274, 1190)],
+	["Holzfällerhütte", Vector2(318, 885)],
+	["Höhle", Vector2(150, 722)],
+	["Steg", Vector2(560, 545)],
+	["Aussicht", Vector2(786, 412)],
+	["Pass", Vector2(480, 135)],
+	["Bergsee", Vector2(1090, 680)],
 ]
 
 

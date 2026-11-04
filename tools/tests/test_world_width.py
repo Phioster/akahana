@@ -8,7 +8,8 @@ import numpy as np
 from PIL import Image
 
 D = os.path.join(os.path.dirname(__file__), '..', '..', 'assets', 'world')
-REF_WEST = 'ef6fbe12542ec42a75982570ee6e7813'     # ground x < 380, y < 1200 before the Ostwald (the poppy gate changes x >= 380)
+REF_WEST = '314675e06f31a6aa6528d3d34aa51483'     # ground x < 380, y 320..1200 of the old map (0.11: the north's overhang reaches the rows above;
+                                                    # before the north, y < 1200 was ef6fbe12542ec42a75982570ee6e7813)
 REF_SOUTH = ('db83c886008044a18cbfe7631b5239cd', 'b78dcfabfb6a425aaef3146450f5d50f')   # ground y >= 1160, x < 400 and y >= 1260, x 460..640 (the poppies run into the wood from x 660 and the wood's mix takes y < 1230;
 # 400..460 holds 85 pixels the south generator itself varies from run to run)
 
@@ -29,7 +30,7 @@ class WorldWidth(unittest.TestCase):
     def test_the_old_west_and_the_south_are_pixel_identical(self):
         g = _ground(range(5))
         N = 1200                                   # the north on top (0.11)
-        self.assertEqual(hashlib.md5(g[N:N + 1200, :380].tobytes()).hexdigest(), REF_WEST)
+        self.assertEqual(hashlib.md5(g[N + 320:N + 1200, :380].tobytes()).hexdigest(), REF_WEST)
         self.assertEqual(hashlib.md5(g[N + 1160:, :400].tobytes()).hexdigest(), REF_SOUTH[0])
         self.assertEqual(hashlib.md5(g[N + 1260:, 460:640].tobytes()).hexdigest(), REF_SOUTH[1])
 

@@ -88,7 +88,8 @@ class EastWorld(unittest.TestCase):
         self.assertGreater(np.mean(shut), 0.6)                   # a tall thing's foot blocks (trunks sit near the middle)
 
     def test_the_wood_is_closed_at_the_world_rim(self):
-        self.assertFalse(self.cells[:15, 450:].any())             # y < 30
+        top = _cells(json.load(open(os.path.join(D, 'world.json'))), 'cells')[:15, 450:]   # the world's top since the
+        self.assertFalse(top.any())                              # north grew on it (0.11): the mist over the pass
         self.assertFalse(self.cells[:, -15:].any())              # the east edge
         self.assertFalse(self.cells[-15:, 450:].any())
 

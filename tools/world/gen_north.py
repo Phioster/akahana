@@ -59,20 +59,6 @@ def shift_world(w, dy):
     return w
 
 
-class North:
-    """What the north puts on top: full-size layers of NORTH_H rows (step 1: a closed snowfield)."""
-    def __init__(s, W):
-        rng = np.random.default_rng(61)
-        H = NORTH_H
-        s.W = W
-        g = np.where((rng.random((H, W)) < 0.6)[..., None], np.array([232, 228, 220]), np.array([214, 212, 210]))
-        s.ground = g.astype(np.uint8)
-        s.walk = np.zeros((H, W), bool)
-        s.mat = np.full((H // CELL, W // CELL), SNOW, np.uint8)
-        s.sprites, s.lights = [], []
-        s.mood = np.zeros((H // MOOD_CELL, W // MOOD_CELL), np.uint8)
-
-
 def grow(a, top):
     return np.concatenate([top, a], 0)
 
@@ -80,42 +66,97 @@ def grow(a, top):
 def main():
     if not os.path.exists(os.path.join(PRE, 'world.json')):
         sys.exit('build/world_pre_north fehlt: erst gen_east laufen lassen (make_world.sh speichert sie)')
+    sys.path.insert(0, os.path.join(HERE, 'north'))
+    import north_world as NW
     w = json.load(open(os.path.join(PRE, 'world.json')))
     W, H = w['width'], w['height']
-    n = North(W)
-    for name in FULL:
-        a = np.array(Image.open(os.path.join(PRE, name)))
-        if name == 'ground.png':
-            top = n.ground
-        else:
-            top = np.zeros((NORTH_H,) + a.shape[1:], a.dtype)
-        if name == 'walk.png':
-            top = (n.walk * 255).astype(np.uint8)
-        Image.fromarray(grow(a, top)).save(os.path.join(OUT, name))
+    im = {k: np.array(Image.open(os.path.join(PRE, k))) for k in FULL + HALF}
+    walk = np.fromfile(os.path.join(PRE, 'walk.bin'), np.uint8).reshape(H, W).astype(bool)
+    mat = np.fromfile(os.path.join(PRE, 'ground_mat.bin'), np.uint8).reshape(H // CELL, W // CELL)
+    n = NW.build(dict(ground=im['ground.png'], sprites=w['sprites']), W)
+    O = NW.OLD
+    ov = slice(0, O)                                                 # today's rows the north reaches into
+    nov = slice(NORTH_H, NORTH_H + O)
+    rep = n.replaced[nov]
+
+    ground = im['ground.png'].copy()
+    ground[ov] = np.clip(n.ground[nov], 0, 255).astype(np.uint8)
+    out = {'ground.png': grow(ground, np.clip(n.ground[:NORTH_H], 0, 255).astype(np.uint8))}
+    for k in ('flowers.png', 'bend.png', 'low.png', 'refl.png'):     # nothing sways, nothing mirrors up there yet
+        a = im[k].copy()
+        a[ov][rep] = 0
+        out[k] = grow(a, np.zeros((NORTH_H,) + a.shape[1:], a.dtype))
+    wat = im['water.png'].copy()
+    new = n.water[nov, :, 3] > 0
+    wat[ov][new] = n.water[nov][new]
+    out['water.png'] = grow(wat, n.water[:NORTH_H])
+    ow = im['open_water.png'].copy()
+    ow[ov][n.open_water[nov]] = 255
+    out['open_water.png'] = grow(ow, (n.open_water[:NORTH_H] * 255).astype(np.uint8))
+
+    # walking: today's rows keep theirs, the north's new blockers added; its closed top rim (Kogarashi's cliff,
+    # the wood's rim) opens as the mirror of the rows below it
+    jj = np.arange(O)[:, None]
+    axis = np.where(np.arange(W)[None, :] < NW.KOGA_X, NW.CLIFF, NW.RIM)
+    src_row = np.where(jj < axis, 2 * axis - jj, jj).clip(0, H - 1)
+    old_w = walk[src_row, np.arange(W)[None, :]]
+    for s in w['sprites']:                                           # trees taken away free their trunk again
+        if id(s) in n.drop and 0 <= s['foot'] < O:
+            cx = s['x'] + s['w'] // 2
+            old_w[max(0, s['foot'] - 3):s['foot'] + 2, max(0, cx - 4):cx + 5] = True
+    walk2 = walk.copy()
+    walk2[ov] = old_w & n.walk[nov]
+    walk2 = grow(walk2, n.walk[:NORTH_H])
+    from scipy import ndimage as ndi
+    lab, _ = ndi.label(walk2, structure=np.ones((3, 3)))           # islands nobody can reach are no ground
+    st = w['start']
+    walk2 &= lab == lab[int(st['y']) + NORTH_H, int(st['x'])]
+    out['walk.png'] = (walk2 * 255).astype(np.uint8)
+
+    mat2 = mat.copy()
+    jc = np.arange(O // CELL)[:, None]
+    ac = axis[:, ::CELL] // CELL
+    mat2[:O // CELL] = mat[np.where(jc < ac, 2 * ac - jc, jc), np.arange(W // CELL)[None, :]]
+    nm = n.mat[::CELL, ::CELL]
+    newp = (nm[NORTH_H // CELL:] == NW.EARTH)
+    mat2[:O // CELL][newp] = NW.EARTH
+    mat2 = grow(mat2, nm[:NORTH_H // CELL])
+
+    for name, a in out.items():
+        Image.fromarray(a).save(os.path.join(OUT, name))
     for name in HALF:
-        a = np.array(Image.open(os.path.join(PRE, name)))
+        a = im[name]
         top = np.zeros((NORTH_H // 2,) + a.shape[1:], a.dtype)
         if name == 'mist_fields.png':
-            top[:] = a[:1]                                       # the old top row's mist, carried up
+            top[:] = a[:1]
         Image.fromarray(grow(a, top)).save(os.path.join(OUT, name))
-    for name, cell in BINS.items():
-        a = np.fromfile(os.path.join(PRE, name), np.uint8).reshape(H // cell, W // cell)
-        if name == 'walk.bin':
-            top = n.walk.astype(np.uint8)
-        elif name == 'walk_cells.bin':
-            top = n.walk.reshape(NORTH_H // CELL, CELL, W // CELL, CELL).all(axis=(1, 3)).astype(np.uint8)
-        else:
-            top = n.mat
-        grow(a, top).tofile(os.path.join(OUT, name))
+    walk2.astype(np.uint8).tofile(os.path.join(OUT, 'walk.bin'))
+    walk2.reshape(-1, CELL, W // CELL, CELL).all(axis=(1, 3)).astype(np.uint8).tofile(os.path.join(OUT, 'walk_cells.bin'))
+    mat2.tofile(os.path.join(OUT, 'ground_mat.bin'))
+
+    keep = [s for s in w['sprites'] if id(s) not in n.drop]
+    w['sprites'] = keep
     w = shift_world(w, NORTH_H)
-    if w.get('mood'):
-        w['mood'] = [int(v) for v in n.mood.ravel()] + w['mood'][NORTH_H // MOOD_CELL * w['mood_w']:]
-    w['sprites'] += n.sprites
-    w['lights'] += n.lights
+    sd = os.path.join(OUT, 'sprites')
+    for f in os.listdir(sd):                                         # the north's sprites of a former run
+        if f.startswith('n') and f.endswith('.png'):
+            os.remove(os.path.join(sd, f))
+    new_sprites = []
+    for i, sp in enumerate(n.sprites):
+        name = 'n%04d' % i
+        Image.fromarray(sp['rgba']).save(os.path.join(sd, name + '.png'))
+        new_sprites.append(dict(name=name, x=int(sp['x']), y=int(sp['y']), w=int(sp['w']), h=int(sp['h']),
+                                foot=int(sp['foot']), frames=int(sp['frames']), fps=int(sp.get('fps', w['fps']))))
+    for c in n.copies:
+        new_sprites.append(dict(name=c['name'], x=int(c['x']), y=int(c['y']), w=int(c['w']), h=int(c['h']),
+                                foot=int(c['foot']), frames=int(c['frames']), fps=int(c.get('fps', w['fps']))))
+    w['sprites'] += new_sprites
+    w['lights'] += [dict(l, x=float(l['x']), y=float(l['y'])) for l in n.lights]
     w['north_h'] = NORTH_H
     with open(os.path.join(OUT, 'world.json'), 'w') as f:
         json.dump(w, f, indent=1)
-    print('Norden: Welt', W, 'x', w['height'])
+    print('Norden: Welt', W, 'x', w['height'], '-', len(n.sprites), 'Figuren,', len(n.copies), 'Ostwaldbaeume,',
+          len(n.drop), 'alte entfernt')
 
 
 if __name__ == '__main__':
