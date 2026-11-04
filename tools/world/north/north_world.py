@@ -67,6 +67,19 @@ class North:
     pass
 
 
+def check_seams(name, a, jump, most=120):
+    """A field the ground is made from must not switch along a straight column or row: a column (row) where it
+    jumps in more than `most` places at once is a straight seam (Philip 2026-11-04: a hard edge at x 950).
+    Curved borders (a clearing, the mound) jump only in a few places per column."""
+    a = a.astype(float)
+    for axis, what in ((1, 'Spalte'), (0, 'Zeile')):
+        d = np.abs(np.diff(a, axis=axis)) > jump
+        per = d.sum(axis=1 - axis)
+        bad = np.nonzero(per > most)[0]
+        if len(bad):
+            raise SystemExit(f'Norden: gerade Kante in {name}, {what} {bad[:6].tolist()}')
+
+
 def _band(pts, width, H, W, n=600):
     im = Image.new('L', (W, H), 0)
     ImageDraw.Draw(im).line([tuple(p) for p in through(pts, n)], fill=255, width=width, joint='curve')
@@ -109,8 +122,8 @@ def ridge_mask(rng, H, W):
     gap = 120 + 40 * n1
     side = np.abs(xx - PASS[0]) - gap
     reach = 150 + 70 * np.sin(xx / 90.0) + 40 * n1 + 14 * n2 + np.clip(side, 0, 400) * 0.35
-    cap = np.where(xx > 700, 250 + 25 * n1 - 60 * smooth((xx - 1050) / 200.0) * smooth((1400 - xx) / 200.0), 9999)
-    reach = np.minimum(reach, cap)
+    cap = 250 + 25 * n1 - 60 * smooth((xx - 1050) / 200.0) * smooth((1400 - xx) / 200.0)
+    reach = np.minimum(reach, cap + 900 * (1 - smooth((xx - 620) / 160.0)))   # eased in: a hard switch at x 700 was a straight edge
     return ((yy < reach) & (side > 0)) | (yy < 40 + 20 * n2)
 
 
@@ -165,11 +178,14 @@ def build(pre, W=1800):
     below = yy >= HN                                                   # today's rows: the north's firs only reach in
     wood = np.where(below, wood[HN - 1:HN].repeat(H, 0) * (1 - smooth((yy - HN) / 260.0)), wood)
     clearing = (((xx - HUT[0]) / 92.0) ** 2 + ((yy - HUT[1] - 8) / 64.0) ** 2) < 1 + 0.25 * fbm(rng, 20, (H, W))
-    wood = np.where(clearing, 0.0, np.minimum(wood, np.where(e > 0.5, 0.5, 0.8)))
+    wood = np.where(clearing, 0.0, np.minimum(wood, 0.8 - 0.3 * e))   # no switch at a column: that was a straight edge
     round_mound = (((xx - CAVE[0]) / 130.0) ** 2 + ((yy - CAVE[1] + 20) / 85.0) ** 2) < 1 + 0.2 * fbm(rng, 15, (H, W))
     wood = np.where(round_mound, wood * 0.3, wood)                     # the hill stands free in the snow (zone 2)
-    bare = (fbm(rng, 10, (H, W)) + 0.5 * fbm(rng, 3, (H, W)) > 1.5 - 1.9 * smooth((560 - yy) / 360.0)) & (e < 0.5)
+    bare = fbm(rng, 10, (H, W)) + 0.5 * fbm(rng, 3, (H, W)) > 1.5 - 1.9 * smooth((560 - yy) / 360.0) + 2.5 * e   # thins out east
 
+    check_seams('Walddichte', wood[:HN], 0.12)
+    check_seams('Felsboden', bare[:HN], 0.5)
+    check_seams('Gipfel', ridge[:HN], 0.5)
     # ------------------------------------------------------------ ground: the north's, today's mirrored up, in clumps
     north = snow_ground(rng, H, W, 0, wood, bare=bare)
     grass = (north[..., 1] - north[..., 0] > 12) & (yy < HN - 150)
