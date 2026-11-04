@@ -34,6 +34,8 @@ var _hint: Label
 var _sfx: AudioStreamPlayer
 var _confirm_restart := false
 var _in_game := false               # opened from the game (not from the start screen)
+var _travel_page := 0
+const TRAVEL_PER_PAGE := 6
 
 
 func _ready() -> void:
@@ -236,7 +238,7 @@ func _show_main() -> void:
 			y = _entry(3, "von vorn", y, _restart_tapped)
 	y = _entry(-1, "Einstellungen", y, func(): _turn_to(Mode.SETTINGS))
 	if _in_game and travel_offered():                      # testing aid, under the settings (no room there)
-		y = _entry(-1, "Reisen (Test)", y, func(): _turn_to(Mode.TRAVEL))
+		y = _entry(-1, "Reisen (Test)", y, func(): _travel_page = 0; _turn_to(Mode.TRAVEL))
 	var poppy := TextureRect.new()                     # the little red poppy in front of "Einstellungen"
 	poppy.texture = _tex("mohn_knopf")
 	poppy.position = Vector2(1, y - 26 + 7)
@@ -257,9 +259,14 @@ func travel_offered() -> bool:
 func _show_travel() -> void:
 	_clear()
 	var y := _heading("Reisen (Test)", 0)
-	for place in TestTravel.PLACES:
+	var first := _travel_page * TRAVEL_PER_PAGE
+	for place in TestTravel.PLACES.slice(first, first + TRAVEL_PER_PAGE):
 		var to: Vector2 = place[1]
-		y = _entry(-1, place[0], y - 8, func(): close(); travel.emit(to))   # tighter than the menus: ten places fit; back: the phone's back key
+		y = _entry(-1, place[0], y - 3, func(): close(); travel.emit(to))   # back: the phone's back key
+	var pages := ceili(TestTravel.PLACES.size() / float(TRAVEL_PER_PAGE))
+	if pages > 1:                                      # one entry turns on (and from the last page round again)
+		_entry(-1, "weiter" if _travel_page < pages - 1 else "erste Seite", y + 4,
+				func(): _travel_page = (_travel_page + 1) % pages; _turn_to(Mode.TRAVEL))
 
 
 func _show_settings() -> void:
