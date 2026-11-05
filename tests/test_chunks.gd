@@ -285,3 +285,17 @@ func test_the_canopy_opens_more_while_he_stands() -> void:
 	assert_true(main.CANOPY_REST > main.CANOPY_WALK, "im Stehen weiter offen")
 	assert_almost_eq(main.CANOPY_WALK, 0.6, 0.001)
 	assert_almost_eq(main.CANOPY_REST, 0.8, 0.001)
+
+func test_on_a_tree_s_foot_row_he_stands_behind_it() -> void:
+	# 0.11.8: standing on whole rows he often stood exactly on a trunk's foot row; the tie drew the tree over
+	# him while the canopy (foot > feet) left it shut. Half a pixel lower settles both the same way.
+	var v := _view(Rect2(180, 1600, 180, 400))
+	var seen := 0
+	for n in v.sorted.get_children():
+		if n is Sprite2D:
+			seen += 1
+			var sp := n as Sprite2D
+			assert_almost_eq(fposmod(sp.position.y, 1.0), 0.5, 0.001)
+			assert_almost_eq(fposmod(sp.position.y + sp.offset.y, 1.0), 0.0, 0.001)   # the picture on whole pixels
+	assert_true(seen > 0, "Objekte da")
+	v.queue_free()

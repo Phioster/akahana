@@ -194,8 +194,10 @@ func _make_object(s: Dictionary) -> Node:
 	sp.centered = false
 	sp.hframes = int(s["frames"])
 	sp.material = _canopy
-	sp.position = Vector2(float(s["x"]), float(s["foot"]))
-	sp.offset = Vector2(0, float(s["y"]) - float(s["foot"]))
+	# half a pixel below its foot row: standing on that very row he is behind it, for the y-sort and the
+	# canopy alike (a tie drew the tree over him without opening it, 0.11.8)
+	sp.position = Vector2(float(s["x"]), float(s["foot"]) + 0.5)
+	sp.offset = Vector2(0, float(s["y"]) - float(s["foot"]) - 0.5)
 	sorted.add_child(sp)
 	if int(s["frames"]) > 1:
 		_animated[sp] = [int(s["frames"]), float(s["fps"])]
