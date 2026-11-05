@@ -51,7 +51,8 @@ class Cave(unittest.TestCase):
         near = got[ly // 2 - 6:ly // 2 + 10, lx // 2 - 10:lx // 2 + 10]
         self.assertTrue(near.any(), 'bis an die Kerze')
         self.assertTrue(got[self.m['exit_y'] // 2:].any(), 'der Weg hinaus ist frei')
-        self.assertLess(self.m['in'][1], self.m['exit_y'], 'hereinkommen ist nicht gleich hinausgehen')
+        self.assertLess(self.m['in_to'][1], self.m['exit_y'], 'nach dem Hereinkommen steht er oberhalb')
+        self.assertGreater(self.m['exit_y'], self.m['size'][1] - 30, 'hinaus geht es erst im letzten Stück')
         self.assertEqual(int((c & ~got).sum()), 0, 'kein abgeschnittener Fleck')
 
     def test_the_mouth_is_walked_into_from_the_snow(self):

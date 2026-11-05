@@ -13,7 +13,7 @@ var out := Vector2.ZERO              # in the world: where he steps out ...
 var out_to := Vector2.ZERO           # ... and walks on to
 var start := Vector2.ZERO            # inside (cave px): where he stands on coming in ...
 var start_to := Vector2.ZERO         # ... and walks on to
-var exit_y := 398.0                  # inside: below this the way out ends
+var exit_y := 376.0                  # inside: walking down past this takes him out
 var light := {}
 var pathing := Pathing.new()
 var ok := false
@@ -62,14 +62,14 @@ func contains(p: Vector2) -> bool:
 	return ok and rect().grow(8.0).has_point(p)
 
 
-## In the world: has he walked into the dark arch?
-func at_mouth(p: Vector2) -> bool:
-	return ok and mouth.has_point(p)
+## In the world: is he walking up into the dark arch? Only going up: passing along below it is no way in.
+func at_mouth(p: Vector2, moved: Vector2 = Vector2.UP) -> bool:
+	return ok and moved.y < 0.0 and mouth.has_point(p)
 
 
-## Inside: has he walked off the bottom of the way out?
-func at_exit(p: Vector2) -> bool:
-	return p.y - position.y >= exit_y
+## Inside: is he walking down the last stretch of the way out? Coming in he walks up through it.
+func at_exit(p: Vector2, moved: Vector2 = Vector2.DOWN) -> bool:
+	return moved.y > 0.0 and p.y - position.y >= exit_y
 
 
 func inside_at(p: Vector2) -> Vector2:

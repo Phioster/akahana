@@ -313,7 +313,7 @@ func _process(delta: float) -> void:
 	var moved := player.position - _last_pos
 	trail.update(delta, player.position, moved, player.is_walking())
 	_last_pos = player.position
-	_cave_doors()
+	_cave_doors(moved)
 	var u: Array = trail.uniforms()
 	view_node.set_trail(u[0], u[1])
 	_canopy = move_toward(_canopy, CANOPY_WALK if player.is_walking() else CANOPY_REST, delta * (CANOPY_REST - CANOPY_WALK) / CANOPY_EASE)
@@ -367,13 +367,13 @@ func _process(delta: float) -> void:
 
 # ---------------------------------------------------------------- the cave
 
-## Walking into the dark arch takes him in, walking off the bottom of its way out takes him out again.
-func _cave_doors() -> void:
-	if _going or not cave.ok:
+## Walking up into the dark arch takes him in, walking down the end of its way out takes him out again.
+func _cave_doors(moved: Vector2) -> void:
+	if _going or not cave.ok or moved == Vector2.ZERO:
 		return
-	if not inside and cave.at_mouth(player.position):
+	if not inside and cave.at_mouth(player.position, moved):
 		_go(true)
-	elif inside and cave.at_exit(player.position):
+	elif inside and cave.at_exit(player.position, moved):
 		_go(false)
 
 

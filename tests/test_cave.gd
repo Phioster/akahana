@@ -9,8 +9,9 @@ func test_the_cave_lies_beside_the_world() -> void:
 	var c := _cave()
 	assert_true(c.ok, "Höhle geladen")
 	assert_true(c.position.x >= 1800.0 + 200.0, "nichts von der Welt im Bild")
-	assert_false(c.at_exit(c.inside_at(c.start)), "hereinkommen ist nicht hinausgehen")
-	assert_true(c.at_exit(c.inside_at(Vector2(c.start.x, c.size.y))))
+	assert_false(c.at_exit(c.inside_at(c.start), Vector2.UP), "hereinkommen ist nicht hinausgehen")
+	assert_true(c.at_exit(c.inside_at(Vector2(c.start.x, c.size.y - 20)), Vector2.DOWN), "nicht erst ganz unten am Rand")
+	assert_false(c.at_exit(c.inside_at(c.start_to), Vector2.DOWN))
 	c.free()
 
 func test_inside_he_walks_from_the_way_in_to_the_candle() -> void:
@@ -22,8 +23,10 @@ func test_inside_he_walks_from_the_way_in_to_the_candle() -> void:
 
 func test_the_mouth_takes_him_in_and_the_way_out_does_not_again() -> void:
 	var c := _cave()
-	assert_true(c.at_mouth(c.mouth.get_center()))
-	assert_false(c.at_mouth(c.out), "hinaus ist nicht gleich wieder hinein")
+	assert_true(c.at_mouth(c.mouth.get_center(), Vector2.UP))
+	assert_true(c.at_mouth(c.mouth.end - Vector2(5, 1), Vector2.UP), "schon an der Schwelle")
+	assert_false(c.at_mouth(c.mouth.get_center(), Vector2.RIGHT), "vorbeigehen holt ihn nicht hinein")
+	assert_false(c.at_mouth(c.out, Vector2.UP), "hinaus ist nicht gleich wieder hinein")
 	c.free()
 
 func test_inside_the_lantern_always_hangs() -> void:
