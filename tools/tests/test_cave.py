@@ -30,10 +30,20 @@ class Cave(unittest.TestCase):
         self.assertEqual(list(self.pic.size), self.m['size'])
         self.assertEqual(list(self.walk.shape[::-1]), self.m['size'])
 
+    def test_the_game_s_raw_mask_is_the_picture_s(self):
+        raw = np.fromfile(os.path.join(C, 'cave_walk.bin'), np.uint8).reshape(self.walk.shape)
+        self.assertTrue(np.array_equal(raw > 0, self.walk))
+
+    def test_the_way_in_is_never_a_crack(self):
+        # 0.12.0 he got stuck in the way in: it narrowed to one cell; now at least three cells wide
+        c = cells(self.walk)
+        rows = c[150:self.m['exit_y'] // 2]
+        self.assertGreaterEqual(int(rows.sum(1).min()), 3)
+
     def test_inside_the_way_in_reaches_the_candle_and_the_way_out(self):
         c = cells(self.walk)
         sx, sy = self.m['in']
-        got = reach(c, [(sy // 2, sx // 2)], diagonal=True)
+        got = reach(c, [(sy // 2, sx // 2)])                  # 4-way: the game does not cut corners
         self.assertTrue(got[sy // 2, sx // 2], 'er steht beim Hereinkommen frei')
         tx, ty = self.m['in_to']
         self.assertTrue(got[ty // 2, tx // 2])

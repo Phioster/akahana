@@ -33,3 +33,11 @@ func test_inside_the_lantern_always_hangs() -> void:
 	pl.lantern._process(0.0)
 	assert_true(pl.is_hanging(), "er hängt die Laterne auf")
 	pl.queue_free()
+
+func test_nothing_in_the_cave_swallows_a_tap() -> void:
+	# 0.12.0: its black backdrop (a ColorRect) took every touch: he stood in the way in and could not walk
+	var c := _cave()
+	for n in c.get_children():
+		if n is Control:
+			assert_eq((n as Control).mouse_filter, Control.MOUSE_FILTER_IGNORE, "%s fängt Tippen ab" % n.name)
+	c.free()

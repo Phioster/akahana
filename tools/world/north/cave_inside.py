@@ -246,22 +246,27 @@ def walk_mask(floor, rocky):
     """Free floor: off the rocks by a pixel, round the candle, the stone tower, the cup and the bowl; only
     what joins the way out counts (no pocket he could be stuck in)."""
     m = ndi.binary_erosion(floor & ~rocky, iterations=1, border_value=1)
+    yy, xx = np.mgrid[0:H, 0:W]                                        # the way in stays a way: its middle is
+    m |= floor & (yy > 286) & (np.abs(xx - 90 - 6 * np.sin(yy / 23.0)) < 5)   # free even where a rock tip reaches in
     cx, cy = CANDLE
     mx, my = MAT
     for x0, y0, x1, y1 in ((cx - 5, cy - 4, cx + 5, cy + 5), (117, 157, 127, 171), (56, 170, 61, 178),
                            (mx - 11, my - 4, mx - 5, my + 2)):
         m[y0:y1, x0:x1] = False
-    lab, _ = ndi.label(m)
-    out = lab[H - 1, W // 2 - 8:W // 2 + 8]
-    return lab == np.bincount(out[out > 0]).argmax()
+    c = m.reshape(H // 2, 2, W // 2, 2).all(axis=(1, 3))               # as the game sees it: 2-px cells, 4-way
+    lab, _ = ndi.label(c)
+    out = lab[-1, W // 4 - 4:W // 4 + 4]
+    keep = lab == np.bincount(out[out > 0]).argmax()
+    return m & keep.repeat(2, 0).repeat(2, 1)
 
 
 def export(outdir):
-    """For the game: cave.png (the picture), cave_walk.png (white = free)."""
+    """For the game: cave.png (the picture), cave_walk.png (white = free, to look at), cave_walk.bin (1 byte per px, for the game)."""
     os.makedirs(outdir, exist_ok=True)
     img, walk, light = render()
     Image.fromarray(img.astype(np.uint8)).save(os.path.join(outdir, 'cave.png'))
     Image.fromarray((walk * 255).astype(np.uint8)).save(os.path.join(outdir, 'cave_walk.png'))
+    walk.astype(np.uint8).tofile(os.path.join(outdir, 'cave_walk.bin'))      # what the game reads: raw, no import
     return walk, light
 
 

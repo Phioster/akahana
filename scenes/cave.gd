@@ -35,20 +35,15 @@ func setup(world_size: Vector2) -> void:
 	light = (m["light"] as Dictionary).duplicate()
 	light["x"] = float(light["x"]) + position.x
 	light["y"] = float(light["y"]) + position.y
-	var walk := TextureLoader.load_texture(DIR + "cave_walk.png")
+	# raw bytes like the world's walk.bin: nothing of the import between the generator and the grid
+	var bytes := FileAccess.get_file_as_bytes(DIR + "cave_walk.bin")
 	var pic := TextureLoader.load_texture(DIR + "cave.png")
-	if walk == null or pic == null:
+	if bytes.size() != int(size.x * size.y) or pic == null:
 		return
-	var img := walk.get_image()
-	img.convert(Image.FORMAT_L8)
-	var bytes := PackedByteArray()
-	bytes.resize(int(size.x * size.y))
-	for y in int(size.y):
-		for x in int(size.x):
-			bytes[y * int(size.x) + x] = 1 if img.get_pixel(x, y).r > 0.5 else 0
 	pathing.build(bytes, int(size.x), int(size.y))
 	var back := ColorRect.new()                        # beyond the picture: rock, black
 	back.color = Color.BLACK
+	back.mouse_filter = Control.MOUSE_FILTER_IGNORE      # 0.12.0: it swallowed every tap inside, he could not walk
 	back.position = Vector2(-GAP * 0.5, -size.y)
 	back.size = Vector2(size.x + GAP, size.y * 3.0)
 	add_child(back)
