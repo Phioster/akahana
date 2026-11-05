@@ -106,13 +106,13 @@ void fragment() {
 		} else {
 			L += li;
 			Lf += li;
-			bloom += vec3(250.0, 190.0, 90.0) * bl;
+			bloom += vec3(250.0, 190.0, 90.0) * bl * (1.0 + 1.2 * gf.r);   // brighter halo in the dark wood (0.11.7)
 		}
 	}
 	bloom *= vec3(1.0, 0.80, 0.55);
 	a *= 1.0 + L * LCOL * 1.4 + Lw * WCOL * 1.2 + Lc * CCOL * 1.4;
 	a += CCOL * 255.0 * Lc * 0.55;                                   // the cool flies also add light: multiplying alone does nothing on the dark wood floor
-	a += LCOL * 255.0 * Lf * 0.55 * gf.r;                            // so do warm ones that strayed into the dark (0.11.6); on the meadow (gf.r 0) as before
+	a += LCOL * 255.0 * Lf * 1.4 * gf.r;                             // so do warm ones that strayed into the dark (0.11.6); on the meadow (gf.r 0) as before
 
 	vec2 m1 = (world - vec2(3.5 * TIME, 0.0)) / vec2(256.0);      // mist drifts right, two layers at two speeds
 	vec2 m2 = (world - vec2(6.0 * TIME, 0.0)) / vec2(256.0);
