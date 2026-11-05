@@ -16,6 +16,7 @@ nice -n 10 python3 tools/world/gen_south.py
 nice -n 10 python3 tools/world/gen_east.py
 nice -n 10 python3 tools/world/gen_north.py --save-pre
 nice -n 10 python3 tools/world/gen_north.py
+nice -n 10 python3 tools/world/gen_cave.py
 python3 tools/world/split_chunks.py
 for f in $FULL water.png bend.png low.png refl.png; do
 	mv -f "assets/world/$f" build/world_full/

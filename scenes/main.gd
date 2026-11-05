@@ -40,6 +40,11 @@ var _last_tap := -10.0
 var _drag_from := Vector2.INF
 var _cam_at := Vector2.INF           # where the view is; INF = jump straight there (start, teleport)
 var _cam_goal := Vector2.ZERO        # where it is gliding to
+var cave: Cave                       # the cave in the north, its own screen beside the world
+var inside := false
+var _going := false                  # the screen is fading in or out of the cave
+var _fade: ColorRect
+const FADE := 0.4                    # s to black and back again
 
 
 func _ready() -> void:
@@ -55,6 +60,9 @@ func _ready() -> void:
 	view_node.world = world
 	view_node.store = store
 	add_child(view_node)
+	cave = Cave.new()                                    # under the y-sorted layer: he walks over it
+	add_child(cave)
+	cave.setup(Vector2(world.width, world.height))
 	sorted = Node2D.new()
 	sorted.y_sort_enabled = true
 	add_child(sorted)
@@ -112,10 +120,19 @@ func _ready() -> void:
 	post.set_shader_parameter("world_size", Vector2(world.width, world.height))
 	rect.material = post
 	layer.add_child(rect)
+	var black := CanvasLayer.new()                       # over the mood: going in and out of the cave
+	black.layer = 11
+	add_child(black)
+	_fade = ColorRect.new()
+	_fade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_fade.color = Color(0, 0, 0, 0)
+	black.add_child(_fade)
 
 	var steps := Footsteps.new()
 	steps.player = player
 	steps.store = store
+	steps.cave = cave
 	add_child(steps)
 	var amb := Ambience.new()
 	amb.world = world
@@ -199,6 +216,8 @@ func _on_start_walking(fresh: bool) -> void:
 
 ## Testing aid: put him at a place at once (debug builds only; there is no fast travel in the game).
 func _on_travel(to: Vector2) -> void:
+	if inside:
+		_set_inside(false)
 	store.load_now(world.grid.chunk_of(to))
 	view_node.load_around(to)
 	player.path = PackedVector2Array()
@@ -221,7 +240,10 @@ func _on_camera_mode(on: bool) -> void:
 
 
 func _store() -> void:
-	if world != null and store.walkable(player.position):
+	if inside:                                         # saved inside: he starts again at the mouth
+		save.set_position(cave.out_to)
+		save.world_h = world.height
+	elif world != null and store.walkable(player.position):
 		save.set_position(player.position)
 		save.world_h = world.height
 	save.save_to()
@@ -255,8 +277,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		pressed = true
 	if not pressed:
 		return
+	if _going:
+		return
 	var target: Vector2 = get_canvas_transform().affine_inverse() * event.position
-	var way := pathing.find_path_in(store, player.position, target)
+	var way := cave.find_path(player.position, target) if inside else pathing.find_path_in(store, player.position, target)
 	if way.size() > 0:
 		player.walk_to(way)
 		marker.show_at(way[way.size() - 1])
@@ -289,6 +313,7 @@ func _process(delta: float) -> void:
 	var moved := player.position - _last_pos
 	trail.update(delta, player.position, moved, player.is_walking())
 	_last_pos = player.position
+	_cave_doors()
 	var u: Array = trail.uniforms()
 	view_node.set_trail(u[0], u[1])
 	_canopy = move_toward(_canopy, CANOPY_WALK if player.is_walking() else CANOPY_REST, delta * (CANOPY_REST - CANOPY_WALK) / CANOPY_EASE)
@@ -296,8 +321,9 @@ func _process(delta: float) -> void:
 
 	var view := get_viewport().get_visible_rect().size
 	var c := player.position + _cam_offset                # no rounding: the camera glides in screen pixels
-	c.x = clampf(c.x, view.x * 0.5, world.width - view.x * 0.5)
-	c.y = clampf(c.y, view.y * 0.5, world.height - view.y * 0.5)
+	var b := cave.rect() if inside else Rect2(0, 0, world.width, world.height)
+	for k in 2:
+		c[k] = b.get_center()[k] if b.size[k] <= view[k] else clampf(c[k], b.position[k] + view[k] * 0.5, b.end[k] - view[k] * 0.5)
 	if _camera_mode:
 		_cam_offset = c - player.position                 # stop the offset growing past the world edge
 	if _cam_at == Vector2.INF or _camera_mode:          # in camera mode your finger moves it directly
@@ -339,13 +365,62 @@ func _process(delta: float) -> void:
 			_store()
 
 
+# ---------------------------------------------------------------- the cave
+
+## Walking into the dark arch takes him in, walking off the bottom of its way out takes him out again.
+func _cave_doors() -> void:
+	if _going or not cave.ok:
+		return
+	if not inside and cave.at_mouth(player.position):
+		_go(true)
+	elif inside and cave.at_exit(player.position):
+		_go(false)
+
+
+func _go(into: bool) -> void:
+	_going = true
+	player.path = PackedVector2Array()
+	var t := create_tween()
+	t.tween_property(_fade, "color:a", 1.0, FADE)
+	t.tween_callback(_set_inside.bind(into))
+	t.tween_property(_fade, "color:a", 0.0, FADE)
+	t.tween_callback(func(): _going = false)
+
+
+func _set_inside(into: bool) -> void:
+	inside = into
+	post.set_shader_parameter("inside", 1.0 if into else 0.0)
+	player.lantern.always_dark = into                    # inside it hangs on his staff, outside it goes as the light says
+	var b := cave.rect() if into else Rect2(0, 0, world.width, world.height)
+	cam.limit_left = int(b.position.x)
+	cam.limit_top = int(b.position.y)
+	cam.limit_right = int(b.end.x)
+	cam.limit_bottom = int(b.end.y)
+	var at := cave.inside_at(cave.start) if into else cave.out
+	if not into:
+		view_node.load_around(at)
+	player.position = at
+	_cam_at = Vector2.INF
+	_cam_offset = Vector2.ZERO
+	_last_pos = at
+	var to := cave.inside_at(cave.start_to) if into else cave.out_to
+	var way := cave.find_path(at, to) if into else pathing.find_path_in(store, at, to)
+	if way.size() > 0:
+		player.walk_to(way)
+	if not into:
+		_store()
+
+
 func _feed_lights(view: Rect2) -> void:
 	var all: Array = []
 	for n in get_tree().get_nodes_in_group("dyn_light"):    # moving lights first: the wisps
 		var d: Dictionary = n.light_data()
 		if d["k"] > 0.01:
 			all.append(d)
-	all.append_array(world.lights)
+	if inside:
+		all.append(cave.light)
+	else:
+		all.append_array(world.lights)
 	var pos: Array[Vector4] = []
 	var info: Array[Vector4] = []
 	for l in all:

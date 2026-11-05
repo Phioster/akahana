@@ -22,6 +22,7 @@ var player: Player
 var world_size := Vector2(1800, 4800)   # main sets the real one
 var lit := 0.0
 var carried := false                 # it hangs on the staff
+var always_dark := false             # in the cave (main sets it): dark all through
 var _field: Image
 var _cell := Vector2i(-1, -1)
 
@@ -45,7 +46,7 @@ func darkness(world: Vector2, world_size: Vector2) -> float:
 func _process(_delta: float) -> void:
 	if player == null:
 		return
-	var d := darkness(player.global_position, world_size)
+	var d := 1.0 if always_dark else darkness(player.global_position, world_size)
 	if not player.is_hanging():
 		if not carried and d >= DARK_ON:
 			player.hang_lantern(true)

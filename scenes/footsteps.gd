@@ -4,6 +4,7 @@ extends Node
 
 var player: Player
 var store: ChunkStore
+var cave: Cave                       # its floor is earth and gravel
 var _sets := {}
 var _last := -1
 var _out: AudioStreamPlayer
@@ -38,6 +39,8 @@ const SET_DB := {"schritt_holz": 2.0}   # boards a touch louder: the bridge shou
 
 
 func ground_at(p: Vector2) -> int:
+	if cave != null and cave.contains(p):
+		return GroundMat.EARTH
 	return store.material_at(p) if store != null else GroundMat.GRASS
 
 

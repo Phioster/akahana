@@ -12,6 +12,7 @@ uniform sampler2D grade_field : filter_linear;   // the wood's mood (gen_east/gr
 uniform vec2 world_size = vec2(900.0, 3600.0);   // B the mist wall at the world's edge (gen_south)
 uniform vec2 view_world = vec2(180.0, 400.0);   // visible area in art pixels
 uniform vec2 cam_pos;                 // world position (art px, fractional) of the screen's top-left corner
+uniform float inside = 0.0;            // 1 in the cave: its darkness is in its picture; no wood field, no mist
 uniform int light_count = 0;
 uniform vec4 lights[16];              // x, y, radius, strength
 uniform vec4 light_info[16];          // kind, x seed, y seed, glowing pixel count
@@ -61,7 +62,7 @@ void fragment() {
 	// highlights 191..208 - they counted as flames, stayed bright while the mist moved round them: flicker
 	bool em = src.r > 212.0 && src.g > 110.0 && src.b < 140.0 && src.r - src.b > 90.0;
 	vec3 a = grade(src);
-	vec3 gf = texture(grade_field, world / world_size).rgb;
+	vec3 gf = texture(grade_field, world / world_size).rgb * (1.0 - inside);
 	a *= (1.0 - 0.30 * gf.r) * mix(vec3(1.0), FLOOR_TINT, gf.r);      // the deeper into the wood, the darker and cooler
 	a += MOON * (gf.g * 9.0 + gf.b * 55.0);                              // moonlight in the clearings, the shaft over the altar
 
@@ -120,10 +121,10 @@ void fragment() {
 	float dens = clamp((f - 0.2) * 0.36, 0.0, 0.32);
 	float green = clamp((src.g - (src.r + src.b) * 0.5) / 10.0, 0.0, 1.0);
 	dens *= 1.0 - (1.0 - GRASS_MIST) * green;
-	vec3 mf = texture(mist_fields, world / world_size).rgb;
+	vec3 mf = texture(mist_fields, world / world_size).rgb * (1.0 - inside);
 	dens = dens * (1.0 - 0.5 * mf.r) + 0.06 * mf.r;                 // over the brooks: a flat, thin band
 	dens *= 1.0 - 0.65 * mf.g;                                     // over the wide lake: thin and even
-	dens *= 1.0 - 0.88 * gf.r;                                     // in the deep wood the mist stays thin: the bright patches over the dark crowns looked wrong
+	dens *= (1.0 - 0.88 * gf.r) * (1.0 - inside);                                     // in the deep wood the mist stays thin: the bright patches over the dark crowns looked wrong
 
 	vec2 t = 1.0 / view_world;                                     // softness only where the mist is thick
 	vec3 nb = texture(screen_tex, uv + vec2(t.x, 0.0)).rgb + texture(screen_tex, uv - vec2(t.x, 0.0)).rgb

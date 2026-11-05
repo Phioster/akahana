@@ -109,7 +109,9 @@ def dist_floor_edge(floor, x, y):
     return ndi.distance_transform_edt(floor)[y, x]
 
 
-def main(out, with_monk=False):
+def render(with_monk=False):
+    """The cave as drawn, before the mood: (picture, walkable mask, candle light). The game gives it its mood
+    in post.gdshader like everything else; main() bakes it for the preview."""
     rng = np.random.default_rng(73)
     yy, xx = np.mgrid[0:H, 0:W]
     floor = floor_mask(rng)
@@ -126,8 +128,9 @@ def main(out, with_monk=False):
     snow = floor & (reach > 0.35) & (G < np.clip((reach - 0.35) * 2.2, 0, 1))
     img[snow] = np.where((CL[snow] > 0.45)[:, None], SNOWR[5], SNOWR[4])
 
+    base = img.copy()
     # the walls: like the old map's cliff foot - a row of big rocks along the floor's edge, darker ones behind
-    edge = floor & ~ndi.binary_erosion(floor)
+    edge = floor & ~ndi.binary_erosion(floor, border_value=1)          # the bottom edge is the way out, no wall
     gy, gx = np.gradient(ndi.gaussian_filter(floor.astype(float), 4))
     ey, ex = np.nonzero(edge)
     rows = []
@@ -159,6 +162,7 @@ def main(out, with_monk=False):
         x, y = int(rng.integers(20, W - 20)), int(rng.integers(80, 360))
         if floor[y, x] and dist_floor_edge(floor, x, y) > 8:
             rock(img, x, y, rng.uniform(2.5, 4), rng.uniform(2, 3), seed=x + y * 5)
+    rocky = np.any(np.abs(img - base) > 0.5, axis=-1)
     # moss on the rocks by the mouth, where daylight reaches; a drip of ice down one wall
     moss = (~floor) & (yy > 300) & (dist_in < 10) & (fbm(rng, 4) > 0.3)
     img[moss] = img[moss] * 0.5 + np.array([70, 92, 60.0]) * 0.5
@@ -235,7 +239,35 @@ def main(out, with_monk=False):
     dark = np.clip(0.62 + 0.38 * day, 0, 1)[..., None]
     img = img * dark + day[..., None] * np.array([18, 22, 30.0])
     light = {'x': cx + 0.5, 'y': cy - 1.5, 'r': 125.0, 'k': 1.5}
-    Image.fromarray(mood_inside(np.clip(img, 0, 255), light)).save(out)
+    return np.clip(img, 0, 255), walk_mask(floor, rocky), light
+
+
+def walk_mask(floor, rocky):
+    """Free floor: off the rocks by a pixel, round the candle, the stone tower, the cup and the bowl; only
+    what joins the way out counts (no pocket he could be stuck in)."""
+    m = ndi.binary_erosion(floor & ~rocky, iterations=1, border_value=1)
+    cx, cy = CANDLE
+    mx, my = MAT
+    for x0, y0, x1, y1 in ((cx - 5, cy - 4, cx + 5, cy + 5), (117, 157, 127, 171), (56, 170, 61, 178),
+                           (mx - 11, my - 4, mx - 5, my + 2)):
+        m[y0:y1, x0:x1] = False
+    lab, _ = ndi.label(m)
+    out = lab[H - 1, W // 2 - 8:W // 2 + 8]
+    return lab == np.bincount(out[out > 0]).argmax()
+
+
+def export(outdir):
+    """For the game: cave.png (the picture), cave_walk.png (white = free)."""
+    os.makedirs(outdir, exist_ok=True)
+    img, walk, light = render()
+    Image.fromarray(img.astype(np.uint8)).save(os.path.join(outdir, 'cave.png'))
+    Image.fromarray((walk * 255).astype(np.uint8)).save(os.path.join(outdir, 'cave_walk.png'))
+    return walk, light
+
+
+def main(out, with_monk=False):
+    img, _, light = render(with_monk)
+    Image.fromarray(mood_inside(img, light)).save(out)
 
 
 if __name__ == '__main__':
