@@ -10,7 +10,7 @@ var _last := -1
 var _out: AudioStreamPlayer
 var _rustle: AudioStreamPlayer
 var _steps := 0
-const TALL_GRASS_Y := 1800.0         # from zone 2 on the grass stands tall (tools/world/south/zone2_draft.py)
+const TALL_GRASS_Y := SoundBank.NORTH + 1800.0   # from zone 2 on the grass stands tall (tools/world/south/zone2_draft.py)
 
 
 ## Whether a footfall here brushes through tall grass.

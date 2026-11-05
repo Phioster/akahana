@@ -75,10 +75,15 @@ func test_wisp_drifts_away_when_approached_and_returns_later() -> void:
 func test_footsteps_follow_the_ground_and_the_snow_gets_deeper_uphill() -> void:
 	assert_eq(SoundBank.step_set(GroundMat.GRASS, 900), "schritt_gras")
 	assert_eq(SoundBank.step_set(GroundMat.WOOD, 650), "schritt_holz")
-	assert_eq(SoundBank.step_set(GroundMat.WET, 660), "schritt_nass")
-	assert_eq(SoundBank.step_set(GroundMat.SNOW, 400), "schritt_schnee_wenig")
-	assert_eq(SoundBank.step_set(GroundMat.SNOW, 200), "schritt_schnee")
-	assert_eq(SoundBank.step_set(GroundMat.SNOW, 60), "schritt_schnee_hart")
+	assert_eq(SoundBank.step_set(GroundMat.WET, 1860), "schritt_nass")
+	# 0.12.3: the heights moved down with the north (they had stayed where the old map's top had been)
+	assert_eq(SoundBank.step_set(GroundMat.SNOW, 1600), "schritt_schnee_wenig")
+	assert_eq(SoundBank.step_set(GroundMat.SNOW, 1400), "schritt_schnee")
+	assert_eq(SoundBank.step_set(GroundMat.SNOW, 1260), "schritt_schnee_hart", "der alte Gipfel")
+	assert_eq(SoundBank.step_set(GroundMat.SNOW, 800), "schritt_schnee", "Wald im Norden")
+	assert_eq(SoundBank.step_set(GroundMat.SNOW, 150), "schritt_schnee_hart", "der Pass")
+	assert_eq(Ambience.altitude(800.0), 1.0, "der Norden liegt hoch")
+	assert_eq(Ambience.altitude(2000.0), 0.0, "das Mohnfeld nicht")
 
 func test_every_footstep_set_has_several_recordings() -> void:
 	for s in ["schritt_gras", "schritt_erde", "schritt_stein", "schritt_holz", "schritt_nass",
@@ -650,19 +655,19 @@ func test_the_view_moves_evenly_while_walking_straight() -> void:
 	m.queue_free()
 
 func test_wading_at_the_lake_but_wet_pebbles_at_the_old_ford() -> void:
-	assert_eq(SoundBank.step_set(GroundMat.WET, 3000.0), "schritt_waten", "flacher Seerand im Süden")
-	assert_eq(SoundBank.step_set(GroundMat.WET, 680.0), "schritt_nass", "alte Furt")
+	assert_eq(SoundBank.step_set(GroundMat.WET, 4200.0), "schritt_waten", "flacher Seerand im Süden")
+	assert_eq(SoundBank.step_set(GroundMat.WET, 1880.0), "schritt_nass", "alte Furt")
 	assert_true(SoundBank.variants("schritt_waten").size() >= 8)
 
 func test_tall_grass_rustles_on_every_second_step() -> void:
 	# south of the poppies (from zone 2 on) the grass is tall: a footfall, and every second one a rustle
-	assert_true(Footsteps.rustles(GroundMat.GRASS, 2000.0), "hohes Gras im Süden")
-	assert_false(Footsteps.rustles(GroundMat.GRASS, 900.0), "nicht im Mohnfeld")
-	assert_false(Footsteps.rustles(GroundMat.EARTH, 2000.0), "nicht auf dem Weg")
+	assert_true(Footsteps.rustles(GroundMat.GRASS, 3200.0), "hohes Gras im Süden")
+	assert_false(Footsteps.rustles(GroundMat.GRASS, 2100.0), "nicht im Mohnfeld")
+	assert_false(Footsteps.rustles(GroundMat.EARTH, 3200.0), "nicht auf dem Weg")
 	var f := Footsteps.new()
 	var n := 0
 	for i in 10:
-		if f.next_rustles(GroundMat.GRASS, 2000.0):
+		if f.next_rustles(GroundMat.GRASS, 3200.0):
 			n += 1
 	assert_eq(n, 5)
 	f.free()

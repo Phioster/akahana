@@ -94,7 +94,7 @@ func _make_spot(name: String, at: Vector2, db: float, reach: float) -> Node:
 
 ## 0 on the meadow .. 1 under the summit, from the height on the map
 static func altitude(y: float) -> float:
-	return clampf((560.0 - y) / 480.0, 0.0, 1.0)
+	return clampf((SoundBank.NORTH + 560.0 - y) / 480.0, 0.0, 1.0)   # the whole north lies up high
 
 
 func _process(delta: float) -> void:
