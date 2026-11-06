@@ -8,9 +8,9 @@ extends Node2D
 const VIEW := Vector2(180, 400)
 # (share of the drops, streak px, colour, alpha, fall px/s)
 const LAYERS := [
-	[0.5, 4, Color8(150, 160, 175), 0.35, 210.0],      # 0.16.1 (Philip on the phone): still too slow, x1.3
-	[0.35, 5, Color8(175, 185, 200), 0.45, 265.0],
-	[0.15, 7, Color8(200, 208, 222), 0.55, 325.0],
+	[0.5, 5, Color8(150, 160, 175), 0.35, 285.0],      # 0.16.3 (Philip): still too slow, x1.35; streak >= the
+	[0.35, 7, Color8(175, 185, 200), 0.45, 360.0],     # px a drop moves per frame, so it streams instead of hopping
+	[0.15, 10, Color8(200, 208, 222), 0.55, 440.0],
 ]
 const DROPS := 27.0                     # per 10k px at the full shower
 const SLANT := 0.3                      # px sideways per px down: the wind
