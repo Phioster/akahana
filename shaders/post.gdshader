@@ -68,7 +68,8 @@ void fragment() {
 	a += MOON * (gf.g * 9.0 + gf.b * 55.0);                              // moonlight in the clearings, the shaft over the altar
 	// the shower, darker and cooler (0.16.2: x0.78 was hardly seen); in the wood far less, it is dark there
 	// already and the rain on top hid the monk (Philip 0.16.3)
-	a *= mix(vec3(1.0), vec3(0.58, 0.60, 0.68), rain * (1.0 - 0.7 * gf.r));
+	vec3 rdim = mix(vec3(1.0), vec3(0.58, 0.60, 0.68), rain * (1.0 - 0.7 * gf.r));
+	a *= rdim;
 
 	float ph = 6.2831853 * TIME / LOOP;
 	float L = 0.0;
@@ -133,9 +134,10 @@ void fragment() {
 	vec2 t = 1.0 / view_world;                                     // softness only where the mist is thick
 	vec3 nb = texture(screen_tex, uv + vec2(t.x, 0.0)).rgb + texture(screen_tex, uv - vec2(t.x, 0.0)).rgb
 		+ texture(screen_tex, uv + vec2(0.0, t.y)).rgb + texture(screen_tex, uv - vec2(0.0, t.y)).rgb;
-	vec3 soft = grade((nb * 0.25 * 0.55 + src / 255.0 * 0.45) * 255.0) * (1.0 + L * LCOL * 1.4);
+	vec3 soft = grade((nb * 0.25 * 0.55 + src / 255.0 * 0.45) * 255.0) * (1.0 + L * LCOL * 1.4) * rdim;
 	a = mix(a, soft, clamp(dens * 2.2, 0.0, 1.0));
-	a = a * (1.0 - dens) + MIST * 0.8 * (1.0 + L * LCOL * 1.6) * dens;   // mist glows near the lights
+	a = a * (1.0 - dens) + MIST * rdim * 0.8 * (1.0 + L * LCOL * 1.6) * dens;   // mist glows near the lights; in the rain
+	// it darkens with the world, it stood out bright (Philip 0.17.2)
 
 	a += bloom + bloomw + bloomc * vec3(0.8, 1.0, 0.9);
 	if (em) a = max(a, src * 1.05);
@@ -147,6 +149,6 @@ void fragment() {
 		float q = floor(l2 / 22.0 + bay) * 22.0;
 		a = a * (q / l2);
 	}
-	a = a * (1.0 - mf.b) + MIST * mf.b;                            // the world fades into mist at its edge
+	a = a * (1.0 - mf.b) + MIST * rdim * mf.b;                            // the world fades into mist at its edge
 	COLOR = vec4(clamp(a / 255.0, 0.0, 1.0), 1.0);
 }
