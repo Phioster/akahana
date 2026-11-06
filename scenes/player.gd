@@ -57,6 +57,9 @@ func _ready() -> void:
 	if ow != null:
 		mm.set_shader_parameter("open_water", ow)
 		mm.set_shader_parameter("world_size", ow.get_size())
+	var pd := TextureLoader.load_texture("res://assets/world/puddles.png")
+	if pd != null:
+		mm.set_shader_parameter("puddles", pd)
 	mirror.material = mm
 	add_child(mirror)
 	# the ear: without it Godot measures sound distances in (stretched) screen pixels, not world pixels

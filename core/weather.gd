@@ -9,11 +9,15 @@ const SHOWER_MIN := 3.0 * 60.0         # s a shower lasts
 const SHOWER_MAX := 5.0 * 60.0
 const SWELL := 0.4                     # share of the shower it takes to swell ...
 const FADE := 0.3                      # ... and to die away
+const WET_HOLD := 4.0 * 60.0           # s the ground stays soaked after a shower (wet.py round 3) ...
+const WET_DRY := 3.0 * 60.0            # ... then it dries, the puddles shrinking from their rims
 
 var _rng := RandomNumberGenerator.new()
 var _t := 0.0
 var _start := 0.0                      # when the next (or current) shower begins
 var _length := 0.0
+var _wet := 0.0
+var _since := 0.0                      # s since it last rained
 
 
 func _init(seed_value: int = -1) -> void:
@@ -33,6 +37,19 @@ func step(delta: float) -> void:
 	_t += delta
 	if _t > _start + _length:
 		_plan(_rng.randf_range(DRY_MIN, DRY_MAX))
+	var i := intensity()
+	if i > 0.0:
+		_wet = maxf(_wet, i)               # the puddles fill as the shower swells
+		_since = 0.0
+	else:
+		_since += delta
+		if _since > WET_HOLD:
+			_wet = maxf(0.0, _wet - delta / WET_DRY)
+
+
+## 0 dry .. 1 soaked: how wet the ground is, the rain now or a while ago.
+func wetness() -> float:
+	return _wet
 
 
 ## 0 dry .. 1 the full shower.

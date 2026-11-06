@@ -23,6 +23,9 @@ var _fetched := {}                   # sprite path -> true while its picture loa
 var _animated := {}                  # Sprite2D -> [frames, fps]
 var _t := 0.0
 var _trail := [[], []]
+var _puddles: Texture2D               # where it gets wet and where puddles stand (tools/world/gen_wet.py)
+var _wet := 0.0
+var _rain := 0.0
 
 
 func _init() -> void:
@@ -80,6 +83,27 @@ func set_wanderer(feet: Vector2, open_share: float, look: Dictionary = {}) -> vo
 		_canopy.set_shader_parameter("lamp_rect", Vector4(lamp.position.x, lamp.position.y, lamp.size.x, lamp.size.y))
 
 
+## After the rain: how wet the ground is and how hard it rains now (Weather), for every chunk's ground.
+func set_weather(wet: float, rain_now: float) -> void:
+	if absf(wet - _wet) < 0.002 and absf(rain_now - _rain) < 0.002 and (wet > 0.0) == (_wet > 0.0):
+		return
+	_wet = wet
+	_rain = rain_now
+	for c in _chunks:
+		_feed_weather(_chunks[c][0].material)
+
+
+func _feed_weather(m: ShaderMaterial) -> void:
+	m.set_shader_parameter("wet", _wet)
+	m.set_shader_parameter("rain", _rain)
+
+
+func puddles() -> Texture2D:
+	if _puddles == null:
+		_puddles = TextureLoader.load_texture(WorldData.DIR + "puddles.png")
+	return _puddles
+
+
 func set_trail(points: Array, k: Array) -> void:
 	_trail = [points, k]
 	for c in _chunks:
@@ -124,6 +148,16 @@ func _make_chunk(c: Vector2i) -> void:
 			lamps.append(at)
 	wm.set_shader_parameter("lamps", lamps)
 	wm.set_shader_parameter("lamp_count", lamps.size())
+	var wl := PackedVector4Array()                     # lights whose streak over the wet ground reaches this chunk
+	for l in world.lights:
+		var at := Vector2(float(l["x"]), float(l["y"]))
+		if wl.size() < 8 and Rect2(corner - Vector2(40, 64), Vector2(ChunkGrid.SIZE) + Vector2(80, 104)).has_point(at):
+			wl.append(Vector4(at.x, at.y, float(l["k"]), 1.0 if l["kind"] == "fire" else 0.0))
+	wm.set_shader_parameter("wlights", wl)
+	wm.set_shader_parameter("wlight_count", wl.size())
+	wm.set_shader_parameter("puddles", puddles())
+	wm.set_shader_parameter("world_size", Vector2(world.width, world.height))
+	_feed_weather(wm)
 	g.material = wm
 	add_child(g)
 	var f := Sprite2D.new()

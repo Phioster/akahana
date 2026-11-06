@@ -68,3 +68,20 @@ func test_in_the_rain_he_takes_the_lantern() -> void:
 	pl.lantern._process(0.0)
 	assert_true(pl.is_hanging(), "im Regen hängt er die Laterne auf")
 	pl.queue_free()
+
+func test_the_ground_stays_wet_a_while_and_dries() -> void:
+	var w := Weather.new(7)
+	assert_eq(w.wetness(), 0.0, "zuerst trocken")
+	w.toggle_now()
+	for i in 60:
+		w.step(Weather.SHOWER_MAX * Weather.SWELL / 60.0)
+	assert_true(w.wetness() > 0.9, "im Schauer nass")
+	while w.raining():
+		w.step(5.0)
+	w.step(Weather.WET_HOLD - 10.0)
+	assert_true(w.wetness() > 0.9, "nach dem Schauer noch Minuten nass")
+	w.step(20.0 + Weather.WET_DRY * 0.5)
+	assert_between(w.wetness(), 0.2, 0.8)
+	for i in 40:
+		w.step(Weather.WET_DRY / 20.0)
+	assert_eq(w.wetness(), 0.0, "und trocknet ab")

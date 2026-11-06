@@ -24,11 +24,106 @@ uniform vec2 lamps[4];                  // a lantern by the lake: where its ligh
 uniform int lamp_count = 0;
 const vec3 LAMP = vec3(236.0, 190.0, 110.0);
 
+// The wet ground after the rain (approved 2026-11-06, build/preview/regen/wet.py round 3; tools/world/gen_wet.py):
+// darker and richer, puddles in the hollows that mirror the sky and the things by them, the lights drawn out
+// into warm streaks, a glitter now and then, rings on the puddles while it rains.
+uniform sampler2D puddles : filter_nearest;     // the world: 0 none, 1..127 meadow, 128..255 path; the rest: hold
+uniform vec2 world_size = vec2(1800.0, 4800.0);
+uniform float wet = 0.0;                        // Weather.wetness(): 0 dry .. 1 soaked
+uniform float rain = 0.0;                       // the shower now: its rings, and it shakes the mirror
+uniform vec4 wlights[8];                        // lights on this chunk's ground: x, y, strength, 1 = a fire
+uniform int wlight_count = 0;
+const vec3 SKY = vec3(106.0, 118.0, 144.0);     // the evening sky in a puddle
+const vec3 WARM = vec3(255.0, 180.0, 90.0);
+
 // The GPU computes in 32 bit: sin() of world coordinates in the thousands would make the noise stripy,
 // so the coordinates are folded first (water_anim.hash2 does the same).
 float hash2(vec2 p, float s) {
 	vec2 q = mod(p, 289.0);
 	return fract(sin(q.x * 12.9898 + q.y * 78.233 + s) * 43758.5453);
+}
+
+// how early a puddle holds here (0 never) and what the ground is (0 none, 1 meadow, 2 path)
+float hold_at(vec2 p, out int kind) {
+	kind = 0;
+	if (p.x < 0.0 || p.y < 0.0 || p.x >= world_size.x || p.y >= world_size.y) return 0.0;   // the cave lies beside
+	float v = round(texelFetch(puddles, ivec2(p), 0).r * 255.0);
+	kind = v < 0.5 ? 0 : (v < 127.5 ? 1 : 2);
+	return kind == 0 ? 0.0 : (kind == 1 ? (v - 1.0) / 126.0 : (v - 128.0) / 127.0);
+}
+
+bool puddle_at(vec2 p) {
+	int k;
+	float h = hold_at(p, k);
+	return h > 0.0 && h > 1.0 - wet;
+}
+
+vec3 wet_ground(vec3 base_col, vec2 p, ivec2 px) {
+	vec3 col = base_col;
+	int kind;
+	float h = hold_at(p, kind);
+	if (kind == 0) return col;
+	bool path = kind == 2;
+	float t = TIME;
+	float lum = (col.r + col.g + col.b) / 3.0;
+	col = (col + (col - lum) * 0.25 * wet) * (1.0 - (path ? 0.30 : 0.16) * wet);
+	bool pud = h > 0.0 && h > 1.0 - wet;
+	if (pud) {
+		vec2 f = mod(p, 628.3185);                 // whole periods of every wave: no stripes at large coordinates
+		float band = sin(f.y * 1.6 + f.x * 0.15 + t * 0.25) + 0.4 * sin(f.x * 0.7 - t * 0.4);
+		vec3 m = SKY / 255.0 + (band > 1.05 ? vec3(34.0, 36.0, 40.0) / 255.0 : vec3(0.0));
+		// what stands by it, mirrored (baked with the water's reflections), still once the rain stops
+		float amp = 0.3 + 0.45 * rain;
+		int sh = int(round(amp * sin(mod(p.y, 628.3185) * 0.9 + mod(t, 2513.274) * 2.5)));
+		ivec2 rs = ivec2(textureSize(refl_tex, 0));
+		vec4 r = texelFetch(refl_tex, clamp(px + ivec2(int(apron)) - ivec2(sh, 0), ivec2(0), rs - 1), 0);
+		int a = int(round(r.a * 255.0));
+		if (a > 0) {
+			vec3 c = r.rgb;
+			vec3 raw = c / 0.72;                    // reflect_map dims everything; a flame stays bright in water
+			if (raw.r > 0.83 && raw.r - raw.b > 0.35) c = min(raw * 0.95, vec3(1.0));
+			m = mix(m, c, min(1.0, float(a >> 4) / 15.0 * 1.1));
+		}
+		col = col * 0.08 + m * 0.92;
+		if (!puddle_at(p - vec2(0.0, 1.0))) col = col * 0.5 + vec3(170.0, 178.0, 196.0) / 255.0 * 0.5;   // the far brim
+		else if (!puddle_at(p + vec2(0.0, 1.0))) col *= 0.72;                                             // the bank
+		// rings while it rains: one at a time in each 8-px cell, each half a second
+		if (rain > 0.0) {
+			vec2 cell = floor(p / 8.0);
+			float hc = hash2(cell, 5.3);
+			float tt = t / 0.5 + hc;
+			float slot = floor(tt);
+			if (hash2(cell, mod(slot, 97.0) * 0.71) < min(1.0, 1.9 * rain)) {
+				vec2 o = p - (cell * 8.0 + 1.0 + floor(vec2(hash2(cell, 1.1 + slot), hash2(cell, 2.3 + slot)) * 6.0));
+				float age = fract(tt) * 0.5;
+				float R = round(age / 0.12);
+				bool on = R < 0.5 ? (o.x == 0.0 && o.y == 0.0) : abs(round(length(vec2(o.x, o.y / 0.6))) - R) < 0.5;
+				if (on) col = mix(col, vec3(200.0, 210.0, 222.0) / 255.0, (1.0 - age / 0.5) * 0.45);
+			}
+		}
+	}
+	// the lights drawn out downwards over the wet ground; in a puddle their own mirror does most of it
+	float near = 0.0;
+	for (int i = 0; i < 8; i++) {
+		if (i >= wlight_count) break;
+		vec4 l = wlights[i];
+		bool fire = l.w > 0.5;
+		vec2 d = p - l.xy;
+		near = max(near, l.z * exp(-dot(d, d) / 900.0));
+		if (d.y <= 2.0 || d.y >= (fire ? 60.0 : 34.0)) continue;
+		float wx = (fire ? 2.5 : 1.5) + 0.04 * d.y;
+		float wob = sin(mod(p.y, 628.3185) * 0.8 + mod(t, 1000.0) * (6.0 + 6.0 * rain)) * (0.5 + 0.8 * rain);
+		float u = (d.x - wob) / wx;
+		float k = exp(-u * u) * exp(-d.y / (fire ? 22.0 : 12.0));
+		float fl = 0.85 + 0.15 * sin(mod(t, 1000.0) * (fire ? 13.0 : 5.0) + l.x);
+		float gain = (pud ? 0.84 : (path ? 0.30 : 0.12)) * wet * l.z * fl;
+		col += WARM / 255.0 * min(k * gain, 0.6);
+	}
+	// glitter: a pixel lights up for a moment, more on the path and by the lights
+	float slot = floor(t / 0.15);
+	if (hash2(p, mod(slot, 211.0) * 1.37) < 7.0e-4 * ((path ? 0.5 : 0.08) + near) * wet)
+		col = col * 0.3 + vec3(235.0, 225.0, 200.0) / 255.0 * 0.6;
+	return col;
 }
 
 void fragment() {
@@ -37,6 +132,8 @@ void fragment() {
 	vec4 w = texelFetch(water_tex, px, 0);
 	int kind = int(round(w.a * 255.0));
 	COLOR = base;
+	if (kind == 0 && wet > 0.001)
+		COLOR = vec4(wet_ground(base.rgb, origin + vec2(px), px), base.a);
 	if (kind > 0) {
 		vec2 p = origin + vec2(px);
 		float t = mod(TIME, LOOP);

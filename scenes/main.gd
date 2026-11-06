@@ -379,6 +379,10 @@ func _process(delta: float) -> void:
 	post.set_shader_parameter("view_world", view)
 	post.set_shader_parameter("cam_pos", top_left)
 	post.set_shader_parameter("rain", wet * Rain.reach(top_left.y + view.y * 0.5))
+	view_node.set_weather(weather.wetness(), wet)       # the wet ground after the rain, its puddles
+	var mm := player.mirror.material as ShaderMaterial
+	mm.set_shader_parameter("wet", 0.0 if inside else weather.wetness())
+	mm.set_shader_parameter("rain", wet)
 	view_node.update(Rect2(top_left, view))
 	birds.update_area(Rect2(top_left, view))
 	lake.step(delta, Rect2(top_left, view))

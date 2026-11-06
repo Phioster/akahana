@@ -10,6 +10,16 @@ const float DIM = 0.72;
 uniform sampler2D open_water : filter_nearest;   // the whole world, 255 where open water lies
 uniform vec2 world_size = vec2(900.0, 3600.0);
 uniform float foot_y = 0.0;                      // world row of his feet, set every frame
+uniform sampler2D puddles : filter_nearest;      // after the rain he shows in the puddles too (water.gdshader)
+uniform float wet = 0.0;
+uniform float rain = 0.0;
+
+bool puddle_at(vec2 p) {
+	if (p.x < 0.0 || p.y < 0.0 || p.x >= world_size.x || p.y >= world_size.y) return false;
+	float v = round(texelFetch(puddles, ivec2(clamp(p, vec2(0.0), world_size - 1.0)), 0).r * 255.0);
+	float h = v < 0.5 ? 0.0 : (v < 127.5 ? (v - 1.0) / 126.0 : (v - 128.0) / 127.0);
+	return wet > 0.001 && h > 0.0 && h > 1.0 - wet;
+}
 
 varying vec2 world;
 
@@ -24,10 +34,14 @@ void fragment() {
 	float amp = min(2.0, 0.4 + d / 14.0);
 	float sway = 0.65 * sin(p.y * 0.85 - ph + 0.03 * p.x) + 0.45 * sin(p.y * 0.31 + 3.0 * ph + 0.05 * p.x + 1.7);
 	vec2 texel = 1.0 / vec2(textureSize(TEXTURE, 0));
-	vec4 c = texture(TEXTURE, UV - vec2(round(amp * sway) * texel.x, 0.0));
 	float w = texelFetch(open_water, ivec2(clamp(p, vec2(0.0), world_size - 1.0)), 0).r;
-	bool broken = d > 6.0 && sin(p.y * 1.7 + 2.0 * ph + sin(p.y * 0.23 - ph) * 3.0) > 1.0 - min(4.0, floor(d / 8.0)) / 4.5;
-	if (c.a < 0.5 || w < 0.5 || broken)
+	bool pud = w < 0.5 && puddle_at(p);
+	float shift = round(amp * sway);
+	if (pud)                                     // a puddle lies still, the rain shakes it a little
+		shift = round((0.3 + 0.45 * rain) * sin(mod(p.y, 628.3185) * 0.9 + mod(TIME, 2513.274) * 2.5));
+	vec4 c = texture(TEXTURE, UV - vec2(shift * texel.x, 0.0));
+	bool broken = !pud && d > 6.0 && sin(p.y * 1.7 + 2.0 * ph + sin(p.y * 0.23 - ph) * 3.0) > 1.0 - min(4.0, floor(d / 8.0)) / 4.5;
+	if (c.a < 0.5 || (w < 0.5 && !pud) || broken)
 		discard;
 	float k = KEEP * max(0.35, 1.0 - d / 90.0);
 	COLOR = vec4(c.rgb * DIM, k);
