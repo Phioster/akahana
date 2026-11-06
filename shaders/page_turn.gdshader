@@ -80,7 +80,10 @@ int stack_at(vec2 q) {
 	int top = -1;
 	for (int k = 0; k < MAX_STACK; k++) {
 		if (k >= stacked) break;
-		if (flap(q + vec2(0.0, float(stacked - k)), c1, n1)) top = k;   // the newest in front
+		// only the part lying back steps up; over the band they all lie in one roll (a shifted roll left a
+		// row of the band showing while the next sheet turned, Philip 0.15.1)
+		float up = q.y < HINGE ? float(stacked - k) : 0.0;
+		if (flap(q + vec2(0.0, up), c1, n1)) top = k;   // the newest in front
 	}
 	return top;
 }
@@ -111,7 +114,7 @@ void fragment() {
 		COLOR = vec4(edge ? BACK_EDGE : col, 1.0);
 	} else if (stacked > 0 && stack_at(q) >= 0) {
 		int k = stack_at(q);
-		float rel = clamp((HINGE - (q.y + float(stacked - k) + 0.5)) / REST, 0.0, 1.0);
+		float rel = q.y < HINGE ? clamp((HINGE - (q.y + float(stacked - k) + 0.5)) / REST, 0.0, 1.0) : 0.0;
 		vec3 col = mix(BACK_DARK, BACK, 1.0 - 0.6 * rel);
 		bool edge = stack_at(q - vec2(0.0, 1.0)) < k || stack_at(q + vec2(1.0, 0.0)) < 0 || stack_at(q - vec2(1.0, 0.0)) < 0;
 		COLOR = vec4(edge ? BACK_EDGE : col, 1.0);
