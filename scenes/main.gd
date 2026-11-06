@@ -40,6 +40,7 @@ var _last_tap := -10.0
 var _drag_from := Vector2.INF
 var _cam_at := Vector2.INF           # where the view is; INF = jump straight there (start, teleport)
 var _cam_goal := Vector2.ZERO        # where it is gliding to
+var snowfall: Snowfall              # falling snow in the north
 var snow: SnowTrail                  # the furrow he leaves in fresh snow
 var cave: Cave                       # the cave in the north, its own screen beside the world
 var inside := false
@@ -126,6 +127,14 @@ func _ready() -> void:
 	post.set_shader_parameter("world_size", Vector2(world.width, world.height))
 	rect.material = post
 	layer.add_child(rect)
+	var fall := CanvasLayer.new()                        # over the evening light (white on graded snow vanished),
+	fall.layer = 10                                      # after it in the tree; it follows the camera like the world
+	fall.follow_viewport_enabled = true
+	add_child(fall)
+	snowfall = Snowfall.new()
+	snowfall.world = world
+	snowfall.camera_at = func() -> Vector2: return get_viewport().get_canvas_transform().affine_inverse() * Vector2.ZERO
+	fall.add_child(snowfall)
 	var black := CanvasLayer.new()                       # over the mood: going in and out of the cave
 	black.layer = 11
 	add_child(black)
@@ -396,6 +405,7 @@ func _go(into: bool) -> void:
 func _set_inside(into: bool) -> void:
 	inside = into
 	post.set_shader_parameter("inside", 1.0 if into else 0.0)
+	snowfall.off = into                                  # the cave lies at the north's height: no snow in it
 	player.lantern.always_dark = into                    # inside it hangs on his staff, outside it goes as the light says
 	var b := cave.rect() if into else Rect2(0, 0, world.width, world.height)
 	cam.limit_left = int(b.position.x)
