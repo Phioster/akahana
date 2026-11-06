@@ -890,3 +890,35 @@ func test_his_outline_stays_open_under_the_crowns() -> void:
 	assert_eq(lamp.size, Vector2(3, 6))
 	assert_true(Rect2(s["rect"]).grow(3).encloses(lamp), "Laterne bei ihm")
 	p.queue_free()
+
+func test_a_page_turns_over_the_binding_and_stays_lying_back() -> void:
+	# 2026-11-06: forward the sheet curls up and stays over the band; back to the first page it comes down
+	var tree := Engine.get_main_loop() as SceneTree
+	var b := BookUI.new()
+	tree.root.add_child(b)
+	b.open_in_game()
+	assert_false(b._turn.visible, "auf der ersten Seite liegt nichts umgeschlagen")
+	b._turn_to(BookUI.Mode.SETTINGS)
+	assert_true(b._turning and b._turn.visible, "blättert")
+	assert_eq(b.mode, BookUI.Mode.SETTINGS, "die neue Seite liegt schon darunter")
+	b._turn_to(BookUI.Mode.MAIN)
+	assert_eq(b.mode, BookUI.Mode.SETTINGS, "während des Blätterns kein zweites")
+	b._turn_done()
+	assert_true(b._turn.visible, "das Blatt bleibt oben liegen")
+	assert_eq(b._turn.mouse_filter, Control.MOUSE_FILTER_IGNORE, "es fängt keine Tipps ab")
+	b._turn_to(BookUI.Mode.MAIN)
+	assert_false(b._turn_mat.get_shader_parameter("forward"), "zurück: es kommt wieder herunter")
+	b._turn_done()
+	assert_false(b._turn.visible, "wieder auf der ersten Seite")
+	b.close()
+	assert_false(b._turn.visible, "zugeklappt")
+	b.queue_free()
+
+func test_the_page_turn_knows_the_sheet() -> void:
+	var img := Image.load_from_file(ProjectSettings.globalize_path("res://assets/ui/buch_blatt.png"))
+	var page := Image.load_from_file(ProjectSettings.globalize_path("res://assets/ui/buch_seite.png"))
+	assert_eq(img.get_size(), page.get_size(), "so groß wie die Seite")
+	assert_true(img.get_pixel(70, 120).r > 0.5, "Papier in der Mitte")
+	assert_true(img.get_pixel(70, 8).g > 0.5 and img.get_pixel(70, 8).r < 0.5, "unter dem Band läuft das Blatt weiter")
+	assert_eq(BookUI.TURN_MARGIN.y, 40.0)
+	assert_true(load("res://shaders/page_turn.gdshader") is Shader)

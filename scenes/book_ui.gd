@@ -35,6 +35,12 @@ var _sfx: AudioStreamPlayer
 var _confirm_restart := false
 var _in_game := false               # opened from the game (not from the start screen)
 var _travel_page := 0
+var _turn: ColorRect                # the page turn over the page (shaders/page_turn.gdshader)
+var _turn_mat: ShaderMaterial
+var _turning := false
+const TURN_MARGIN := Vector2(80, 40)  # room left of and above the page for the turning sheet
+const TURN_TIME := 0.7
+const TURN_STEPS := 14.0              # drawn frames, as in the approved preview
 const TRAVEL_PER_PAGE := 6
 
 
@@ -62,6 +68,16 @@ void fragment() {
 	_root.add_child(_cover)
 	_page = _build_page()
 	_root.add_child(_page)
+	_turn = ColorRect.new()
+	_turn.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_turn_mat = ShaderMaterial.new()
+	_turn_mat.shader = preload("res://shaders/page_turn.gdshader")
+	_turn_mat.set_shader_parameter("sheet_tex", _tex("buch_blatt"))
+	_turn_mat.set_shader_parameter("margin", TURN_MARGIN)
+	_turn.material = _turn_mat
+	_turn.size = Vector2(156, 236) + TURN_MARGIN
+	_turn.visible = false
+	_root.add_child(_turn)
 	_button = TextureButton.new()
 	_button.texture_normal = _tex("buch_knopf")
 	_button.pressed.connect(open_in_game)
@@ -156,6 +172,7 @@ func _layout() -> void:
 	hint.position = Vector2((cs.x - hw) * 0.5, cs.y + 14).round()
 	var ps: Vector2 = _page.get_child(1).texture.get_size()
 	_page.position = ((v - ps) * Vector2(0.5, 0.45)).round()
+	_turn.position = _page.position - TURN_MARGIN
 	var bs := _button.texture_normal.get_size()
 	_button.position = (v - bs - Vector2(7, 9)).round()
 	var shadow: TextureRect = _root.get_node("KnopfSchatten")
@@ -377,13 +394,59 @@ func _to_start() -> void:
 	_apply_mode()
 
 
+## Turning a page: forward (to settings, travel) the sheet curls up over the binding and stays lying back;
+## back to the first page it comes down again (approved 2026-11-06, build/preview/buch/turn.py).
 func _turn_to(m: int) -> void:
+	if _turning:
+		return
+	var fwd := _depth(m) >= _depth(mode)
+	var pic := _snapshot()
 	_play("seite_%d" % (randi() % 3))
 	mode = m
+	_apply_mode()                                   # the new page is live under the turning sheet
+	_turn_mat.set_shader_parameter("forward", fwd)
+	_turn_mat.set_shader_parameter("has_old", pic != null)
+	if pic != null:
+		_turn_mat.set_shader_parameter("old_tex", pic)
+	_turning = true
+	_turn.visible = true
 	var tw := create_tween()
-	tw.tween_property(_content, "modulate:a", 0.0, 0.12)
-	tw.tween_callback(_apply_mode)
-	tw.tween_property(_content, "modulate:a", 1.0, 0.18)
+	tw.tween_method(_turn_at, 0.0 if fwd else 1.0, 1.0 if fwd else 0.0, TURN_TIME)
+	tw.tween_callback(_turn_done)
+
+
+func _turn_at(v: float) -> void:
+	_turn_mat.set_shader_parameter("t", floorf(v * TURN_STEPS + 0.5) / TURN_STEPS)
+
+
+func _turn_done() -> void:
+	_turning = false
+	_turn_mat.set_shader_parameter("has_old", false)
+	_turn_mat.set_shader_parameter("forward", true)
+	_turn_mat.set_shader_parameter("t", 1.0)        # what stays: the turned sheet lying back over the band
+	_turn.visible = _page.visible and _depth(mode) > 0
+
+
+static func _depth(m: int) -> int:
+	return 0 if m == Mode.MAIN else 1
+
+
+## The page as it is on screen right now (the frame before the tap's change), cut to the page.
+func _snapshot() -> Texture2D:
+	if DisplayServer.get_name() == "headless":       # nothing is drawn there (tests)
+		return null
+	var tex := get_viewport().get_texture()
+	if tex == null:
+		return null
+	var img := tex.get_image()
+	if img == null or img.is_empty():
+		return null
+	var k := float(img.get_width()) / get_viewport().get_visible_rect().size.x
+	var r := Rect2i((_page.position * k).round(), (Vector2(156, 236) * k).round())
+	r = r.intersection(Rect2i(Vector2i.ZERO, img.get_size()))
+	if r.size.x <= 0 or r.size.y <= 0:
+		return null
+	return ImageTexture.create_from_image(img.get_region(r))
 
 
 func _on_dim_input(e: InputEvent) -> void:
@@ -410,6 +473,7 @@ func _apply_mode() -> void:
 	_dim.mouse_filter = Control.MOUSE_FILTER_STOP if book_open else Control.MOUSE_FILTER_IGNORE
 	_cover.visible = mode == Mode.START
 	_page.visible = mode in [Mode.MAIN, Mode.SETTINGS, Mode.TRAVEL]
+	_turn.visible = _page.visible and (_turning or _depth(mode) > 0)
 	_button.visible = mode == Mode.CLOSED
 	_root.get_node("KnopfSchatten").visible = mode == Mode.CLOSED
 	_hint.visible = mode == Mode.CAMERA
