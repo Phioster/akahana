@@ -8,14 +8,14 @@ extends Node2D
 const VIEW := Vector2(180, 400)
 # (share of the drops, streak px, colour, alpha, fall px/s)
 const LAYERS := [
-	[0.5, 3, Color8(150, 160, 175), 0.35, 160.0],
-	[0.35, 4, Color8(175, 185, 200), 0.45, 205.0],
-	[0.15, 6, Color8(200, 208, 222), 0.55, 250.0],
+	[0.5, 4, Color8(150, 160, 175), 0.35, 210.0],      # 0.16.1 (Philip on the phone): still too slow, x1.3
+	[0.35, 5, Color8(175, 185, 200), 0.45, 265.0],
+	[0.15, 7, Color8(200, 208, 222), 0.55, 325.0],
 ]
 const DROPS := 27.0                     # per 10k px at the full shower
 const SLANT := 0.3                      # px sideways per px down: the wind
 const SPLASH := 30.0                    # splashes per s per 10k px of ground at the full shower
-const RINGS := 110.0                    # rings per s per 10k px of water
+const RINGS := 45.0                     # rings per s per 10k px of water (0.16.1: the lake looked busier than the rain)
 const RING_LIFE := 0.5
 const SPLASH_COL := Color8(205, 212, 222)
 const RING_COL := Color8(200, 210, 222)
@@ -113,7 +113,7 @@ func _draw() -> void:
 		var at: Vector2i = g[0]
 		var age: float = g[1]
 		var rad := age / 0.12
-		var a := maxf(0.0, 1.0 - age / RING_LIFE) * 0.5
+		var a := maxf(0.0, 1.0 - age / RING_LIFE) * 0.32
 		var c := Color(RING_COL, a)
 		if rad < 0.6:
 			draw_rect(Rect2(Vector2(at), Vector2.ONE), c)
