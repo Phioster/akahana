@@ -8,6 +8,7 @@ signal start_walking(fresh: bool)
 signal camera_mode_changed(on: bool)
 signal volumes_changed(music: float, sounds: float)
 signal travel(to: Vector2)              # testing aid only (core/test_travel.gd)
+signal rain_test                        # testing aid only: a shower now, or let it pass
 
 enum Mode { START, MAIN, SETTINGS, CLOSED, CAMERA, TRAVEL }
 
@@ -262,6 +263,8 @@ func _show_main() -> void:
 	poppy.position = Vector2(1, y - 26 + 7)
 	poppy.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_content.add_child(poppy)
+	if _in_game and travel_offered():                      # testing aid: no need to wait 20 minutes for a shower
+		y = _entry(-1, "Regen (Test)", y, func(): close(); rain_test.emit())
 	var tag := _label("ein Spaziergang\nim Mohn", 16, FAINT)
 	tag.autowrap_mode = TextServer.AUTOWRAP_WORD          # too wide for one line in the hand
 	tag.size = Vector2(_text_right(), 0)

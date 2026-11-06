@@ -12,7 +12,8 @@ uniform sampler2D grade_field : filter_linear;   // the wood's mood (gen_east/gr
 uniform vec2 world_size = vec2(900.0, 3600.0);   // B the mist wall at the world's edge (gen_south)
 uniform vec2 view_world = vec2(180.0, 400.0);   // visible area in art pixels
 uniform vec2 cam_pos;                 // world position (art px, fractional) of the screen's top-left corner
-uniform float inside = 0.0;            // 1 in the cave: its darkness is in its picture; no wood field, no mist
+uniform float inside = 0.0;
+uniform float rain = 0.0;                        // 0 dry .. 1 the full shower: darker and cooler (scenes/rain.gd)            // 1 in the cave: its darkness is in its picture; no wood field, no mist
 uniform int light_count = 0;
 uniform vec4 lights[16];              // x, y, radius, strength
 uniform vec4 light_info[16];          // kind, x seed, y seed, glowing pixel count
@@ -65,6 +66,7 @@ void fragment() {
 	vec3 gf = texture(grade_field, world / world_size).rgb * (1.0 - inside);
 	a *= (1.0 - 0.30 * gf.r) * mix(vec3(1.0), FLOOR_TINT, gf.r);      // the deeper into the wood, the darker and cooler
 	a += MOON * (gf.g * 9.0 + gf.b * 55.0);                              // moonlight in the clearings, the shaft over the altar
+	a *= mix(vec3(1.0), vec3(0.75, 0.76, 0.81), rain);                  // the shower (approved preview: x0.78, cooler)
 
 	float ph = 6.2831853 * TIME / LOOP;
 	float L = 0.0;

@@ -41,6 +41,8 @@ var _drag_from := Vector2.INF
 var _cam_at := Vector2.INF           # where the view is; INF = jump straight there (start, teleport)
 var _cam_goal := Vector2.ZERO        # where it is gliding to
 var snowfall: Snowfall              # falling snow in the north
+var weather := Weather.new()          # now and then a shower
+var rain: Rain
 var snow: SnowTrail                  # the furrow he leaves in fresh snow
 var cave: Cave                       # the cave in the north, its own screen beside the world
 var inside := false
@@ -135,6 +137,11 @@ func _ready() -> void:
 	snowfall.world = world
 	snowfall.camera_at = func() -> Vector2: return get_viewport().get_canvas_transform().affine_inverse() * Vector2.ZERO
 	fall.add_child(snowfall)
+	rain = Rain.new()
+	rain.world = world
+	rain.weather = weather
+	rain.camera_at = snowfall.camera_at
+	fall.add_child(rain)
 	var black := CanvasLayer.new()                       # over the mood: going in and out of the cave
 	black.layer = 11
 	add_child(black)
@@ -167,6 +174,7 @@ func _ready() -> void:
 	book.volumes_changed.connect(_on_volumes)
 	book.camera_mode_changed.connect(_on_camera_mode)
 	book.travel.connect(_on_travel)                       # testing aid (core/test_travel.gd)
+	book.rain_test.connect(weather.toggle_now)            # testing aid
 	book.show_start(save.has_position)
 
 
@@ -325,6 +333,9 @@ func _process(delta: float) -> void:
 	if world == null:
 		return
 	_time += delta
+	weather.step(delta)
+	var wet := rain.strength()
+	player.lantern.rain = wet * Rain.reach(player.position.y)
 	var moved := player.position - _last_pos
 	trail.update(delta, player.position, moved, player.is_walking())
 	_last_pos = player.position
@@ -367,6 +378,7 @@ func _process(delta: float) -> void:
 	var top_left := get_viewport().get_canvas_transform().affine_inverse() * Vector2.ZERO
 	post.set_shader_parameter("view_world", view)
 	post.set_shader_parameter("cam_pos", top_left)
+	post.set_shader_parameter("rain", wet * Rain.reach(top_left.y + view.y * 0.5))
 	view_node.update(Rect2(top_left, view))
 	birds.update_area(Rect2(top_left, view))
 	lake.step(delta, Rect2(top_left, view))
@@ -406,6 +418,7 @@ func _set_inside(into: bool) -> void:
 	inside = into
 	post.set_shader_parameter("inside", 1.0 if into else 0.0)
 	snowfall.off = into                                  # the cave lies at the north's height: no snow in it
+	rain.off = into
 	player.lantern.always_dark = into                    # inside it hangs on his staff, outside it goes as the light says
 	var b := cave.rect() if into else Rect2(0, 0, world.width, world.height)
 	cam.limit_left = int(b.position.x)
