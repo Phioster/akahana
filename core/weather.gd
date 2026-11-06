@@ -11,6 +11,7 @@ const SWELL := 0.4                     # share of the shower it takes to swell .
 const FADE := 0.3                      # ... and to die away
 const WET_HOLD := 4.0 * 60.0           # s the ground stays soaked after a shower (wet.py round 3) ...
 const WET_DRY := 3.0 * 60.0            # ... then it dries, the puddles shrinking from their rims
+const SOAK := 90.0                     # s of full shower to soak the ground through (0.17.1, Philip: puddles came before the rain)
 
 var _rng := RandomNumberGenerator.new()
 var _t := 0.0
@@ -39,7 +40,7 @@ func step(delta: float) -> void:
 		_plan(_rng.randf_range(DRY_MIN, DRY_MAX))
 	var i := intensity()
 	if i > 0.0:
-		_wet = maxf(_wet, i)               # the puddles fill as the shower swells
+		_wet = minf(1.0, _wet + i * delta / SOAK)   # it soaks in behind the rain: a drizzle slowly, a shower fast
 		_since = 0.0
 	else:
 		_since += delta

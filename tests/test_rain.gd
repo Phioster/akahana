@@ -73,8 +73,13 @@ func test_the_ground_stays_wet_a_while_and_dries() -> void:
 	var w := Weather.new(7)
 	assert_eq(w.wetness(), 0.0, "zuerst trocken")
 	w.toggle_now()
+	w.step(2.0)
+	assert_true(w.wetness() < 0.05, "nicht gleich nach dem ersten Tropfen nass")
 	for i in 60:
 		w.step(Weather.SHOWER_MAX * Weather.SWELL / 60.0)
+	assert_true(w.wetness() < w.intensity(), "der Boden saugt sich hinter dem Regen voll")
+	for i in 30:
+		w.step(2.0)
 	assert_true(w.wetness() > 0.9, "im Schauer nass")
 	while w.raining():
 		w.step(5.0)

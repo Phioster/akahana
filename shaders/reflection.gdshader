@@ -12,13 +12,14 @@ uniform vec2 world_size = vec2(900.0, 3600.0);
 uniform float foot_y = 0.0;                      // world row of his feet, set every frame
 uniform sampler2D puddles : filter_nearest;      // after the rain he shows in the puddles too (water.gdshader)
 uniform float wet = 0.0;
+const float POOL_FROM = 0.35;                   // the ground soaks first; only then the puddles fill (0.17.1)
 uniform float rain = 0.0;
 
 bool puddle_at(vec2 p) {
 	if (p.x < 0.0 || p.y < 0.0 || p.x >= world_size.x || p.y >= world_size.y) return false;
 	float v = round(texelFetch(puddles, ivec2(clamp(p, vec2(0.0), world_size - 1.0)), 0).r * 255.0);
 	float h = v < 0.5 ? 0.0 : (v < 127.5 ? (v - 1.0) / 126.0 : (v - 128.0) / 127.0);
-	return wet > 0.001 && h > 0.0 && h > 1.0 - wet;
+	return wet > 0.001 && h > 0.0 && h > 1.0 - clamp((wet - POOL_FROM) / (1.0 - POOL_FROM), 0.0, 1.0);
 }
 
 varying vec2 world;

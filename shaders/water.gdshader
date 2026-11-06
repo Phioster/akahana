@@ -30,6 +30,7 @@ const vec3 LAMP = vec3(236.0, 190.0, 110.0);
 uniform sampler2D puddles : filter_nearest;     // the world: 0 none, 1..127 meadow, 128..255 path; the rest: hold
 uniform vec2 world_size = vec2(1800.0, 4800.0);
 uniform float wet = 0.0;                        // Weather.wetness(): 0 dry .. 1 soaked
+const float POOL_FROM = 0.35;                   // the ground soaks first; only then the puddles fill (0.17.1)
 uniform float rain = 0.0;                       // the shower now: its rings, and it shakes the mirror
 uniform vec4 wlights[8];                        // lights on this chunk's ground: x, y, strength, 1 = a fire
 uniform int wlight_count = 0;
@@ -55,7 +56,7 @@ float hold_at(vec2 p, out int kind) {
 bool puddle_at(vec2 p) {
 	int k;
 	float h = hold_at(p, k);
-	return h > 0.0 && h > 1.0 - wet;
+	return h > 0.0 && h > 1.0 - clamp((wet - POOL_FROM) / (1.0 - POOL_FROM), 0.0, 1.0);
 }
 
 vec3 wet_ground(vec3 base_col, vec2 p, ivec2 px) {
@@ -67,7 +68,7 @@ vec3 wet_ground(vec3 base_col, vec2 p, ivec2 px) {
 	float t = TIME;
 	float lum = (col.r + col.g + col.b) / 3.0;
 	col = (col + (col - lum) * 0.25 * wet) * (1.0 - (path ? 0.30 : 0.16) * wet);
-	bool pud = h > 0.0 && h > 1.0 - wet;
+	bool pud = h > 0.0 && h > 1.0 - clamp((wet - POOL_FROM) / (1.0 - POOL_FROM), 0.0, 1.0);
 	if (pud) {
 		vec2 f = mod(p, 628.3185);                 // whole periods of every wave: no stripes at large coordinates
 		float band = sin(f.y * 1.6 + f.x * 0.15 + t * 0.25) + 0.4 * sin(f.x * 0.7 - t * 0.4);
