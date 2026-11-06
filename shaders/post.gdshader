@@ -66,7 +66,7 @@ void fragment() {
 	vec3 gf = texture(grade_field, world / world_size).rgb * (1.0 - inside);
 	a *= (1.0 - 0.30 * gf.r) * mix(vec3(1.0), FLOOR_TINT, gf.r);      // the deeper into the wood, the darker and cooler
 	a += MOON * (gf.g * 9.0 + gf.b * 55.0);                              // moonlight in the clearings, the shaft over the altar
-	a *= mix(vec3(1.0), vec3(0.75, 0.76, 0.81), rain);                  // the shower (approved preview: x0.78, cooler)
+	a *= mix(vec3(1.0), vec3(0.58, 0.60, 0.68), rain);                  // the shower, darker and cooler (0.16.2: x0.78 was hardly seen)
 
 	float ph = 6.2831853 * TIME / LOOP;
 	float L = 0.0;
