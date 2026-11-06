@@ -40,6 +40,7 @@ var _last_tap := -10.0
 var _drag_from := Vector2.INF
 var _cam_at := Vector2.INF           # where the view is; INF = jump straight there (start, teleport)
 var _cam_goal := Vector2.ZERO        # where it is gliding to
+var snow: SnowTrail                  # the furrow he leaves in fresh snow
 var cave: Cave                       # the cave in the north, its own screen beside the world
 var inside := false
 var _going := false                  # the screen is fading in or out of the cave
@@ -63,6 +64,9 @@ func _ready() -> void:
 	cave = Cave.new()                                    # under the y-sorted layer: he walks over it
 	add_child(cave)
 	cave.setup(Vector2(world.width, world.height))
+	snow = SnowTrail.new()                               # over the ground, under everything standing
+	snow.mat_at = store.material_at
+	add_child(snow)
 	sorted = Node2D.new()
 	sorted.y_sort_enabled = true
 	add_child(sorted)
@@ -72,6 +76,8 @@ func _ready() -> void:
 	player = Player.new()
 	player.position = _start_position()
 	sorted.add_child(player)
+	snow.player = player
+	player.stepped.connect(snow.step)
 	player.lantern.world_size = Vector2(world.width, world.height)
 	_last_pos = player.position
 
