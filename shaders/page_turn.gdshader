@@ -11,6 +11,7 @@ uniform float t = 0.0;                           // 0 flat .. 1 turned and lying
 uniform bool forward = true;
 uniform bool has_old = false;
 uniform vec2 margin = vec2(80.0, 40.0);          // room left of and above the page in this rect
+uniform int stacked = 0;                         // sheets already lying back under the turning one (Philip: they stay)
 
 const float W = 156.0;
 const float H = 236.0;
@@ -70,6 +71,20 @@ bool roll(vec2 q, vec2 c, vec2 n) {
 
 bool flap(vec2 q, vec2 c, vec2 n) { return flap_only(q, c, n) || roll(q, c, n); }
 
+// the sheets turned before lie behind the newest, each older one a pixel higher, so their edges show as a stack
+const int MAX_STACK = 8;
+int stack_at(vec2 q) {
+	if (q.y > PAPER_TOP || stacked <= 0) return -1;   // the stack only lies over the band and above it
+	vec2 c1 = vec2(CORNER.x, HINGE);
+	vec2 n1 = vec2(0.0, 1.0);
+	int top = -1;
+	for (int k = 0; k < MAX_STACK; k++) {
+		if (k >= stacked) break;
+		if (flap(q + vec2(0.0, float(stacked - k)), c1, n1)) top = k;   // the newest in front
+	}
+	return top;
+}
+
 void fragment() {
 	vec2 rect = vec2(W, H) + margin;
 	vec2 q = floor(UV * rect) - margin;           // page pixel
@@ -93,6 +108,12 @@ void fragment() {
 		}
 		vec3 col = mix(BACK_DARK, BACK, shade);
 		bool edge = !(flap(q + vec2(1, 0), c, n) && flap(q - vec2(1, 0), c, n) && flap(q + vec2(0, 1), c, n) && flap(q - vec2(0, 1), c, n));
+		COLOR = vec4(edge ? BACK_EDGE : col, 1.0);
+	} else if (stacked > 0 && stack_at(q) >= 0) {
+		int k = stack_at(q);
+		float rel = clamp((HINGE - (q.y + float(stacked - k) + 0.5)) / REST, 0.0, 1.0);
+		vec3 col = mix(BACK_DARK, BACK, 1.0 - 0.6 * rel);
+		bool edge = stack_at(q - vec2(0.0, 1.0)) < k || stack_at(q + vec2(1.0, 0.0)) < 0 || stack_at(q - vec2(1.0, 0.0)) < 0;
 		COLOR = vec4(edge ? BACK_EDGE : col, 1.0);
 	} else {
 		float dark = 1.0;

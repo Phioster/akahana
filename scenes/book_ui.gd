@@ -38,6 +38,7 @@ var _travel_page := 0
 var _turn: ColorRect                # the page turn over the page (shaders/page_turn.gdshader)
 var _turn_mat: ShaderMaterial
 var _turning := false
+var _sheets := 0                    # pages turned over the binding and lying back now
 const TURN_MARGIN := Vector2(80, 40)  # room left of and above the page for the turning sheet
 const TURN_TIME := 0.7
 const TURN_STEPS := 14.0              # drawn frames, as in the approved preview
@@ -205,10 +206,10 @@ func _heading(text: String, y: float) -> float:
 	return y + 34
 
 
-func _entry(icon: int, text: String, y: float, on_tap: Callable, x: float = 0.0) -> float:
+func _entry(icon: int, text: String, y: float, on_tap: Callable, x: float = 0.0, w: float = -1.0) -> float:
 	var e := TapArea.new()
 	e.position = Vector2(x - 4, y - 2)
-	e.size = Vector2(124 - x, 22)
+	e.size = Vector2(124 - x if w < 0.0 else w, 22)
 	e.tapped.connect(on_tap)
 	_content.add_child(e)
 	if icon >= 0:
@@ -281,9 +282,17 @@ func _show_travel() -> void:
 		var to: Vector2 = place[1]
 		y = _entry(-1, place[0], y - 3, func(): close(); travel.emit(to))   # back: the phone's back key
 	var pages := ceili(TestTravel.PLACES.size() / float(TRAVEL_PER_PAGE))
+	var back_w := _label("zurück", 16, GRAPHITE)
+	var bw := back_w.get_minimum_size().x + 13 + 8
+	back_w.free()
+	_entry(3, "zurück", y + 4, func(): _turn_to(Mode.MAIN), 0.0, bw)   # Philip: without the back key there was no way out
 	if pages > 1:                                      # one entry turns on (and from the last page round again)
-		_entry(-1, "weiter" if _travel_page < pages - 1 else "erste Seite", y + 4,
-				func(): _travel_page = (_travel_page + 1) % pages; _turn_to(Mode.TRAVEL))
+		var on := "weiter" if _travel_page < pages - 1 else "erste Seite"
+		var probe := _label(on, 16, GRAPHITE)
+		var w := probe.get_minimum_size().x
+		probe.free()
+		_entry(-1, on, y + 4, func(): _travel_page = (_travel_page + 1) % pages; _turn_to(Mode.TRAVEL),
+				_text_right() - w)
 
 
 func _show_settings() -> void:
@@ -399,15 +408,19 @@ func _to_start() -> void:
 func _turn_to(m: int) -> void:
 	if _turning:
 		return
-	var fwd := _depth(m) >= _depth(mode)
+	var to := _depth(m)
+	var fwd := to >= _sheets and m != Mode.MAIN
 	var pic := _snapshot()
 	_play("seite_%d" % (randi() % 3))
 	mode = m
 	_apply_mode()                                   # the new page is live under the turning sheet
+	# forward: the turned sheets stay and the new one lies on them; back: one comes down over the rest
+	_turn_mat.set_shader_parameter("stacked", _sheets if fwd else maxi(to, 0))
 	_turn_mat.set_shader_parameter("forward", fwd)
 	_turn_mat.set_shader_parameter("has_old", pic != null)
 	if pic != null:
 		_turn_mat.set_shader_parameter("old_tex", pic)
+	_sheets = to
 	_turning = true
 	_turn.visible = true
 	var tw := create_tween()
@@ -423,12 +436,19 @@ func _turn_done() -> void:
 	_turning = false
 	_turn_mat.set_shader_parameter("has_old", false)
 	_turn_mat.set_shader_parameter("forward", true)
-	_turn_mat.set_shader_parameter("t", 1.0)        # what stays: the turned sheet lying back over the band
-	_turn.visible = _page.visible and _depth(mode) > 0
+	_turn_mat.set_shader_parameter("stacked", maxi(_sheets - 1, 0))
+	_turn_mat.set_shader_parameter("t", 1.0)        # what stays: the turned sheets lying back over the band
+	_turn.visible = _page.visible and _sheets > 0
 
 
-static func _depth(m: int) -> int:
-	return 0 if m == Mode.MAIN else 1
+## How many sheets lie turned on this page: settings one, the travel pages one more each.
+func _depth(m: int) -> int:
+	match m:
+		Mode.SETTINGS:
+			return 1
+		Mode.TRAVEL:
+			return 1 + _travel_page
+	return 0
 
 
 ## The page as it is on screen right now (the frame before the tap's change), cut to the page.
@@ -473,7 +493,9 @@ func _apply_mode() -> void:
 	_dim.mouse_filter = Control.MOUSE_FILTER_STOP if book_open else Control.MOUSE_FILTER_IGNORE
 	_cover.visible = mode == Mode.START
 	_page.visible = mode in [Mode.MAIN, Mode.SETTINGS, Mode.TRAVEL]
-	_turn.visible = _page.visible and (_turning or _depth(mode) > 0)
+	if not _page.visible or mode == Mode.MAIN and not _turning:
+		_sheets = 0                                  # closed or back at the start: nothing lies turned
+	_turn.visible = _page.visible and (_turning or _sheets > 0)
 	_button.visible = mode == Mode.CLOSED
 	_root.get_node("KnopfSchatten").visible = mode == Mode.CLOSED
 	_hint.visible = mode == Mode.CAMERA

@@ -906,6 +906,16 @@ func test_a_page_turns_over_the_binding_and_stays_lying_back() -> void:
 	b._turn_done()
 	assert_true(b._turn.visible, "das Blatt bleibt oben liegen")
 	assert_eq(b._turn.mouse_filter, Control.MOUSE_FILTER_IGNORE, "es fängt keine Tipps ab")
+	b._travel_page = 1
+	b._turn_to(BookUI.Mode.TRAVEL)
+	assert_eq(b._turn_mat.get_shader_parameter("stacked"), 1, "das erste Blatt bleibt liegen, das zweite legt sich darauf")
+	b._turn_done()
+	assert_eq(b._sheets, 2)
+	var out := false
+	for c in b._content.get_children():
+		if c is TapArea and c.has_meta("label") and c.get_meta("label").text == "zurück":
+			out = true
+	assert_true(out, "aus der Reiseliste kommt man zurück (Philip)")
 	b._turn_to(BookUI.Mode.MAIN)
 	assert_false(b._turn_mat.get_shader_parameter("forward"), "zurück: es kommt wieder herunter")
 	b._turn_done()
