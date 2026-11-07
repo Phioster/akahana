@@ -16,7 +16,7 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 S = 4                      # supersampling
 XH = 6                     # x-height in art pixels
 THR = 0.38                 # coverage that counts as a stroke
-CHARS = ''.join(chr(c) for c in range(32, 127)) + 'äöüÄÖÜß„“”‚‘’–—…·°éèàâ×'
+CHARS = ''.join(chr(c) for c in range(32, 127)) + 'äöüÄÖÜß„“”‚‘’–—…·°éèàâ×ōŌūŪāĀ'
 
 
 def font_for_xheight(path):
