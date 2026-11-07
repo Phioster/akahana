@@ -9,8 +9,8 @@ const SHOWER_MIN := 3.0 * 60.0         # s a shower lasts
 const SHOWER_MAX := 5.0 * 60.0
 const SWELL := 0.4                     # share of the shower it takes to swell ...
 const FADE := 0.3                      # ... and to die away
-const WET_HOLD := 4.0 * 60.0           # s the ground stays soaked after a shower (wet.py round 3) ...
-const WET_DRY := 3.0 * 60.0            # ... then it dries, the puddles shrinking from their rims
+const WET_HOLD := 90.0               # s the ground stays soaked after a shower (0.17.6, Philip: drying felt longer than the rain) ...
+const WET_DRY := 2.0 * 60.0            # ... then it dries, the puddles shrinking from their rims
 const SOAK := 90.0                     # s of full shower to soak the ground through (0.17.1, Philip: puddles came before the rain)
 
 var _rng := RandomNumberGenerator.new()
