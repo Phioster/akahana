@@ -1588,3 +1588,38 @@ class Netzgestell:
                     put(img, i, s.y - 10 + sag + d + int(d > 4) * sag // 2, pick(CLOTH, 2.4 - 0.25 * d))
             if (i - s.x) % 4 == 2:
                 put(img, i, s.y - 11 + sag, hx('#8a6a3a'))
+
+
+class Hasagi:
+    """An old rice-drying rack (hasa-gi) left standing in the meadow: a row of leaning poles, two rails across,
+    a few grey bundles of last straw still hanging over the upper one, one pole fallen out."""
+    def __init__(s, x, y, w=30, seed=170):
+        s.x, s.y, s.w, s.seed = x, y, w, seed
+
+    def box(s):
+        return (s.x - 2, s.y - 21, s.x + s.w + 3, s.y + 2)
+
+    def draw(s, img, G):
+        rng = np.random.default_rng(s.seed)
+        shade_ground(img, G, s.x, s.x + s.w + 6, s.y - 1, s.y + 4, 0.7)
+        posts = list(range(s.x, s.x + s.w + 1, 10))
+        gone = int(rng.integers(1, len(posts) - 1))
+        for k, px in enumerate(posts):
+            if k == gone:
+                for d in range(12):                                  # the fallen pole in the grass
+                    put(img, px - 5 + d, s.y + 1 - d // 6, WOOD[2])
+                continue
+            lean = rng.choice([-1, 0, 1])
+            for d in range(20):
+                put(img, px + (lean if d > 13 else 0), s.y - d, pick(WOOD, 4.2 - 0.08 * d))
+                put(img, px + 1 + (lean if d > 13 else 0), s.y - d, WOOD[1])
+        for ry, sag in ((s.y - 16, 1.5), (s.y - 9, 1.0)):
+            for i in range(s.x, s.x + s.w + 2):
+                u = (i - s.x) / s.w
+                put(img, i, ry + int(round(sag * np.sin(np.pi * u * 3) ** 2)), WOOD[3])
+        for k in range(int(rng.integers(3, 6))):                     # bundles of old straw over the top rail
+            bx = s.x + 2 + int(rng.integers(0, s.w - 3))
+            for j in range(5):
+                for i in range(bx, bx + 3):
+                    if j < 4 or (i + j) % 2:
+                        put(img, i, s.y - 16 + j, pick(THATCH[:4] if k % 2 else ROOFS['kaya'][1], 3.2 - 0.5 * j - 0.4 * (i - bx)))

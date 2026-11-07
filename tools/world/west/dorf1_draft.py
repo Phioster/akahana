@@ -63,6 +63,7 @@ IRISES = [(530, 4150), (570, 4132), (610, 4118), (650, 4106), (700, 4110), (750,
 HUT = (548, 4072)
 BRIDGE = [(578, 4094), (578, 4112), (604, 4112), (604, 4140), (586, 4140), (586, 4172), (622, 4172), (622, 4204)]
 TEA_X = 834
+POOLS = [(300, 4262, 30, 'iris'), (175, 4480, 24, 'schilf'), (330, 4640, 18, 'schilf'), (140, 4060, 16, 'schilf')]
 Z3_FROM = 3290                              # where the south's tall grass turns patchy (zone 3)
 GRASS_FROM, GRASS_FULL = 2900, 3200        # the south's tall grass, as it comes in at the seam today
 # (garden centre, house seed, roof kind, how fallen in); the house stands at the back of its plot, facing south
@@ -81,7 +82,8 @@ PATHS = {
     'muehle': [(506, 3294), (528, 3318), (548, 3346), (600, 3420), (700, 3480), (800, 3540), (WW + EDGE + 4, 3559), (972, 3561), (994, 3563)],   # into today's
     'see': [(600, 3420), (608, 3560), (612, 3640), (616, 3740), (610, 3860), (600, 3950), (590, 4020), (582, 4070)],
     'ufer': [(592, 4026), (640, 4024), (700, 4018), (760, 4020), (820, 4032), (866, 4066), (896, 4116), (910, 4180),
-             (916, 4250), (922, 4290), (930, 4320), (930, 4342)],                   # 4b: round the lake into today's
+             (916, 4250), (922, 4290), (930, 4320), (930, 4342)],
+    'tuempel': [(608, 3884), (540, 3930), (460, 3990), (390, 4070), (338, 4150), (318, 4196)],   # 4b: to the pool                   # 4b: round the lake into today's
     'bambus': [(250, 2520), (196, 2420), (150, 2300), (136, 2272)],
     'glas': [(603, 2604), (624, 2627), (656, 2630), (680, 2616)],              # zone 2: below the beds to the door
     'west': [(SQUARE[0] - 16, SQUARE[1] + 4), (420, 2360), (350, 2440), (300, 2470), (250, 2520)],
@@ -224,10 +226,16 @@ def draw_lake(img, rng, xx, yy, gx, gy, seam):
     marsh = (yy > edge + 30 + 8 * fbm(*xx.shape, 8, 123)) & (fbm(*xx.shape, 4, 124) > -0.3) & west
     open_w = (yy > edge + 52 + 6 * np.sin((gx - WW) / 23.0)) & west
     shallow = (lake & ((din < 5 + 3 * fbm(*xx.shape, 4, 125)) | bay)) | (marsh & ~open_w)
-    water = lake | marsh | open_w
+    r7 = np.random.default_rng(171)
+    pools = np.zeros(xx.shape, bool)                                     # pools in the meadow west of the lake
+    for x_, y_, r_, _ in POOLS:
+        if 0 <= y_ - Y0 < xx.shape[0]:
+            pools |= L4.organic_pool(x_ - X0, y_ - Y0, r_ * 1.8, r7, xx.shape)
+    water = lake | marsh | open_w | pools
+    shallow |= pools & (ndi.distance_transform_edt(pools) < 4)
     ol.paint_lake(img, 0, water, shallow, rng)
     return dict(lake=lake, din=din, bay=bay & lake, sea_reeds=sea_reeds, marsh=marsh, open_w=open_w,
-                water=water, shallow=shallow, shore=ndi.distance_transform_edt(~lake), tea=(tx, ty))
+                water=water, shallow=shallow, pools=pools, shore=ndi.distance_transform_edt(~lake), tea=(tx, ty))
 
 
 def match_seam(img, skip, seam, gy, band=40, reach=280):
@@ -589,6 +597,8 @@ def main(out, scale=2):
     x0b, y0b, x1b, y1b = tea.box()
     blocked[max(0, y0b + 10):y1b, max(0, x0b):x1b] = True
     bridge_m[max(0, y0b):y1b + 18, max(0, x0b):x1b] = True              # reeds below it would hide the deck
+    bpx, bpy = POOLS[0][0] - X0 + 6, POOLS[0][1] - Y0 - POOLS[0][2] - 12   # the bench by the iris pool stays clear
+    bridge_m[bpy - 6:bpy + 10, bpx - 6:bpx + 18] = True
     r6 = np.random.default_rng(130)
     deep = lake & (din > 14) & ~ndi.binary_dilation(lk['bay'] | bridge_m, iterations=10)
     spots = np.argwhere(deep)
@@ -600,7 +610,13 @@ def main(out, scale=2):
     things.append(ol.Treibholz(int(pick[16][1]), int(pick[16][0]), int(r6.integers(18, 26)), r6.uniform(-0.6, 0.6), 155))
     kind_n = fbm(H, W, 6, 131)                                           # the irises: patches of one colour each
     free_i = ~ndi.binary_dilation(bridge_m, iterations=2)
-    iris_area = (lk['bay'] | (ndi.binary_dilation(lk['bay'], iterations=4) & ~lake)) & free_i
+    ipool = np.zeros((H, W), bool)
+    for x_, y_, r_, kind in POOLS:
+        if kind == 'iris' and 0 <= y_ - Y0 < H:
+            ipool |= lk['pools'] & (np.hypot(xx - (x_ - X0), yy - (y_ - Y0)) < 2.5 * r_)
+    ipool = ndi.binary_dilation(ipool, iterations=3) & ~ndi.binary_erosion(ipool, iterations=4)   # the rim only
+    iris_area = (lk['bay'] | (ndi.binary_dilation(lk['bay'], iterations=4) & ~lake) | ipool) & free_i
+    iris_area &= ~ndi.binary_dilation(pathm, iterations=3)
     ys_, xs_ = np.nonzero(iris_area & (r6.random((H, W)) < 1 / 26 * np.clip(0.6 + 0.5 * fbm(H, W, 4, 132), 0.15, 1.2)))
     for y_, x_ in zip(ys_, xs_):
         v = kind_n[y_, x_]
@@ -609,7 +625,9 @@ def main(out, scale=2):
     westness = np.clip((660 - gx) / 260.0, 0, 1) + np.clip((gy - 4420) / 200.0, 0, 1) * 0.5
     belt = (((lake & (din < 6)) | (~lake & (shore < 4))) & (fbm(H, W, 10, 126) > 0.35 - 0.9 * westness)
             & ~lk['bay'] & ~ndi.binary_dilation(lk['bay'], iterations=6))
-    reed_land = (belt | (lk['sea_reeds'] & ~lk['open_w'])) & ~ndi.binary_dilation(pathm | bridge_m, iterations=3)
+    pr = lk['pools'] & ~ndi.binary_dilation(ipool, iterations=8)
+    prim = ndi.binary_dilation(pr, iterations=3) & ~ndi.binary_erosion(pr, iterations=2) & (fbm(H, W, 5, 133) > -0.2)
+    reed_land = (belt | prim | (lk['sea_reeds'] & ~lk['open_w'])) & ~ndi.binary_dilation(pathm | bridge_m, iterations=3)
     reed_land &= ~ndi.binary_dilation(sb.mask | brook.mask, iterations=2)
     ys_, xs_ = np.nonzero(reed_land)
     pk = r6.random(len(ys_)) < np.where(lk['sea_reeds'][ys_, xs_], 1 / 9, 1 / 16)
@@ -619,9 +637,30 @@ def main(out, scale=2):
         else:
             things.append(ow.Rohrkolben(int(x_), int(y_), int(r6.integers(3, 6)), int(r6.integers(0, 10 ** 6))))
     blocked |= reed_land | iris_area
+    pb = lk['pools'].copy()                                             # tall blades rooted below a pool would hide it
+    for k in range(1, 11):
+        blocked[k:] |= pb[:-k]
     wet6 = ndi.binary_dilation(water, iterations=6)
-    for k, (x, y) in enumerate([(380, 4040), (300, 4210), (230, 4420), (330, 4560), (150, 4640), (520, 3930),
-                                (720, 3960), (130, 4180), (300, 4700), (600, 4720)]):
+    from objects_south import Findling
+    meadow = [(o.Kaki, 250, 4330, 0.8), (o.Kaki, 90, 4290, 0.7)]
+    for cls_, x, y, sz in meadow:                                       # two old persimmons nobody picks
+        if not wet6[y - Y0, x - X0]:
+            things.append(cls_(x - X0, y - Y0, seed=175 + x % 7, size=sz))
+            blocked[y - Y0 - 3:y - Y0 + 4, x - X0 - 4:x - X0 + 5] = True
+    for k, (x, y) in enumerate([(205, 3990), (395, 4380)]):            # the drying racks of the old fields
+        things.append(o.Hasagi(x - X0, y - Y0, w=30 - 8 * k, seed=170 + k))
+        blocked[y - Y0 - 6:y - Y0 + 14, x - X0 - 8:x - X0 + 38] = True    # no tall blades in front of it
+    for k, (x, y, r_) in enumerate([(60, 3930, 7), (230, 4120, 6), (120, 4380, 8), (260, 4560, 6), (40, 4600, 7),
+                                    (370, 4290, 5), (90, 4700, 6)]):
+        if not wet6[y - Y0, x - X0]:
+            things.append(Findling(x - X0, y - Y0, r_, 180 + k))
+            blocked[y - Y0 - r_:y - Y0 + 3, x - X0 - r_:x - X0 + r_ + 2] = True
+    pcx, pcy = POOLS[0][0] - X0, POOLS[0][1] - Y0                       # a bench by the iris pool, the trail's end
+    things.append(z2.Bank(pcx + 6, pcy - POOLS[0][2] - 12))
+    blocked[pcy - POOLS[0][2] - 20:pcy - POOLS[0][2] + 2, pcx - 6:pcx + 22] = True
+    for k, (x, y) in enumerate([(380, 4040), (440, 4200), (230, 4420), (330, 4560), (150, 4640), (520, 3930),
+                                (720, 3960), (130, 4180), (300, 4700), (600, 4720), (40, 4150), (170, 4280),
+                                (60, 4500), (210, 4720), (380, 3960), (290, 3870)]):
         x_, y_ = x - X0, y - Y0
         if not (0 <= y_ < H) or wet6[y_, x_] or pathm[y_ - 8:y_ + 5, x_ - 9:x_ + 10].any():
             continue
