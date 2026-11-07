@@ -19,7 +19,8 @@ Quellen: `docs/ideenblatt.md` („Westen: Dorf und menschliche Spuren“), Phili
 - Orte (Nummern wie auf der Skizze): 1 Dorfeingang, 2 Dorfplatz mit Brunnen, 3 neun Häuser mit Gärten, 4 Gewächshaus
   (innen eigener Bildschirm wie die Höhle), 5 Steinmetz (offener Unterstand, Meißelspuren auch an Brunnen/Mauern/Laternen),
   6 Dorfschrein mit Treppe, 7 Obstwiese (Weg nach Kogarashi), 8 alte Reisfelder, 9 Wassermühle am Bach in die Seewiesen,
-  10 Bambushain (dunkel, Laterne).
+  10 Bambushain (dunkel, Laterne), 11 Fischerhütte mit Zickzack-Steg durch Irissumpf am Westufer des Sees,
+  12 Teehaus am Wasser (offener Pavillon mit Bank) – beide 2026-11-07 dazu.
 - Rundweg ohne Sackgassen: Lagerfeuer → Eingang → Platz → Obstwiese → Kogarashi; Platz → Gewächshaus → Reisfelder →
   Mühle → Seewiesen. Abstecher: Schrein, Bambushain.
 - Ränder: Nordwesten Tannenwald (Fortsetzung Kogarashi/Norden), Süden Seewiesen mit Einzelbäumen, Westrand Wald/Nebel.
@@ -42,4 +43,4 @@ Quellen: `docs/ideenblatt.md` („Westen: Dorf und menschliche Spuren“), Phili
   (4) Reisfelder, Mühle, Bambus → Gewächshaus innen → Einbau → Licht/Grade-Feld → Klänge → Build auf einmal.
 
 ## Offen (Philip)
-- Plan, Orte, Rundweg, Namen; ob Mühle/Reisfelder/Bambus gewollt sind.
+- Plan ABGENOMMEN 2026-11-07 (mit 11 + 12). Offen: Namen.
