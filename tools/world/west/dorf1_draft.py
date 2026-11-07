@@ -113,8 +113,9 @@ def main(out, scale=2):
         r = np.random.default_rng(seed * 11)
         hx_, hy_ = cx - X0 + int(r.integers(-6, 7)), cy - Y0 - 10
         hw = int(r.integers(40, 50))
-        things.append(o.Minka(hx_, hy_, w=hw, seed=seed, kind=kind, ruin=ruin,
-                              roof=17 if kind == 'kawara' else 19, pal=seed // 2 + seed % 2))
+        house = o.Minka(hx_, hy_, w=hw, seed=seed, kind=kind, ruin=ruin,
+                        roof=17 if kind == 'kawara' else 19, pal=seed // 2 + seed % 2)
+        things.append(house)
         blocked[hy_ - 34:hy_ + 4, hx_ - hw // 2 - 6:hx_ + hw // 2 + 8] = True
         left, right, top, bot = cx - 55 - X0, cx + 55 - X0, cy - 48 - Y0, cy + 50 - Y0
         e = ((xx - (left + right) / 2) / 56.0) ** 2 + ((yy - (top + bot) / 2) / 50.0) ** 2 + 0.15 * fbm(H, W, 6, seed)
@@ -145,10 +146,10 @@ def main(out, scale=2):
         if r.random() < 0.8:
             things.append(o.Obstbaum(int(r.choice([left + 14, right - 14])), hy_ + int(r.integers(28, 44)), seed=seed))
         if seed in (1, 4, 6, 8):                     # candles left on the veranda of a few houses (Philip, round 2)
-            side = int(r.choice([-1, 1]))
+            side = -1                                # left of the door, on the veranda (Philip)
             cx_ = hx_ + side * int(r.integers(8, hw // 2 - 4))
-            pts = [(cx_, hy_ + 5), (cx_ + 3, hy_ + 6), (cx_ - 3, hy_ + 6)]   # in front of the veranda: the house (drawn by its foot) hid them on it
-            k = Kerzen(pts[:int(r.integers(2, 4))], seed=seed)          # the south's candles; two or three (Philip)
+            pts = [(cx_, hy_ + 1), (cx_ + 3, hy_ + 2), (cx_ - 3, hy_ + 2)]
+            k = Kerzen(pts[:int(r.integers(2, 4))], seed=seed, on=house)   # the south's candles, two or three, drawn after the house
             things.append(k)
             lights += k.lights()
         prop = r.random()
@@ -238,7 +239,7 @@ def main(out, scale=2):
     for l in w['lights']:
         if X0 <= l['x'] + WW < X1 and Y0 <= l['y'] < Y1:
             lights.append(dict(l, x=l['x'] + WW - X0, y=l['y'] - Y0))
-    for t in sorted(things, key=lambda t: t.box()[3]):
+    for t in sorted(things, key=lambda t: getattr(t, 'order', None) or t.box()[3]):
         t.draw(img, G)
     ww = dict(w, lights=lights, wisps=[])
     out_img = mood_map.mood(np.clip(img, 0, 255), ww, 2.0, grass_mist=0.45)
