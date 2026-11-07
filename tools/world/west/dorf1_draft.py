@@ -280,6 +280,17 @@ def main(out, scale=2):
     newc = (xx < seam)[..., None]
     newc = newc & ~ndi.binary_dilation(pathm, iterations=1)[..., None]   # the paths stay light, as today's do
     img = np.where(newc, img * (1 - 0.6 * dens_s[..., None] * np.array([0.12, 0.0, 0.14])) * (1 - 0.38 * dens_s[..., None]), img)
+    if os.environ.get('WEST_DEBUG'):
+        np.save(os.environ['WEST_DEBUG'] + '_ground.npy', img.astype(np.float32))
+    B = ndi.gaussian_filter1d(img, 16, axis=0)                           # the ground dips dark in the last columns
+    xa, xb = seam - 56, seam + 6                                         # before the seam: bridge them, column by column
+    t_ = ((np.arange(xa, seam) - xa) / (xb - xa))[None, :, None]
+    target = B[:, xa:xa + 1] * (1 - t_) + B[:, xb:xb + 1] * t_
+    wsouth = smooth((gy[:, 0] - 2780) / 120.0)[:, None, None]               # the north was approved as it is
+    img[:, xa:seam] *= 1 + (np.clip(target / np.maximum(B[:, xa:seam], 1), 0.7, 1.5) - 1) * wsouth
+    img = match_seam(img, pathm | brook.mask, seam, gy)                  # the ground first: today's is lighter
+    if os.environ.get('WEST_DEBUG'):
+        np.save(os.environ['WEST_DEBUG'] + '_ground2.npy', img.astype(np.float32))
     terr, terr_dry, terr_fade = draw_terraces(img, rng, pathm, (BROOK_A[0][0] - X0, BROOK_A[0][1] - Y0))
     southw = []
     for pts, w0, w1 in ((BROOK_A, 6, 12), (BROOK_C, 4, 7)):
@@ -569,7 +580,11 @@ def main(out, scale=2):
             lights.append(dict(l, x=l['x'] + WW - X0, y=l['y'] - Y0))
     for t in sorted(things, key=lambda t: getattr(t, 'order', None) or t.box()[3]):
         t.draw(img, G)
+    if os.environ.get('WEST_DEBUG'):
+        np.save(os.environ['WEST_DEBUG'] + '_pre.npy', img.astype(np.float32))
     img = match_seam(img, water | pathm, seam, gy)
+    if os.environ.get('WEST_DEBUG'):
+        np.save(os.environ['WEST_DEBUG'] + '_post.npy', img.astype(np.float32))
     ww = dict(w, lights=lights, wisps=[])
     out_img = mood_map.mood(np.clip(img, 0, 255), ww, 2.0, grass_mist=0.45)
     Image.fromarray(np.clip(out_img, 0, 255).astype(np.uint8)).resize((W * scale, H * scale), Image.NEAREST).save(out)
