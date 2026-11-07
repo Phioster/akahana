@@ -58,12 +58,39 @@ def shade_ground(img, G, x0, x1, y0, y1, k=0.7):
                 img[j, i] = img[j, i] * k
 
 
+BOARD = [hx(c) for c in ['#231d19', '#3a312a', '#544739', '#6f604d', '#8b7a63', '#a8977c']]   # weathered boards, silvered
+
+
+def plank_px(i, j, a, top, lit, seed):
+    """One pixel of an old shitami-itabari wall: overlapping horizontal boards, each with a lit lower lip and its
+    shadow under the next, every board its own tone, held by thin upright battens with nail heads; here and there a
+    board split or gone dark with wet."""
+    row = (j - top) // 3
+    r = np.random.default_rng(seed * 131 + row * 17 + (i - a) // 11)
+    tone = r.normal(0, 0.55)
+    y_in = (j - top) % 3
+    c = lit + tone + (0.0, 0.25, -1.1)[y_in]                         # the board, its lip, the shadow under the next
+    batten = (i - a) % 7 == 3
+    if batten:
+        c = lit + 0.9 - 0.3 * (y_in == 2)
+        if y_in == 1 and row % 2 == 0:
+            return hx('#706b64')                                        # a nail head
+    elif r.random() < 0.12:
+        c -= 1.0                                                        # a board gone dark with wet
+    elif y_in == 1 and (i * 7 + row * 3) % 13 == 0:
+        c -= 0.8                                                        # a split along the grain
+    elif y_in == 0 and (i * 5 + row) % 9 == 0:
+        c += 0.6                                                        # worn pale
+    return pick(BOARD, c)
+
+
 class Minka:
     """An empty farmhouse seen from above at an angle: a veranda of planks, the front wall of posts with shoji and
     plank panels (paper torn, panes gone dark), a deep roof of tiles or thatch with moss on it, fallen in here and
     there so the rafters show, creepers hanging from the eaves. About w + 10 wide, wall + roof + 6 high."""
-    def __init__(s, x, y, w=44, wall=11, roof=17, seed=1, kind='kawara', ruin=0.6, pal=0):
+    def __init__(s, x, y, w=44, wall=11, roof=17, seed=1, kind='kawara', ruin=0.6, pal=0, rich=False):
         s.x, s.y, s.w, s.wall, s.roof, s.seed, s.kind, s.ruin = x, y, w, wall, roof, seed, kind, ruin
+        s.rich = rich                                       # boards drawn in detail (the stonemason's house)
         s.pal = ROOFS[kind][pal % len(ROOFS[kind])]
         s.mossy = 0.5 + np.random.default_rng(seed + 40).random()     # 0.5 barely .. 1.5 grown over
 
@@ -91,11 +118,13 @@ class Minka:
         posts = sorted(set([x0, x1 - 1] + [x0 + k * w // 4 for k in (1, 2, 3)]))
         for k in range(len(posts) - 1):
             a, b = posts[k] + 2, posts[k + 1]
-            panel = 'door' if a <= door + 3 < b else ('shoji' if rng.random() < 0.6 else 'planks')
+            panel = 'door' if a <= door + 3 < b else ('shoji' if rng.random() < (0.25 if s.rich else 0.6) else 'planks')
             for j in range(top, y - 1):
                 for i in range(a, b):
                     lit = 2.6 - 1.6 * (i - x0) / w + rng.normal(0, 0.15)
-                    if panel == 'planks':
+                    if panel == 'planks' and s.rich:
+                        c = plank_px(i, j, a, top, lit + 0.7, s.seed + k)
+                    elif panel == 'planks':
                         c = pick(WOOD, lit + (-1.2 if (i - a) % 4 == 3 else 0.3))
                     elif panel == 'door':
                         open_ = i < a + (b - a) * (0.35 + 0.4 * s.ruin)  # slid half open: dark inside
@@ -495,17 +524,17 @@ class Gewaechshaus:
     two stone posts; to each side a long low wing with a curved glass roof. The iron has rusted brown, the glass gone
     green; plants inside press on the panes, a lantern burns inside. A few panes cracked, a couple gone, grass and
     creepers up the footing, stone-edged beds run wild in front. (x, y) the foot of the wings' front wall."""
-    PW, PWALL, GH, RD = 30, 24, 15, 5           # pavilion: width, wall, gable, how far its roof runs back
-    WW, WWALL, WR = 38, 11, 15                  # each wing: width, wall, curved roof
+    PW, PWALL, GH, RD = 38, 30, 19, 6           # pavilion: width, wall, gable, how far its roof runs back
+    WW, WWALL, WR = 48, 14, 18                  # each wing: width, wall, curved roof
 
     def __init__(s, x, y, seed=21):
         s.x, s.y, s.seed = x, y, seed
 
     def box(s):
-        return (s.x - s.PW // 2 - s.WW - 4, s.y - s.PWALL - s.GH - s.RD - 10, s.x + s.PW // 2 + s.WW + 8, s.y + 18)
+        return (s.x - s.PW // 2 - s.WW - 4, s.y - s.PWALL - s.GH - s.RD - 16, s.x + s.PW // 2 + s.WW + 8, s.y + 22)
 
     def lights(s):
-        return [{'x': s.x + 0.5, 'y': s.y - 9.0, 'r': 40.0, 'k': 0.75, 'kind': 'lantern'}]
+        return [{'x': s.x + 0.5, 'y': s.y - 11.0, 'r': 46.0, 'k': 0.75, 'kind': 'lantern'}]
 
     def door(s):
         return (s.x, s.y + 4)
@@ -516,7 +545,7 @@ class Gewaechshaus:
         x, y = s.x, s.y
         PW, PWALL, GH, RD, WW, WWALL, WR = s.PW, s.PWALL, s.GH, s.RD, s.WW, s.WWALL, s.WR
         L, R = x - PW // 2 - WW, x + PW // 2 + WW                      # outer ends of the wings
-        lx, ly = x, y - 9                                              # the lantern inside, behind the door
+        lx, ly = x, y - 11                                             # the lantern inside, behind the door
         leaves = ndi.gaussian_filter(rng.normal(0, 1, (80, R - L + 20)), 1.4)
         leaves /= leaves.std() + 1e-9
         top_all = y - PWALL - GH - RD - 10
@@ -533,7 +562,7 @@ class Gewaechshaus:
             glass = pick(TEAL, 2.6 - 1.6 * u + 1.6 * roof + (1.3 if glint else 0))
             c = base * (0.62 - 0.2 * roof) + glass * (0.38 + 0.2 * roof)
             dd = np.hypot(i - lx, (j - ly) * 1.25)
-            warm = max(0.0, 1 - dd / 24.0) ** 1.3
+            warm = max(0.0, 1 - dd / 28.0) ** 1.3
             c = c * (1 - 0.6 * warm) + WARMG * 0.62 * warm
             if cell in gone:
                 c = base * 0.75 if leaf else hx('#0f1412')            # no glass: the leaves themselves, or dark
@@ -600,7 +629,7 @@ class Gewaechshaus:
 
         def half(d):                                                    # the gable's half width d rows above ft
             t = d / GH                                                  # round shoulders, then drawn in to a point
-            return rad * np.sqrt(max(0.0, 1 - t ** 1.4)) * (1 - 0.55 * t ** 1.5)
+            return rad * np.sqrt(max(0.0, 1 - t ** 2.4)) * (1 - 0.6 * t ** 2)
         for d in range(GH + RD + 1):                                    # roof: the gable outline swept back
             for back in range(1, RD + 1):
                 dd = d - back
@@ -621,7 +650,7 @@ class Gewaechshaus:
         for j in (yb - 1, yb):                                          # footing
             for i in range(x0 - 1, x1 + 1):
                 put(img, i, j, pick(STONE, 3.4 - 2.0 * (i - x0) / PW - 0.8 * (j == yb) + rng.normal(0, 0.2)))
-        dw, dh = 10, 17                                                 # the door, arched
+        dw, dh = 12, 21                                                 # the door, arched
         for j in range(ft, yb - 1):
             for i in range(x0, x1):
                 u = (i - x0) / PW
@@ -681,19 +710,32 @@ class Gewaechshaus:
         # ---------- in front: two stone posts at the door, stone-edged beds run wild
         for px in (x - dw // 2 - 4, x + dw // 2 + 1):
             Block(px, yb + 5, w=3, h=5, d=1, seed=s.seed + px).draw(img, G)
-        for (bx0, bx1) in ((x0 - WW + 4, x - dw // 2 - 7), (x + dw // 2 + 6, x1 + WW - 4)):
-            by0, by1 = y + 6, y + 15
-            for j in range(by0, by1 + 1):
+        for (bx0, bx1) in ((x0 - WW + 6, x - dw // 2 - 8), (x + dw // 2 + 7, x1 + WW - 6)):
+            # a raised bed seen from above at an angle: the top of its stone rim all round, the rim's front face
+            # below it, the weeds inside standing up over the back rim
+            by0, by1, fh = y + 7, y + 15, 3                             # back rim, front rim, height of the front face
+            for j in range(by0, by1 + fh + 1):
                 for i in range(bx0, bx1 + 1):
-                    if j in (by0, by1) or i in (bx0, bx1):
-                        c = pick(STONE, 3.6 - 1.2 * (i - bx0) / (bx1 - bx0) - 0.9 * (j == by1 or i == bx1))
+                    u = (i - bx0) / (bx1 - bx0)
+                    if j > by1:                                          # the front face, stones with joints
+                        joint = (i - bx0 + 3 * (j - by1)) % 6 == 0 or j == by1 + fh
+                        c = pick(STONE, 2.0 - 0.9 * u - 0.4 * (j - by1) + rng.normal(0, 0.12) - (0.9 if joint else 0))
+                    elif j in (by0, by1) or i in (bx0, bx1, bx0 + 1, bx1 - 1) and j > by0:
+                        c = pick(STONE, 3.9 - 1.0 * u - 0.5 * (j == by0) + rng.normal(0, 0.12))   # the rim's top, lit
                     else:
                         n = leaves[(j * 3) % leaves.shape[0], (i * 2) % leaves.shape[1]]
-                        c = pick(MOSS if n > -0.2 else SOIL, 2.4 + 1.4 * n) if n > -0.8 else SOIL[1]
+                        c = pick(MOSS, 2.2 + 1.4 * n - 0.6 * (j < by0 + 2)) if n > -0.5 else pick(SOIL, 1.5 + n)
                     put(img, i, j, c)
-            for i in range(bx0, bx1 + 1):                               # its shadow
-                if 0 <= by1 + 1 < img.shape[0] and 0 <= i < img.shape[1]:
-                    img[by1 + 1, i] = img[by1 + 1, i] * 0.7
+            g = np.random.default_rng(s.seed + bx0)
+            for i in range(bx0 + 2, bx1 - 1):                            # weeds over the back rim and out at the front
+                if g.random() < 0.45:
+                    for d in range(int(g.integers(1, 5))):
+                        put(img, i, by0 + 1 - d, pick(MOSS if g.random() < 0.7 else LEAF, 3.4 - 0.5 * d + g.normal(0, 0.3)))
+                if g.random() < 0.15:
+                    put(img, i, by1 + 1, pick(MOSS, 2.6))
+            for i in range(bx0, bx1 + 2):                               # its shadow
+                if 0 <= by1 + fh + 1 < img.shape[0] and 0 <= i < img.shape[1]:
+                    img[by1 + fh + 1, i] = img[by1 + fh + 1, i] * 0.65
 
 
 class Block:
@@ -739,7 +781,7 @@ class Steinmetz:
 
     def __init__(s, x, y, seed=41):
         s.x, s.y, s.seed = x, y, seed
-        s.house = Minka(x - 22, y, w=42, wall=14, roof=18, seed=seed, kind='kawara', ruin=0.45, pal=1)
+        s.house = Minka(x - 22, y, w=42, wall=14, roof=18, seed=seed, kind='kawara', ruin=0.45, pal=1, rich=True)
 
     def box(s):
         hb = s.house.box()
@@ -761,8 +803,7 @@ class Steinmetz:
         # the back wall: planks from the floor right up under the roof, the full width, tools on it
         for j in range(fe + 1, fb):
             for i in range(xs, xe):
-                put(img, i, j, pick(WOOD, 2.0 - 1.0 * (i - xs) / s.LW + (-0.8 if (i - xs) % 4 == 0 else 0)
-                                    - 0.6 * (j < fe + 3)))
+                put(img, i, j, plank_px(i, j, xs, fe + 1, 2.7 - 1.0 * (i - xs) / s.LW - 0.6 * (j < fe + 3), s.seed + 9))
         for k, tx in enumerate(range(xs + 4, xs + 16, 3)):             # chisels and a mallet on pegs
             put(img, tx, fe + 3, WOOD[0])
             for dd in range(1, 4 + k % 2):
