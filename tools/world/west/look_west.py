@@ -14,9 +14,12 @@ import objects_west as o  # noqa: E402
 
 rng = np.random.default_rng(2)
 H, W = 90, 300
+H, W = 110, 300
 img = ground_organic(H, W, np.full((H, W), 0.7), np.full((H, W), 0.2), rng).astype(float)
 G = np.random.default_rng(3).random((H, W))
-things = [o.Minka(32, 70, seed=1, ruin=0.3), o.Minka(96, 70, seed=2, ruin=0.8, kind='kaya', roof=19),
+things = [o.Gewaechshaus(60, 90), o.Steinmetz(170, 86), o.Block(220, 90), o.Block(232, 92, w=5, h=6, seed=3),
+          o.Block(250, 88, w=8, h=3, seed=4)]
+_old = [o.Minka(32, 70, seed=1, ruin=0.3), o.Minka(96, 70, seed=2, ruin=0.8, kind='kaya', roof=19),
           o.Brunnen(150, 70), o.Hortensie(176, 72, 6, 'blau'), o.Hortensie(192, 74, 5, 'lila', 5),
           o.Hortensie(206, 72, 5, 'rosa', 6), o.Beet(222, 74), o.Obstbaum(262, 74),
           o.Bambuszaun([(150, 86), (200, 88), (240, 86)]), o.Steinmauer([(8, 86), (60, 88), (120, 86)]),
