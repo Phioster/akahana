@@ -282,12 +282,14 @@ def main(out, scale=2):
     img = np.where(newc, img * (1 - 0.6 * dens_s[..., None] * np.array([0.12, 0.0, 0.14])) * (1 - 0.38 * dens_s[..., None]), img)
     if os.environ.get('WEST_DEBUG'):
         np.save(os.environ['WEST_DEBUG'] + '_ground.npy', img.astype(np.float32))
-    B = ndi.gaussian_filter1d(img, 16, axis=0)                           # the ground dips dark in the last columns
+    mb = ~ndi.binary_dilation(pathm | brook.mask, iterations=2)          # measured and changed on the grass only
+    B = ndi.gaussian_filter1d(img * mb[..., None], 16, axis=0) / np.maximum(
+        ndi.gaussian_filter1d(mb.astype(float), 16, axis=0), 0.05)[..., None]   # the ground dips dark in the last columns
     xa, xb = seam - 56, seam + 6                                         # before the seam: bridge them, column by column
     t_ = ((np.arange(xa, seam) - xa) / (xb - xa))[None, :, None]
     target = B[:, xa:xa + 1] * (1 - t_) + B[:, xb:xb + 1] * t_
     wsouth = smooth((gy[:, 0] - 2780) / 120.0)[:, None, None]               # the north was approved as it is
-    img[:, xa:seam] *= 1 + (np.clip(target / np.maximum(B[:, xa:seam], 1), 0.7, 1.5) - 1) * wsouth
+    img[:, xa:seam] *= 1 + (np.clip(target / np.maximum(B[:, xa:seam], 1), 0.7, 1.5) - 1) * wsouth * mb[:, xa:seam, None]
     img = match_seam(img, pathm | brook.mask, seam, gy)                  # the ground first: today's is lighter
     if os.environ.get('WEST_DEBUG'):
         np.save(os.environ['WEST_DEBUG'] + '_ground2.npy', img.astype(np.float32))
