@@ -15,7 +15,20 @@ const float CALM_B = 1.1;             // grass and reeds stir between the gusts 
 uniform sampler2D bend_tex : filter_nearest;   // per pixel: height above its plant's foot, 255 = sways whole
 uniform vec2 tex_size;
 uniform vec2 origin;                  // world position of this picture's top-left texel (chunk minus apron)
-uniform sampler2D ground_tex : filter_nearest;   // the chunk's ground (no apron): the trail darkens it
+// the trail only darkens the ground below (drawn by water.gdshader, wet or dry) and leaves the puddles alone:
+// it used to paint a dry copy of the ground, a pale V through the wet meadow (Philip 0.17.4)
+uniform sampler2D puddles : filter_nearest;
+uniform vec2 world_size = vec2(1800.0, 4800.0);
+uniform float wet = 0.0;
+const float POOL_FROM = 0.35;                   // as in water.gdshader
+
+bool puddle_at(vec2 p) {
+	if (p.x < 0.0 || p.y < 0.0 || p.x >= world_size.x || p.y >= world_size.y) return false;
+	float v = round(texelFetch(puddles, ivec2(p), 0).r * 255.0);
+	float h = v < 0.5 ? 0.0 : (v < 127.5 ? (v - 1.0) / 126.0 : (v - 128.0) / 127.0);
+	float fill = clamp((wet - POOL_FROM) / (1.0 - POOL_FROM), 0.0, 1.0);
+	return h > 0.0 && fill > 0.001 && h > 1.0 - fill;
+}
 uniform vec4 trail[24];               // x, y, walking direction x, y
 uniform float trail_k[24];            // 1 just stepped .. 0 swung back (linear in time)
 
@@ -144,12 +157,11 @@ void fragment() {
 		}
 	}
 	if (press > 0.15) {
-		vec2 gs = vec2(textureSize(ground_tex, 0));
-		vec2 g = p - origin - (tex_size - gs) * 0.5;      // the ground has no apron
-		vec3 ground = texelFetch(ground_tex, ivec2(clamp(g, vec2(0.0), gs - 1.0)), 0).rgb;
-		vec4 lane = c.a > 0.0 ? c : vec4(ground * (lay_flat ? 1.0 - 0.45 * press : 1.0), 1.0);
-		if (hash(vec2(p.x, floor(p.y / 3.0))) < 0.18 && press > 0.3 && (c.a == 0.0 || lay_flat))   // a stalk lying along the way
-			lane.rgb = lane.rgb * 0.5 + vec3(150.0, 150.0, 116.0) / 255.0 * 0.5;
+		bool pud = wet > 0.001 && puddle_at(p);
+		vec4 lane = c.a > 0.0 ? c : vec4(0.0, 0.0, 0.0, lay_flat && !pud ? 0.45 * press : 0.0);
+		if (!pud && hash(vec2(p.x, floor(p.y / 3.0))) < 0.18 && press > 0.3 && (c.a == 0.0 || lay_flat))   // a stalk lying along the way
+			lane = c.a > 0.0 ? vec4(lane.rgb * 0.5 + vec3(150.0, 150.0, 116.0) / 255.0 * 0.5, 1.0)
+				: vec4(150.0, 150.0, 116.0, 255.0) / 255.0 * vec4(1.0, 1.0, 1.0, 0.5);
 		COLOR = lane;
 	} else {
 		COLOR = trampled ? vec4(0.0) : c;

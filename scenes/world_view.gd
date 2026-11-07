@@ -91,6 +91,7 @@ func set_weather(wet: float, rain_now: float) -> void:
 	_rain = rain_now
 	for c in _chunks:
 		_feed_weather(_chunks[c][0].material)
+		(_chunks[c][1].material as ShaderMaterial).set_shader_parameter("wet", _wet)
 
 
 func _feed_weather(m: ShaderMaterial) -> void:
@@ -171,7 +172,9 @@ func _make_chunk(c: Vector2i) -> void:
 	m.shader = _shader
 	m.set_shader_parameter("tex_size", Vector2(ChunkGrid.SIZE + Vector2i(2, 2) * ChunkGrid.APRON))
 	m.set_shader_parameter("origin", corner - Vector2(ChunkGrid.APRON, ChunkGrid.APRON))
-	m.set_shader_parameter("ground_tex", store.ground_tex(c))   # the trail darkens the ground it lays bare
+	m.set_shader_parameter("puddles", puddles())                # the trail leaves the puddles alone
+	m.set_shader_parameter("world_size", Vector2(world.width, world.height))
+	m.set_shader_parameter("wet", _wet)
 	m.set_shader_parameter("bend_tex", store.bend_tex(c))
 	_feed(m)
 	f.material = m
