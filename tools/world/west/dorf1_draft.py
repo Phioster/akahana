@@ -25,13 +25,21 @@ from objects_south import Fackel, Kerzen  # noqa: E402
 ROOT = os.path.abspath(os.path.join(HERE, '..', '..', '..'))
 FULL = os.path.join(ROOT, 'build', 'world_full')
 WW = 900                                   # columns the world grows to the west
-X0, Y0, X1, Y1 = 230, 1990, 1180, 2770     # the window drawn (west coordinates)
+X0, Y0, X1, Y1 = 230, 1380, 1180, 2770     # the window drawn (west coordinates); zone 3 reaches up to 1380
 W, H = X1 - X0, Y1 - Y0
 EDGE = 24                                  # today's columns 0..EDGE are the fir wall: they go
 SQUARE = (520, 2330)
 GLASHAUS = (680, 2600)                     # zone 2: the greenhouse's foot (front wall middle)
 STEINMETZ = (330, 2500)                    # zone 2: the stonemason's house, its workshop on the east
 FIRE = (222 + WW, 2292)
+# zone 3: the brook that leaves today's world at its west edge (today x 24, y 1849..1868) rises in the forest
+# north-west, runs past the foot of the shrine's steps and on east; the shrine at the forest's edge, the orchard
+BROOK = [(240, 1760), (290, 1795), (330, 1845), (370, 1898), (420, 1927), (480, 1940), (550, 1933), (640, 1910),
+         (740, 1890), (840, 1879), (900, 1867), (WW + EDGE + 6, 1857)]
+SHRINE = (424, 1878)                       # the foot of the shrine's stone base; the steps go down to 1910
+FOREST = [(230, 1975), (300, 1935), (350, 1880), (378, 1836), (470, 1826), (505, 1790), (522, 1700), (560, 1640),
+          (640, 1606), (760, 1578), (860, 1540), (WW + EDGE, 1520)]     # its south edge
+ORCHARD = (470, 1630, 800, 1850)
 # (garden centre, house seed, roof kind, how fallen in); the house stands at the back of its plot, facing south
 HOUSES = [((380, 2180), 1, 'kawara', 0.5), ((560, 2150), 2, 'kaya', 0.8), ((690, 2230), 3, 'kawara', 0.35),
           ((300, 2320), 4, 'kaya', 0.6), ((410, 2420), 5, 'kawara', 0.7), ((720, 2400), 6, 'kaya', 0.45),
@@ -39,7 +47,10 @@ HOUSES = [((380, 2180), 1, 'kawara', 0.5), ((560, 2150), 2, 'kaya', 0.8), ((690,
 PATHS = {
     'eingang': [(FIRE[0] - 14, FIRE[1] + 10), (1040, 2312), (930, 2300), (820, 2306), (700, 2322), (600, 2334),
                 (SQUARE[0] + 16, SQUARE[1] + 2)],
-    'nord': [(SQUARE[0] - 6, SQUARE[1] - 14), (500, 2250), (470, 2150), (446, 2060), (430, 1990)],
+    'nord': [(SQUARE[0] - 6, SQUARE[1] - 14), (500, 2250), (470, 2150), (446, 2060), (432, 1990), (426, 1950),
+             (424, 1916)],                                                  # zone 3: over the brook to the torii
+    'obst': [(446, 2046), (488, 1992), (528, 1952), (548, 1930), (568, 1880), (588, 1800), (604, 1722),
+             (660, 1632), (740, 1544), (830, 1474), (924, 1428)],          # zone 3: through the orchard to Kogarashi
     'sued': [(SQUARE[0] + 8, SQUARE[1] + 14), (560, 2420), (620, 2520), (600, 2620), (540, 2700), (470, 2770)],
     'glas': [(603, 2604), (624, 2627), (656, 2630), (680, 2616)],              # zone 2: below the beds to the door
     'west': [(SQUARE[0] - 16, SQUARE[1] + 4), (420, 2360), (350, 2440), (300, 2470), (250, 2520)],
@@ -106,11 +117,27 @@ def main(out, scale=2):
         extras.draw_path(img, m, core, d, width, rng)
         pathm |= m
     pathm |= sq
+    # ---- zone 3: the brook (today's water east of the seam as it is, the new brook west of it)
+    import objects_water as ow
+    from scipy.interpolate import splprep, splev
+    tck, _ = splprep(np.array([(x - X0, y - Y0) for x, y in BROOK], float).T, s=0, k=3)
+    bc = np.array(splev(np.linspace(0, 1, 900), tck)).T
+    brook = ow.Brooks([(bc, 4, 19)], H, W, y0=0)
+    seam = WW + EDGE - X0
+    brook.mask[:, seam:] = False
+    brook.depth[:, seam:] = 0
+    img[ndi.distance_transform_edt(~brook.mask) < 7] *= 0.85        # damp soil along the banks
+    brook.draw(img, rng)
+    oldw = np.array(Image.open(os.path.join(FULL, 'water.png')).convert('RGBA'))[Y0:Y1, EDGE:EDGE + W - seam].astype(float)
+    al = oldw[..., 3:] / 255.0
+    img[:, seam:] = img[:, seam:] * (1 - al) + oldw[..., :3] * al
+    water = brook.mask.copy()
+    water[:, seam:] |= oldw[..., 3] > 0
     LAWN = np.array([0.60, 0.74, 0.56])
 
     # ---- houses and their gardens
     things, lights = [], []
-    blocked = pathm.copy()                       # no grass, no poppies here
+    blocked = pathm | ndi.binary_dilation(water, iterations=2)      # no grass, no poppies here
     plots = np.zeros((H, W))                     # 1 inside a garden plot
     for (cx, cy), seed, kind, ruin in HOUSES:
         r = np.random.default_rng(seed * 11)
@@ -178,6 +205,73 @@ def main(out, scale=2):
     for k, (bx_, by_, bw, bh) in enumerate([(376, 2512, 7, 4), (388, 2508, 5, 6), (352, 2514, 9, 3), (392, 2518, 6, 3)]):
         things.append(o.Block(bx_ - X0, by_ - Y0, w=bw, h=bh, seed=50 + k))
         blocked[by_ - Y0 - 10:by_ - Y0 + 3, bx_ - X0 - 2:bx_ - X0 + bw + 6] = True
+    # ---- zone 3: the shrine at the forest's edge, the orchard, the forest
+    sx, sy = SHRINE[0] - X0, SHRINE[1] - Y0
+    z3 = [o.Yashiro(sx, sy), o.Treppe(sx, sy + 32, n=8), o.Torii(sx, sy + 36),
+          o.Komainu(sx - 20, sy + 34), o.Komainu(sx + 19, sy + 34, flip=True), o.Shinboku(sx + 54, sy - 10)]
+    for t in z3:
+        things.append(t)
+        x0b, y0b, x1b, y1b = t.box()
+        blocked[max(0, y0b):y1b, max(0, x0b):x1b] = True
+    for (x, y) in ((SHRINE[0] - 32, SHRINE[1] + 2), (SHRINE[0] + 33, SHRINE[1] + 2)):
+        t = z2.Steinlaterne(x - X0, y - Y0)
+        things.append(t)
+        lights += t.lights()
+        blocked[y - Y0 - 14:y - Y0 + 4, x - X0 - 5:x - X0 + 6] = True
+    for (x, y), (a_, b_) in zip(((424, 1928), (548, 1931)), (('B', 0), ('P', 0))):
+        tc = bc[np.hypot(bc[:, 0] - (x - X0), bc[:, 1] - (y - Y0)).argmin()]
+        Kind = ow.Bruecke if a_ == 'B' else ow.Brett
+        t = Kind(int(round(tc[0])), int(round(tc[1])), np.pi / 2 - 0.15, 11)
+        things.append(t)
+    orch = np.zeros((H, W))
+    ox0, oy0, ox1, oy1 = [v - o_ for v, o_ in zip(ORCHARD, (X0, Y0, X0, Y0))]
+    e = ((xx - (ox0 + ox1) / 2) / ((ox1 - ox0) / 2)) ** 2 + ((yy - (oy0 + oy1) / 2) / ((oy1 - oy0) / 2)) ** 2
+    orch = smooth((1.05 - e - 0.2 * fbm(H, W, 12, 71)) / 0.3)
+    r3 = np.random.default_rng(73)
+    for row, ty in enumerate(range(oy0 + 34, oy1 - 10, 50)):              # the old rows, gone loose
+        for tx in range(ox0 + 22 + (row % 2) * 26, ox1 - 10, 52):
+            x_, y_ = tx + int(r3.integers(-7, 8)), ty + int(r3.integers(-6, 7))
+            if orch[y_, x_] < 0.4 or ndi.distance_transform_edt(~pathm[max(0, y_ - 20):y_ + 20, max(0, x_ - 20):x_ + 20]).min() < 9                     if pathm[max(0, y_ - 20):y_ + 20, max(0, x_ - 20):x_ + 20].any() else orch[y_, x_] < 0.4:
+                continue
+            k = r3.random()
+            t = o.Kaki(x_, y_, seed=80 + row * 10 + tx % 97, size=r3.uniform(0.65, 0.85)) if k < 0.6 else \
+                o.Obstbaum(x_, y_, seed=90 + row * 10 + tx % 89, size=r3.uniform(0.6, 0.75))
+            things.append(t)
+            blocked[y_ - 3:y_ + 4, x_ - 4:x_ + 5] = True
+            if r3.random() < 0.12:
+                things.append(o.Leiter(x_ + 4, y_ - 1))
+            elif r3.random() < 0.15:
+                things.append(o.Korb(x_ + int(r3.integers(-10, 10)), y_ + 5))
+    # the forest: today's edge firs (the wall that stood at x 0) planted all over the north-west
+    tannen = [sp for sp in w['sprites'] if sp['name'].startswith('tanne') and sp['x'] <= 2 and 1300 < sp['y'] < 2000]
+    fx = np.array([p[0] for p in FOREST]) - X0
+    fy = np.array([p[1] for p in FOREST]) - Y0
+    edge_y = np.interp(np.arange(W), fx, fy) + 14 * fbm(1, W, 6, 74)[0]
+    keepout = ndi.binary_dilation(pathm | water, iterations=6)
+    lane = ndi.binary_dilation(pathm, structure=np.ones((3, 9)), iterations=2)
+    for d in range(2, 48, 2):                                            # a fir's top reaches ~50 px above its foot:
+        keepout[d:] |= lane[:-d]                                         # none just below the path, the lane stays open
+    keepout[sy - 60:sy + 40, sx - 40:sx + 80] = True                     # the shrine's clearing
+    r4 = np.random.default_rng(75)
+    forest_things = []
+    clear = fbm(H, W, 16, 76)                                            # glades, and the forest thinner here and there
+    for fy_ in range(-30, H, 12):
+        for fx_ in range(-10, seam + 16, 15):
+            x_, y_ = fx_ + int(r4.integers(-5, 6)) + (6 if (fy_ // 11) % 2 else 0), fy_ + int(r4.integers(-4, 5))
+            if not (0 <= x_ < W and 0 <= y_ < H) or keepout[y_, x_]:
+                continue
+            past = y_ - edge_y[x_]                                       # > 0: out in the meadow
+            if past > 0 and (past > 40 or r4.random() > 0.08 * (1 - past / 40)):
+                continue                                                 # a few strays beyond the edge
+            if clear[y_, x_] > 1.1 or r4.random() < 0.25 + 0.3 * smooth(clear[y_, x_] - 0.2):
+                continue
+            if x_ + X0 > WW - 60 and r4.random() < 0.45 + 0.4 * (x_ + X0 > WW):
+                continue                                                  # thinning out to today's scattered firs
+            tpl = tannen[int(r4.integers(0, len(tannen)))]
+            sp = dict(tpl, x=x_ + X0 - WW - tpl['w'] // 2, y=y_ + Y0 - (tpl['foot'] - tpl['y']),
+                      foot=y_ + Y0)
+            forest_things.append(sp)
+            blocked[max(0, y_ - 6):y_ + 2, max(0, x_ - 6):x_ + 7] = True
     # ---- the well, lanterns at the square and the way in, a torch by the first house
     things.append(o.Brunnen(SQUARE[0] - X0, SQUARE[1] - Y0 + 4))
     for (x, y) in ((SQUARE[0] - 34, SQUARE[1] - 10), (SQUARE[0] + 40, SQUARE[1] + 12), (860, 2290)):
@@ -195,8 +289,8 @@ def main(out, scale=2):
     heads[:, WW - X0:] = fl
     heads[:, WW - X0:WW - X0 + EDGE] = 0
     field6.HEADS[:] = field6.make_heads(np.random.default_rng(31))
-    keep = 0.79 * (1 - smooth((WW + 40 - gx) / 260.0)) + 0.05 + 0.08 * smooth(-fbm(H, W, 30, 5))
-    for (x, y, kk, ph) in patches(H, W, np.full((H, W), 0.5), ndi.binary_dilation(blocked, iterations=2), rng, 60000):
+    keep = 0.79 * (1 - smooth((WW + 40 - gx) / 260.0)) + 0.05 + 0.08 * smooth(-fbm(H, W, 30, 5)) + 0.6 * orch
+    for (x, y, kk, ph) in patches(H, W, np.full((H, W), 0.5), ndi.binary_dilation(blocked, iterations=2), rng, 110000):
         if x + X0 >= WW + EDGE or rng.random() > keep[min(y + 2, H - 1), min(x + 2, W - 1)]:
             continue
         for j, row in enumerate(field6.HEADS[kk]):
@@ -251,7 +345,7 @@ def main(out, scale=2):
             sub = a[ya - y_:yb - y_, xa - x_:xb - x_]
             al = sub[..., 3:] / 255.0
             img[ya:yb, xa:xb] = img[ya:yb, xa:xb] * (1 - al) + sub[..., :3] * al
-    things += [Old(s) for s in sprites]
+    things += [Old(s) for s in sprites + forest_things]
     for l in w['lights']:
         if X0 <= l['x'] + WW < X1 and Y0 <= l['y'] < Y1:
             lights.append(dict(l, x=l['x'] + WW - X0, y=l['y'] - Y0))

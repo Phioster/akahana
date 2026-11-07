@@ -916,6 +916,313 @@ class Steinmetz:
             put(img, i, j, STONE[3])                                    # chips round it
 
 
+# ======================================================================== zone 3: the shrine and the orchard
+VERM = [hx(c) for c in ['#351812', '#55261b', '#7a3826', '#9c5034', '#b86c48']]       # torii vermilion, faded
+PATINA = [hx(c) for c in ['#1c2a27', '#283f39', '#38584e', '#4f7766', '#6e9783']]      # copper roof gone green
+SHIDE = [hx(c) for c in ['#7c7a72', '#a5a297', '#c9c5b8']]                            # paper, greyed
+ROPE = [hx(c) for c in ['#4a3f2a', '#6e5f3d', '#958353', '#b3a06a']]                   # straw rope
+KAKI = [hx(c) for c in ['#7a3210', '#b8541a', '#e2822a', '#f2a650']]                   # persimmons
+
+
+class Torii:
+    """A village torii, vermilion faded and flaking: two round pillars on stone feet, the tie-beam (nuki) through
+    them, the top beam (kasagi) black on top and swept up at the ends, a small plaque between."""
+    def __init__(s, x, y, span=18, h=21, seed=61):
+        s.x, s.y, s.span, s.h, s.seed = x, y, span, h, seed
+
+    def box(s):
+        return (s.x - s.span // 2 - 8, s.y - s.h - 6, s.x + s.span // 2 + 10, s.y + 3)
+
+    def draw(s, img, G):
+        rng = np.random.default_rng(s.seed)
+        x, y, h = s.x, s.y, s.h
+        L, R = x - s.span // 2, x + s.span // 2
+        for px in (L, R):                                              # shadows to the lower right
+            for d in range(1, 6):
+                if 0 <= y + 1 < img.shape[0]:
+                    put(img, px + d, y + 1, img[y + 1, px + d] * 0.65) if 0 <= px + d < img.shape[1] else None
+        for px in (L, R):
+            for i in range(px - 1, px + 3):                           # stone foot
+                put(img, i, y, pick(STONE, 3.2 - (i - px + 1) * 0.7))
+                put(img, i, y - 1, pick(STONE, 3.6 - (i - px + 1) * 0.7))
+            for j in range(y - h, y - 1):
+                flake = g_at(G, px * 3, j * 5) < 0.12                  # the paint come off: grey wood
+                put(img, px, j, WOOD[3] if flake else VERM[4])
+                put(img, px + 1, j, WOOD[1] if flake else VERM[2])
+        nj = y - h + 5                                                 # the nuki, through both pillars
+        for i in range(L - 3, R + 5):
+            put(img, i, nj, VERM[3])
+            put(img, i, nj + 1, VERM[1])
+        for j in range(y - h + 1, nj):                                 # the plaque
+            put(img, x, j, VERM[1])
+            put(img, x + 1, j, VERM[0])
+        put(img, x, y - h + 2, WOOD[0])
+        for i in range(L - 6, R + 8):                                  # the kasagi: vermilion under, black on top
+            t = (i - (L - 6)) / (R + 8 - (L - 6))
+            up = int(round(2.4 * (2 * t - 1) ** 6))                    # swept up at both ends
+            j = y - h - up
+            put(img, i, j, VERM[3] if t < 0.5 else VERM[2])
+            put(img, i, j - 1, pick(TILE, 2.4 - 1.6 * t))
+            put(img, i, j - 2, pick(TILE, 3.2 - 2.0 * t))
+        for i in range(L - 4, R + 6):                                  # moss on the top beam here and there
+            if g_at(G, i * 7, 3) < 0.25:
+                put(img, i, y - h - 2 - int(round(2.4 * (2 * (i - L + 6) / (s.span + 14) - 1) ** 6)), MOSS[2])
+
+
+class Treppe:
+    """Stone steps going up north to the shrine, seen from above at an angle: each step a lit tread and a darker
+    riser, the stones of a step set unevenly, moss in the corners, grass at the sides. (x, y) the foot, middle."""
+    def __init__(s, x, y, w=14, n=8, seed=62):
+        s.x, s.y, s.w, s.n, s.seed = x, y, w, n, seed
+        s.order = -9998                                                # under everything: it is ground
+
+    def box(s):
+        return (s.x - s.w // 2 - 3, s.y - 4 * s.n - 1, s.x + s.w // 2 + 4, s.y + 1)
+
+    def draw(s, img, G):
+        rng = np.random.default_rng(s.seed)
+        x0, x1 = s.x - s.w // 2, s.x + s.w // 2
+        for k in range(s.n):
+            yb = s.y - 4 * k                                           # the riser's foot
+            cut = [x0] + sorted(rng.choice(np.arange(x0 + 3, x1 - 2), 2, replace=False).tolist()) + [x1]
+            for a, b in zip(cut, cut[1:]):
+                sh = rng.normal(0, 0.25)
+                for i in range(a, b):
+                    u = (i - x0) / s.w
+                    put(img, i, yb, pick(STONE, 1.2 - 0.6 * u + sh))                # the riser, in shade
+                    put(img, i, yb - 1, pick(STONE, 1.9 - 0.8 * u + sh))
+                    put(img, i, yb - 2, pick(STONE, 3.3 - 1.2 * u + sh))            # the tread, lit
+                    put(img, i, yb - 3, pick(STONE, 3.7 - 1.2 * u + sh))
+                put(img, b - 1, yb, STONE[0])                          # the joint between two stones
+                put(img, b - 1, yb - 1, STONE[0])
+            for i in (x0, x0 + 1, x1 - 1):                             # moss in the corners
+                if rng.random() < 0.6:
+                    put(img, i, yb - 1 - int(rng.integers(0, 3)), pick(MOSS, rng.uniform(1, 3)))
+        for j in range(s.y - 4 * s.n, s.y + 1):                        # the low stone cheeks either side
+            put(img, x0 - 1, j, pick(STONE, 2.6 + g_at(G, 1, j)))
+            put(img, x0 - 2, j, pick(MOSS, 1.5 + g_at(G, 2, j)))
+            put(img, x1, j, pick(STONE, 1.2 + g_at(G, 3, j)))
+            put(img, x1 + 1, j, STONE[0])
+
+
+class Komainu:
+    """A stone guardian dog on its pedestal, sitting, mane and tail curled; flip faces it the other way."""
+    def __init__(s, x, y, flip=False, seed=63):
+        s.x, s.y, s.flip, s.seed = x, y, flip, seed
+
+    def box(s):
+        return (s.x - 5, s.y - 16, s.x + 8, s.y + 2)
+
+    def draw(s, img, G):
+        rng = np.random.default_rng(s.seed)
+        Block(s.x - 3, s.y, w=7, h=4, d=2, seed=s.seed).draw(img, G)
+        f = -1 if s.flip else 1
+        shape = ['..##...',                                             # head (with mane) at the front, body, tail
+                 '.####..',
+                 '#####.#',
+                 '.#####.',
+                 '.######',
+                 '.######',
+                 '#######']
+        by = s.y - 4 - 2 - len(shape)
+        for j, row in enumerate(shape):                                  # a dark rim first: it stands off the grass
+            for i, ch in enumerate(row):
+                if ch == '#':
+                    ii = s.x - 3 + (i if f > 0 else 6 - i)
+                    for (u_, v_) in ((-1, 0), (1, 0), (0, -1)):
+                        put(img, ii + u_, by + j + v_, STONE[0])
+        for j, row in enumerate(shape):
+            for i, ch in enumerate(row):
+                if ch == '#':
+                    ii = s.x - 3 + (i if f > 0 else 6 - i)
+                    lit = 3.4 - 0.45 * (ii - s.x + 3) - 0.15 * j + rng.normal(0, 0.15)
+                    if (j in (1, 2) and (i in (1, 2) if f > 0 else i in (1, 2))):
+                        lit += 0.3                                      # the mane catches the light
+                    c = pick(STONE, lit)
+                    if g_at(G, ii * 5, by + j) < 0.18:
+                        c = pick(MOSS, lit * 0.7)
+                    put(img, ii, by + j, c)
+        eye = s.x - 3 + (2 if f > 0 else 4)
+        put(img, eye, by + 1, STONE[0])
+
+
+class Yashiro:
+    """The village shrine (Sato-no-yashiro): a small hall on a stone base, its copper roof gone green with a
+    little gable over the front, a deep eave over the steps; lattice doors, the offering box, the bell rope, a
+    straw shimenawa sagging across the front with paper shide (one gone). Moss on the roof, left alone for years
+    but still whole. (x, y) the foot of the base's front, middle."""
+    def __init__(s, x, y, w=36, seed=64):
+        s.x, s.y, s.w, s.seed = x, y, w, seed
+
+    def box(s):
+        return (s.x - s.w // 2 - 8, s.y - 52, s.x + s.w // 2 + 14, s.y + 4)
+
+    def draw(s, img, G):
+        rng = np.random.default_rng(s.seed)
+        w, x, y = s.w, s.x, s.y
+        x0, x1 = x - w // 2, x + w // 2
+        shade_ground(img, G, x0 - 4, x1 + 14, y - 4, y + 5, 0.6)
+        for j in range(y - 5, y + 1):                                  # the stone base, coursed
+            for i in range(x0 - 4, x1 + 4):
+                u = (i - x0 + 4) / (w + 8)
+                joint = (j - y) % 3 == 0 or (i + 4 * ((j - y) // 3)) % 7 == 0
+                c = pick(STONE, (3.6 if j == y - 5 else 2.6) - 1.6 * u - (0.9 if joint and j != y - 5 else 0)
+                         + rng.normal(0, 0.12))
+                if g_at(G, i * 3, j * 7) < 0.15 and j > y - 5:
+                    c = pick(MOSS, 1.6)
+                put(img, i, j, c)
+        for k in range(3):                                             # wooden steps up to the floor
+            for i in range(x - 5, x + 6):
+                put(img, i, y - 6 - k * 2, pick(WOOD, 3.6 - k * 0.3 - (i - x + 5) * 0.12))
+                put(img, i, y - 7 - k * 2, pick(WOOD, 2.0 - k * 0.2))
+        fl = y - 12                                                    # the floor (veranda) and the hall's wall
+        for i in range(x0 - 2, x1 + 2):
+            put(img, i, fl, pick(WOOD, 3.4 - 2.0 * (i - x0) / w))
+            put(img, i, fl + 1, WOOD[1])
+        wt = fl - 13
+        for j in range(wt, fl):
+            for i in range(x0, x1):
+                u = (i - x0) / w
+                post = (i - x0) % (w // 3) in (0, 1) or i >= x1 - 2
+                if post:
+                    c = pick(WOOD, 2.8 - 1.6 * u - 0.8 * ((i - x0) % (w // 3) == 1))
+                elif abs(i - x) <= w // 6:                              # the lattice doors in the middle
+                    c = pick(WOOD, 2.4 - u) if (i % 2 == 0 or j % 2 == 0) else HOLE
+                else:
+                    c = plank_px(i, j, x0, wt, 2.8 - 1.4 * u, s.seed)
+                put(img, i, j, c)
+        for i in range(x - 4, x + 5):                                  # the offering box on the veranda
+            for d in range(4):
+                c = pick(WOOD, 3.6 - 0.25 * (i - x + 4)) if d == 3 else pick(WOOD, 1.6 + 0.5 * (i % 2))
+                put(img, i, fl - d, c)
+        for d in range(1, 12):                                         # the bell rope, red and white, the bell
+            put(img, x, wt + d, hx('#9a3a2a') if (d // 2) % 2 else SHIDE[2])
+        for (u_, v_, c) in ((0, 0, hx('#b09038')), (-1, 0, hx('#8a6e28')), (1, 0, hx('#d4b04c')), (0, -1, hx('#6a5420'))):
+            put(img, x + u_, wt + 1 + v_, c)
+        # the shimenawa: a thick straw rope sagging across under the eave, shide hanging from it
+        gone = int(rng.integers(0, 4))
+        for i in range(x0 + 1, x1 - 1):
+            t = (i - x0) / w
+            j = wt + 2 + int(round(2.5 * np.sin(np.pi * t)))
+            put(img, i, j, pick(ROPE, 3.2 - 1.6 * t))
+            put(img, i, j + 1, pick(ROPE, 1.6 - t))
+        for k, t in enumerate((0.2, 0.4, 0.6, 0.8)):
+            if k == gone:
+                continue
+            i = int(x0 + t * w)
+            j = wt + 4 + int(round(2.5 * np.sin(np.pi * t)))
+            for d, dx in enumerate((0, 1, 0, 1, 0)):                   # the zigzag of paper
+                put(img, i + dx, j + d, SHIDE[2 - (d % 2)])
+        # the roof: patina copper, eave first, a small gable (chidori-hafu) over the front
+        mn = ndi_noise(s.seed, 30, w + 30)
+        eave = wt - 2
+        for i in range(x0 - 7, x1 + 8):
+            put(img, i, eave + 1, WOOD[0])
+        for k in range(20):
+            j = eave - k
+            hw = w / 2 + 7 - k * 0.42
+            for i in range(int(x - hw), int(x + hw) + 1):
+                u = (i - (x - hw)) / (2 * hw)
+                lit = 3.2 - 1.9 * u - 0.5 * k / 20 + 0.5 * ((i - int(x - hw)) % 4 == 0) + rng.normal(0, 0.12)
+                c = pick(PATINA, lit)
+                if mn[k, min(int(i - x + hw), mn.shape[1] - 1)] > 1.0:
+                    c = pick(MOSS, lit * 0.8 + 0.4)
+                if k == 0:
+                    c = pick(PATINA, 1.0 - u)
+                put(img, i, j, c)
+        for i in range(int(x - w / 2 - 7 + 20 * 0.42), int(x + w / 2 + 7 - 20 * 0.42) + 1):   # the ridge
+            put(img, i, eave - 20, pick(PATINA, 3.8 - 2.2 * (i - x0) / w))
+            put(img, i, eave - 21, pick(PATINA, 2.6 - 1.8 * (i - x0) / w))
+        for e in (int(x - w / 2 - 7 + 20 * 0.42), int(x + w / 2 + 7 - 20 * 0.42)):     # the crossed chigi at the ends
+            for d in range(4):
+                put(img, e - d, eave - 22 - d, PATINA[3])
+                put(img, e + d, eave - 22 - d, PATINA[2])
+        for d in range(9):                                             # the little front gable, a triangle on the slope
+            hw = 9 - d
+            for i in range(x - hw, x + hw + 1):
+                c = pick(PATINA, 3.4 - 0.25 * (i - x + hw)) if abs(i - x) >= hw - 1 else pick(WOOD, 2.8 - 0.15 * (i - x + hw))
+                put(img, i, eave - 2 - d, c)
+        put(img, x, eave - 6, hx('#b09038'))                           # a gilt boss in the gable
+
+
+class Shinboku:
+    """The shrine's old sacred tree, a big camphor (the south's broadleaf, large) with a shimenawa round its trunk."""
+    def __init__(s, x, y, seed=65, size=1.35):
+        s.t = ol.Laubbaum(x, y, seed=seed, size=size)
+        s.x, s.y, s.size = x, y, size
+
+    def box(s):
+        return s.t.box()
+
+    def draw(s, img, G):
+        s.t.draw(img, G)
+        j = s.y - int(5 * s.size)
+        for i in range(s.x - 3, s.x + 4):
+            put(img, i, j, pick(ROPE, 3.0 - 0.4 * (i - s.x + 3)))
+            put(img, i, j + 1, pick(ROPE, 1.5))
+        for i in (s.x - 1, s.x + 2):
+            for d, dx in enumerate((0, 1, 0, 1)):
+                put(img, i + dx, j + 2 + d, SHIDE[2 - (d % 2)])
+
+
+class Kaki:
+    """A persimmon tree nobody harvests any more: few leaves left, the dark limbs showing, and the orange fruit
+    hanging on all over; some fallen in the grass underneath."""
+    def __init__(s, x, y, seed=70, size=0.6):
+        s.t = ol.Laubbaum(x, y, seed=seed, size=size)
+        s.x, s.y, s.seed, s.size = x, y, seed, size
+
+    def box(s):
+        b = s.t.box()
+        return (b[0], b[1], b[2], s.y + 6)
+
+    def draw(s, img, G):
+        rng = np.random.default_rng(s.seed + 3)
+        before = img.copy()
+        s.t.draw(img, G)
+        x0, y0, x1, y1 = s.t.box()
+        y0, x0 = max(0, y0), max(0, x0)
+        diff = np.abs(img[y0:y1, x0:x1] - before[y0:y1, x0:x1]).sum(-1) > 1
+        sub = img[y0:y1, x0:x1]
+        lum = sub.mean(-1)
+        thin = diff & (rng.random(lum.shape) < 0.45) & (np.arange(sub.shape[0])[:, None] < sub.shape[0] - 12)
+        sub[thin] = before[y0:y1, x0:x1][thin] * 0.5 + np.array(LEAF[1]) * 0.5     # the crown thinned out
+        ys, xs = np.where(diff[:-12])
+        for k in rng.choice(len(ys), size=min(len(ys), int(34 * s.size / 0.6)), replace=False) if len(ys) else []:
+            i, j = xs[k] + x0, ys[k] + y0
+            put(img, i, j, KAKI[2])
+            put(img, i - 1, j, KAKI[3])
+            put(img, i, j + 1, KAKI[1])
+            put(img, i + 1, j + 1, KAKI[0])
+        for _ in range(int(rng.integers(4, 9))):                         # fallen, some gone dark
+            i = s.x + int(rng.normal(4, 7))
+            j = s.y + int(rng.integers(0, 6))
+            put(img, i, j, KAKI[int(rng.integers(0, 3))])
+            put(img, i + 1, j, KAKI[0])
+
+
+class Leiter:
+    """A wooden ladder left leaning against a tree, a rung broken."""
+    def __init__(s, x, y, h=16, seed=71):
+        s.x, s.y, s.h, s.seed = x, y, h, seed
+
+    def box(s):
+        return (s.x - 2, s.y - s.h, s.x + 9, s.y + 2)
+
+    def draw(s, img, G):
+        broken = int(np.random.default_rng(s.seed).integers(1, s.h // 3))
+        for d in range(s.h):
+            lean = d // 4
+            put(img, s.x + lean, s.y - d, WOOD[4])
+            put(img, s.x + 5 + lean, s.y - d, WOOD[2])
+            if d % 3 == 2 and d // 3 != broken:
+                for i in range(1, 5):
+                    put(img, s.x + lean + i, s.y - d, WOOD[3])
+        for i in range(s.x + 1, s.x + 8):
+            if 0 <= s.y + 1 < img.shape[0] and 0 <= i < img.shape[1]:
+                img[s.y + 1, i] = img[s.y + 1, i] * 0.7
+
+
 def ndi_noise(seed, h, w):
     from scipy import ndimage as ndi
     n = ndi.gaussian_filter(np.random.default_rng(seed).normal(0, 1, (h, w)), 1.5)
