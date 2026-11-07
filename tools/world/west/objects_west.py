@@ -18,6 +18,14 @@ PAPER = [hx(c) for c in ['#6a665d', '#8c877b', '#aaa496']]                      
 HOLE = hx('#0c0d0f')
 TILE = [hx(c) for c in ['#1d1f24', '#2a2d33', '#3a3e46', '#4f545d', '#676c75']]        # kawara, dark .. lit
 THATCH = [hx(c) for c in ['#2d281f', '#41392b', '#5a4f3a', '#74674b', '#8f805d']]
+ROOFS = {                                             # each house its own roof: tiles weather apart, thatch greys
+    'kawara': [TILE,
+               [hx(c) for c in ['#24201e', '#352f2b', '#4a423c', '#625850', '#7c7168']],   # brown-grey tiles
+               [hx(c) for c in ['#1f2429', '#2c343b', '#3e4952', '#56636d', '#728089']]],  # blue, weathered pale
+    'kaya': [THATCH,
+             [hx(c) for c in ['#2a2722', '#3d3830', '#555046', '#6e695c', '#8a8574']],     # grey old thatch
+             [hx(c) for c in ['#33291c', '#4c3d27', '#6a5636', '#8a7347', '#a68e5c']]],    # still golden
+}
 MOSS = [hx(c) for c in ['#27321f', '#36462a', '#4b5f37', '#647a48', '#82975c']]
 STONE = [hx(c) for c in ['#33353a', '#4a4d53', '#666a70', '#868a8f', '#a4a7aa']]
 SOIL = [hx(c) for c in ['#231e19', '#332b23', '#45392d']]
@@ -54,8 +62,10 @@ class Minka:
     """An empty farmhouse seen from above at an angle: a veranda of planks, the front wall of posts with shoji and
     plank panels (paper torn, panes gone dark), a deep roof of tiles or thatch with moss on it, fallen in here and
     there so the rafters show, creepers hanging from the eaves. About w + 10 wide, wall + roof + 6 high."""
-    def __init__(s, x, y, w=44, wall=11, roof=17, seed=1, kind='kawara', ruin=0.6):
+    def __init__(s, x, y, w=44, wall=11, roof=17, seed=1, kind='kawara', ruin=0.6, pal=0):
         s.x, s.y, s.w, s.wall, s.roof, s.seed, s.kind, s.ruin = x, y, w, wall, roof, seed, kind, ruin
+        s.pal = ROOFS[kind][pal % len(ROOFS[kind])]
+        s.mossy = 0.5 + np.random.default_rng(seed + 40).random()     # 0.5 barely .. 1.5 grown over
 
     def box(s):
         return (s.x - s.w // 2 - 8, s.y - s.wall - s.roof - 8, s.x + s.w // 2 + 14, s.y + 6)
@@ -139,12 +149,12 @@ class Minka:
                     lit += (0.6, 0.0, -0.9)[ch]
                     if k % 3 == 0:
                         lit -= 0.5                                      # the courses
-                    c = pick(TILE, lit)
+                    c = pick(s.pal, lit)
                 else:
                     lit += 0.5 * ((i * 7 + k * 3) % 5 == 0) - 0.4 * ((i + k * 2) % 4 == 0)
-                    c = pick(THATCH, lit)
+                    c = pick(s.pal, lit)
                 mv = mn[min(k, mn.shape[0] - 1), min(int(i - cx + w / 2 + ov), mn.shape[1] - 1)]
-                if mv > 1.2 - 1.3 * s.ruin - 0.4 * (k > s.roof * 0.6):
+                if mv > 1.5 - 1.5 * s.ruin * s.mossy - 0.4 * (k > s.roof * 0.6):
                     c = pick(MOSS, lit * 0.9 + 0.3)
                 for hx_, hy_, rx, ry, ph in holes:                      # fallen in: rafters over the dark inside
                     ang = np.arctan2(jj - hy_, i - hx_)
@@ -154,9 +164,9 @@ class Minka:
                         rafter = (i - int(hx_)) % 4 == 0                  # rafters run from eave to ridge
                         c = pick(WOOD, 2.2 - u) if rafter else (WOOD[0] if g_at(G, i, jj * 3) < 0.3 else HOLE)
                     elif e < rr * 1.5 and g_at(G, i * 3, jj) < 0.35:
-                        c = pick(TILE if s.kind == 'kawara' else THATCH, lit - 1.2)   # loose, slipped tiles round it
+                        c = pick(s.pal, lit - 1.2)   # loose, slipped tiles round it
                 if k == 0:
-                    c = pick(TILE if s.kind == 'kawara' else THATCH, 1.2 - u)   # the eave's dark edge
+                    c = pick(s.pal, 1.2 - u)   # the eave's dark edge
                 put(img, i, jj, c)
             if k == 0:
                 for i in range(int(cx - hw), int(cx + hw) + 1):           # the eave's underside in shadow on the wall
@@ -167,11 +177,11 @@ class Minka:
         for i in range(int(s.x - hw), int(s.x + hw) + 1):
             u = (i - (s.x - hw)) / (2 * hw)
             jj = rj + int(round(sag * np.sin(np.pi * u)))
-            put(img, i, jj, pick(TILE if s.kind == 'kawara' else THATCH, 3.6 - 2.2 * u))
-            put(img, i, jj - 1, pick(TILE if s.kind == 'kawara' else THATCH, 2.4 - 1.8 * u))
+            put(img, i, jj, pick(s.pal, 3.6 - 2.2 * u))
+            put(img, i, jj - 1, pick(s.pal, 2.4 - 1.8 * u))
         for e, lit in ((int(s.x - hw), 3.6), (int(s.x + hw), 1.4)):
             for d in range(1, 3):
-                put(img, e, rj - 1 - d, pick(TILE if s.kind == 'kawara' else THATCH, lit))
+                put(img, e, rj - 1 - d, pick(s.pal, lit))
         # creepers from the eave down the wall, mostly at the corners
         for _ in range(int(3 + 6 * s.ruin)):
             i = int(rng.choice([rng.integers(x0 - 3, x0 + 8), rng.integers(x1 - 8, x1 + 3), rng.integers(x0, x1)],
@@ -265,28 +275,50 @@ class Hortensie:
 
 
 class Beet:
-    """An old garden bed overgrown: furrows of dark earth, leaves of what still comes up, weeds between."""
+    """An old garden bed gone wild, flat on the ground: soft furrows of dark earth with ragged ends (no frame: a hard
+    outline read as a crate), what still comes up in them (leafy heads, a few pale ones, beans on a cane), weeds over
+    the rims."""
     def __init__(s, x, y, w=16, rows=4, seed=6):
         s.x, s.y, s.w, s.rows, s.seed = x, y, w, rows, seed
 
     def box(s):
-        return (s.x - 1, s.y - s.rows * 3 - 3, s.x + s.w + 2, s.y + 1)
+        return (s.x - 3, s.y - s.rows * 4 - 8, s.x + s.w + 4, s.y + 2)
 
     def draw(s, img, G):
         rng = np.random.default_rng(s.seed)
         for r in range(s.rows):
-            j0 = s.y - r * 3
-            for i in range(s.x, s.x + s.w):
-                put(img, i, j0, SOIL[0])
-                put(img, i, j0 - 1, SOIL[2] if (i + r) % 3 else SOIL[1])
-            for i in range(s.x + 1, s.x + s.w - 1, 3):
-                if rng.random() < 0.75:                                # a round leaf plant, lit at the top left
-                    for (u, v, k) in ((0, -2, 3), (-1, -1, 3), (0, -1, 2), (1, -1, 1), (0, 0, 1), (1, -2, 2)):
-                        put(img, i + u, j0 + v - 1, pick(LEAF, k + rng.normal(0, 0.3)))
-            for i in range(s.x, s.x + s.w):                            # weeds come in from the rims
-                if rng.random() < 0.18:
-                    for d in range(int(rng.integers(1, 4))):
-                        put(img, i, j0 - 2 - d, MOSS[2 + (d > 0)])
+            j0 = s.y - r * 4
+            a = s.x + int(rng.integers(-2, 3))
+            b = s.x + s.w + int(rng.integers(-3, 2))
+            for i in range(a, b):                                       # the furrow: a soft strip, frayed at its ends
+                edge = min(i - a, b - 1 - i)
+                if edge < 2 and g_at(G, i, j0) < 0.5:
+                    continue
+                put(img, i, j0, img[j0, i] * 0.2 + SOIL[1] * 0.8 if 0 <= j0 < img.shape[0] and 0 <= i < img.shape[1] else SOIL[1])
+                if g_at(G, i * 3, j0) < 0.7:
+                    put(img, i, j0 - 1, img[j0 - 1, i] * 0.35 + SOIL[2] * 0.65 if 0 <= j0 - 1 < img.shape[0] and 0 <= i < img.shape[1] else SOIL[2])
+            crop = rng.choice(['kohl', 'kraut', 'bohne'], p=[0.45, 0.4, 0.15])
+            for i in range(a + 1, b - 1, int(rng.integers(3, 5))):
+                if rng.random() < 0.3:
+                    continue                                            # gaps where nothing came up
+                if crop == 'bohne':                                     # a cane with a climbing bean
+                    for d in range(7):
+                        put(img, i, j0 - 1 - d, BAMBOO[2] if d < 6 else BAMBOO[3])
+                        if d > 1 and (d + i) % 2 == 0:
+                            put(img, i + 1 - 2 * (d % 4 == 0), j0 - 1 - d, pick(LEAF, 2.5 + rng.normal(0, 0.4)))
+                    continue
+                pale = crop == 'kohl' and rng.random() < 0.4
+                P = MOSS if pale else LEAF
+                for (u, v, k) in ((0, -3, 3.4), (-1, -2, 3.0), (1, -2, 2.0), (0, -2, 2.6), (-1, -1, 2.2), (1, -1, 1.2),
+                                  (0, -1, 1.8), (2, -1, 1.0), (-2, -1, 1.8)):
+                    if crop == 'kraut' and abs(u) == 2:
+                        continue
+                    put(img, i + u, j0 + v, pick(P, k + (0.8 if pale else 0) + rng.normal(0, 0.3)))
+        for _ in range(s.w):                                            # weeds and grass over the rims
+            i = s.x + int(rng.integers(-3, s.w + 3))
+            j = s.y - int(rng.integers(-1, s.rows * 4 + 2))
+            for d in range(int(rng.integers(1, 4))):
+                put(img, i + (d == 2), j - d, MOSS[1 + min(d, 2)])
 
 
 class Bambuszaun:
@@ -421,3 +453,30 @@ class Korb:
                 put(img, s.x + i, s.y + j, pick(THATCH, lit))
         for i in range(-2, 3):
             put(img, s.x + i, s.y - 4, THATCH[1] if abs(i) == 2 else SOIL[0])
+
+
+class Platten:
+    """Flat stepping stones from a door to the path: worn, lit at the top left, grass between them."""
+    def __init__(s, a, b, seed=11):
+        s.a, s.b, s.seed = a, b, seed
+
+    def box(s):
+        return (min(s.a[0], s.b[0]) - 4, min(s.a[1], s.b[1]) - 3, max(s.a[0], s.b[0]) + 4, -9999)   # flat: drawn first
+
+    def draw(s, img, G):
+        rng = np.random.default_rng(s.seed)
+        (ax, ay), (bx, by) = s.a, s.b
+        n = max(1, int(np.hypot(bx - ax, by - ay) / 6))
+        for k in range(n + 1):
+            x = ax + (bx - ax) * k / n + rng.normal(0, 0.8)
+            y = ay + (by - ay) * k / n + rng.normal(0, 0.5)
+            rx, ry = rng.uniform(2.6, 3.6), rng.uniform(1.5, 2.0)
+            for j in range(int(y - ry) - 1, int(y + ry) + 2):
+                for i in range(int(x - rx) - 1, int(x + rx) + 2):
+                    e = ((i - x) / rx) ** 2 + ((j - y) / ry) ** 2
+                    if e < 1:
+                        put(img, i, j, pick(STONE, 4.4 - 1.2 * (i - x) / rx - 1.0 * (j - y) / ry - 1.2 * e))
+                    elif e < 1.5 and 0 <= j < img.shape[0] and 0 <= i < img.shape[1]:
+                        img[j, i] = img[j, i] * 0.6                           # the dark seam round it
+                    elif e < 1.6 and j > y and 0 <= j < img.shape[0] and 0 <= i < img.shape[1]:
+                        img[j, i] = img[j, i] * 0.75

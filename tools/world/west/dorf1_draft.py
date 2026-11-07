@@ -103,7 +103,7 @@ def main(out, scale=2):
         extras.draw_path(img, m, core, d, width, rng)
         pathm |= m
     pathm |= sq
-    LAWN = np.array([0.80, 0.90, 0.78])
+    LAWN = np.array([0.60, 0.74, 0.56])
 
     # ---- houses and their gardens
     things, lights = [], []
@@ -114,20 +114,25 @@ def main(out, scale=2):
         hx_, hy_ = cx - X0 + int(r.integers(-6, 7)), cy - Y0 - 10
         hw = int(r.integers(40, 50))
         things.append(o.Minka(hx_, hy_, w=hw, seed=seed, kind=kind, ruin=ruin,
-                              roof=17 if kind == 'kawara' else 19))
+                              roof=17 if kind == 'kawara' else 19, pal=seed // 2 + seed % 2))
         blocked[hy_ - 34:hy_ + 4, hx_ - hw // 2 - 6:hx_ + hw // 2 + 8] = True
-        # the plot's rim: bamboo fence on one side, a dry-stone wall on another, gaps where it fell
         left, right, top, bot = cx - 55 - X0, cx + 55 - X0, cy - 48 - Y0, cy + 50 - Y0
         e = ((xx - (left + right) / 2) / 56.0) ** 2 + ((yy - (top + bot) / 2) / 50.0) ** 2 + 0.15 * fbm(H, W, 6, seed)
         plots = np.maximum(plots, smooth((1.05 - e) / 0.25))
-        if r.random() < 0.7:
-            things.append(o.Bambuszaun([(left, bot), (left + 40, bot + 1)], seed=seed, ruin=ruin))
-            things.append(o.Bambuszaun([(right - 34, bot + 1), (right, bot)], seed=seed + 1, ruin=ruin))
-        else:
-            things.append(o.Steinmauer([(left + 4, bot), (left + 46, bot + 1)], seed=seed))
-            things.append(o.Steinmauer([(right - 40, bot), (right, bot - 1)], seed=seed + 2))
-        if r.random() < 0.6:
-            things.append(o.Bambuszaun([(left, top + 30), (left - 1, bot - 6)], seed=seed + 3, ruin=ruin))
+        # the plot's rim: a fence or a dry-stone wall all along the front, a gap where the stones lead out, the
+        # sides half fallen
+        gate = hx_ + int(r.integers(-8, 9))
+        Fence = (lambda pts, k: o.Bambuszaun(pts, seed=seed + k, ruin=ruin)) if r.random() < 0.65 else \
+            (lambda pts, k: o.Steinmauer(pts, seed=seed + k))
+        things.append(Fence([(left, bot), (gate - 6, bot + 1)], 0))
+        things.append(Fence([(gate + 6, bot + 1), (right, bot)], 1))
+        for side, k in ((left, 2), (right, 3)):
+            if r.random() < 0.75:
+                y_a = top + int(r.integers(30, 50))
+                things.append(o.Bambuszaun([(side, y_a), (side + int(r.integers(-1, 2)), bot - 3)], seed=seed + k,
+                                           ruin=min(1, ruin + 0.3)))
+        things.append(o.Platten((hx_ + int(r.integers(-4, 5)), hy_ + 5), (gate, bot + 4), seed=seed))
+        blocked[hy_ + 3:bot + 6, gate - 4:gate + 5] = True
         # the garden: hydrangeas along the house, a bed, a fruit tree, things left behind
         for k in range(int(r.integers(4, 7))):
             things.append(o.Hortensie(hx_ + int(r.choice([-1, 1])) * int(r.integers(hw // 2 + 4, hw // 2 + 14)),
@@ -141,13 +146,13 @@ def main(out, scale=2):
             things.append(o.Obstbaum(int(r.choice([left + 14, right - 14])), hy_ + int(r.integers(28, 44)), seed=seed))
         prop = r.random()
         if prop < 0.35:
-            things.append(z2.Bank(hx_ + int(r.integers(-10, 10)), hy_ + 6))
+            things.append(z2.Bank(hx_ + int(r.choice([-1, 1])) * (hw // 2 - 8), hy_ + 7))   # beside the stones, not on them
         elif prop < 0.65:
             things.append(o.Waescheleine(hx_ + hw // 2 + 2, hy_ + 18, seed=seed))
         else:
             things.append(o.Korb(hx_ + int(r.integers(-hw // 2, hw // 2)), hy_ + 5))
 
-    lawn = (plots[..., None] * (G < 0.75)[..., None]) * ~pathm[..., None]
+    lawn = plots[..., None] * ~pathm[..., None]
     img = img * (1 - lawn) + img * LAWN * lawn                   # short garden grass: greener, a little darker
     # ---- the well, lanterns at the square and the way in, a torch by the first house
     things.append(o.Brunnen(SQUARE[0] - X0, SQUARE[1] - Y0 + 4))
@@ -181,15 +186,21 @@ def main(out, scale=2):
     dens = smooth((WW - 40 - gx + 30 * fbm(H, W, 20, 7)) / 220.0) * np.clip(0.18 + 0.32 * fbm(H, W, 14, 8), 0, 1)
     dens = np.clip(dens * (1 - 0.85 * plots), 0, 1)
     grass_free = ndi.binary_dilation(blocked, iterations=2)
+    for _ in range(int(W * H / 3)):                         # short garden grass: dark tufts close together
+        x, y = int(rng.integers(2, W - 2)), int(rng.integers(4, H))
+        if rng.random() > plots[y, x] ** 1.5 or grass_free[y, x]:
+            continue
+        for d in range(int(rng.integers(1, 3))):
+            img[y - d, x + (d and rng.random() < 0.3)] = o.MOSS[1 + d] * 0.9
     for _ in range(int(W * H / 7)):
         x, y = rng.uniform(2, W - 2), rng.uniform(14, H)
         xi, yi = int(x), min(int(y), H - 1)
         if rng.random() > dens[yi, xi] or grass_free[yi, xi]:
             continue
         things.append(z2.Blade(x, yi, rng))
-    for _ in range(9000):
+    for _ in range(16000):
         x, y = int(rng.integers(4, W - 4)), int(rng.integers(6, H - 2))
-        if rng.random() > 0.05 + 0.4 * dens[y, x] + 0.5 * plots[y, x] or grass_free[y, x]:
+        if rng.random() > 0.05 + 0.4 * dens[y, x] + 0.9 * plots[y, x] ** 2 or grass_free[y, x]:
             continue
         things.append(z2.Wildflower(x, y, int(rng.choice(3, p=[0.45, 0.33, 0.22])), rng, int(dens[y, x] * 6)))
 
