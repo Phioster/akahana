@@ -54,7 +54,7 @@ def fields(H, W, mat, water, sprites, lights):
     """-> (hold 0..1 float, kind 0 none / 1 meadow / 2 path, can: where a puddle may ever stand)."""
     m = np.kron(mat, np.ones((2, 2), np.uint8))[:H, :W]
     kind = np.where((m == EARTH) | (m == STONE), 2, 1).astype(np.uint8)
-    kind[(m == WOOD) | (m == SNOW)] = 0
+    kind[m == WOOD] = 0             # the bridges; the pale SNOW patches of the south get wet too, they stood out white (0.17.5)
     wet_water = water[..., 3] > 0
     from scipy import ndimage as ndi
     kind[ndi.binary_dilation(wet_water, iterations=2)] = 0      # the water's own rim stays as it is
@@ -86,7 +86,7 @@ def fields(H, W, mat, water, sprites, lights):
             cover[y0:y1, x0:x1] |= ((xx - lx) / 18.0) ** 2 + ((yy - ly - 5) / 11.0) ** 2 < 1.0
     hold = np.where(kind == 2, (pud - 0.5) / 0.4, (pud2 - 0.77) / 0.2)
     hold = np.clip(hold, 0, 1)
-    hold[(kind == 0) | cover | (m == STONE)] = 0
+    hold[(kind == 0) | cover | (m == STONE) | (m == SNOW)] = 0
     lab, n = ndi.label(hold > 0)                              # specks of a pixel or two read as noise, not water
     size = np.bincount(lab.ravel())
     hold[(size[lab] < 8) & (lab > 0)] = 0

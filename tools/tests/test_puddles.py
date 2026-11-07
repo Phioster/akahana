@@ -46,6 +46,18 @@ class Puddles(unittest.TestCase):
         path = self.v >= 128
         self.assertGreater((pud & path).sum() / max(1, path.sum()), (pud & ~path).sum() / max(1, (wet & ~path).sum()))
 
+    def test_the_pale_patches_of_the_south_get_wet_too(self):
+        # material 4 (SNOW) lies pale in the meadow too; left dry it stood out white after the rain (0.17.5)
+        H, W = self.w['height'], self.w['width']
+        full = os.path.join(D, '..', '..', 'build', 'world_full', 'ground_mat.bin')
+        if not os.path.exists(full):
+            self.skipTest('build/world_full fehlt')
+        m = np.kron(np.fromfile(full, np.uint8).reshape(H // 2, W // 2), np.ones((2, 2), np.uint8))[:H, :W]
+        south = np.zeros((H, W), bool)
+        south[1400:] = True
+        snow = (m == 4) & south
+        self.assertGreater(float((self.v[snow] > 0).mean()), 0.9)
+
 
 if __name__ == '__main__':
     unittest.main()

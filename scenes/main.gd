@@ -335,7 +335,8 @@ func _process(delta: float) -> void:
 	_time += delta
 	weather.step(delta)
 	var wet := rain.strength()
-	player.lantern.rain = wet * Rain.reach(player.position.y)
+	# he keeps the lantern up after the shower until the ground has dried a good way (Philip 0.17.5)
+	player.lantern.rain = maxf(wet, weather.wetness()) * Rain.reach(player.position.y)
 	var moved := player.position - _last_pos
 	trail.update(delta, player.position, moved, player.is_walking())
 	_last_pos = player.position
