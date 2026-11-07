@@ -1223,6 +1223,145 @@ class Leiter:
                 img[s.y + 1, i] = img[s.y + 1, i] * 0.7
 
 
+# ======================================================================== zone 4a: the mill, the bamboo, the paddies
+CULM = [hx(c) for c in ['#2a3420', '#3c4a2c', '#53643a', '#6e7f4a', '#8c9a5e']]       # bamboo stems, dark .. lit
+BLEAF = [hx(c) for c in ['#1a2416', '#26341e', '#344828', '#465e32', '#5c763e']]
+
+
+class Wasserrad:
+    """The mill's waterwheel seen face on (its axle runs north-south, across the brook): a rim of two rings, eight
+    spokes, paddles all round, two of them broken off, moss and a trickle off the bottom paddles into the brook.
+    (x, y) its hub."""
+    def __init__(s, x, y, r=13, seed=81):
+        s.x, s.y, s.r, s.seed = x, y, r, seed
+
+    def box(s):
+        return (s.x - s.r - 3, s.y - s.r - 3, s.x + s.r + 4, s.y + s.r + 3)
+
+    def draw(s, img, G):
+        rng = np.random.default_rng(s.seed)
+        x, y, r = s.x, s.y, s.r
+        broken = set(int(k) for k in rng.choice(16, 2, replace=False))
+        for j in range(y - r - 3, y + r + 4):
+            for i in range(x - r - 3, x + r + 4):
+                d = np.hypot(i - x, j - y)
+                a = np.arctan2(j - y, i - x)
+                lit = 4.4 - 0.9 * (i - x) / r - 0.6 * (j - y) / r
+                k = int(((a + np.pi) / (2 * np.pi)) * 16) % 16
+                c = None
+                spoke = abs(((a * 4 / np.pi) % 1) - 0.5) > 0.36
+                paddle = abs(((a + np.pi) * 16 / (2 * np.pi)) % 1 - 0.5) < 0.24 and k not in broken
+                if r - 2.2 <= d < r + 0.8:
+                    c = pick(WOOD, lit + 0.3)                           # the rim, thick and lit
+                elif r + 0.8 <= d < r + 3.6 and paddle:
+                    c = pick(WOOD, lit - 0.2)                           # a paddle standing out
+                elif r + 0.8 <= d < r + 1.8:
+                    c = WOOD[0]                                         # the dark rim's edge
+                elif d < 2.2:
+                    c = pick(WOOD, lit + 0.6)                           # the hub
+                elif d < r - 2.2:
+                    c = pick(WOOD, lit - 0.3) if spoke else HOLE * 0.6 + WOOD[0] * 0.4   # spokes on the dark inside
+                if c is not None:
+                    if g_at(G, i * 5, j * 3) < 0.14:
+                        c = pick(MOSS, lit * 0.7)
+                    put(img, i, j, c)
+        for d in range(4):                                             # water running off the lowest paddles
+            put(img, x - 2 + d, y + r + 2 + d % 2, hx('#a3aeb6'))
+
+
+class Muehle:
+    """The water mill (Suisha-goya): a small thatched house on the bank, its wheel turning no more on the brook
+    side, a wooden flume on posts bringing the water from upstream onto the top of the wheel, moss on everything.
+    (x, y) the house's foot; the wheel stands in front-right, in the brook."""
+    def __init__(s, x, y, seed=82):
+        s.x, s.y, s.seed = x, y, seed
+        s.house = Minka(x, y, w=34, wall=12, roof=17, seed=seed, kind='kaya', ruin=0.55, pal=1, rich=True)
+        s.wheel = Wasserrad(x - 30, y + 6, seed=seed + 1)     # upstream (west) of the house, on its gable side
+
+    def box(s):
+        hb = s.house.box()
+        return (s.x - 70, hb[1], hb[2], s.y + 22)
+
+    def draw(s, img, G):
+        s.house.draw(img, G)
+        s.wheel.draw(img, G)
+        wx, wy, r = s.wheel.x, s.wheel.y, s.wheel.r
+        top = wy - r - 3                                               # the flume: a trough on two posts
+        for i in range(wx - 2, wx - 34, -1):                            # coming in from upstream onto its top
+            put(img, i, top, WOOD[4])
+            put(img, i, top + 1, WOOD[2])
+            put(img, i, top + 2, WOOD[1])
+            if i % 3 == 0:
+                put(img, i, top - 1, hx('#7f8c96'))                     # a thread of water in it still
+        for px in (wx - 30, wx - 16):
+            for j in range(top + 3, s.y + 4):
+                put(img, px, j, WOOD[3])
+                put(img, px + 1, j, WOOD[1])
+        for d in range(3):                                             # dripping off its end onto the wheel
+            put(img, wx - 3, top + 3 + d * 2, hx('#a3aeb6'))
+
+
+class Bambus:
+    """One clump of bamboo: a few tall culms with pale node rings, lit on their left, leaning a little, the leaves in
+    fine dark sprays all up the top third. (x, y) the foot of the clump."""
+    def __init__(s, x, y, n=5, h=64, seed=83):
+        s.x, s.y, s.n, s.h, s.seed = x, y, n, h, seed
+
+    def box(s):
+        return (s.x - 16, s.y - int(s.h * 1.1) - 12, s.x + 18, s.y + 3)
+
+    def draw(s, img, G):
+        rng = np.random.default_rng(s.seed)
+        tops = []
+        for k in range(s.n):
+            x0 = s.x + int(rng.integers(-5, 6))
+            lean = rng.uniform(-0.15, 0.15)
+            h = int(s.h * rng.uniform(0.8, 1.1))
+            node = int(rng.integers(6, 9))
+            for d in range(h):
+                i = int(round(x0 + lean * d))
+                j = s.y - d
+                ring = d % node == 0
+                put(img, i, j, CULM[4] if ring else CULM[3])
+                put(img, i + 1, j, CULM[3] if ring else CULM[1])
+            tops.append((x0, lean, h))
+        for x0, lean, h in tops:                                       # leaves: sprays down the top third
+            for _ in range(70):
+                d = h - rng.uniform(0, h * 0.4)
+                tx, ty = x0 + lean * d, s.y - d
+                a = rng.uniform(-np.pi, np.pi)
+                rr = rng.uniform(1, 11)
+                i, j = int(tx + np.cos(a) * rr), int(ty + np.sin(a) * rr * 0.6)
+                lit = 2.8 - 0.22 * (i - tx) - 0.15 * (j - ty) + rng.normal(0, 0.5)
+                for e in range(int(rng.integers(2, 4))):               # a leaf: a short stroke hanging down-out
+                    put(img, i + e * (1 if a > -1.5 else -1), j + e // 2, pick(BLEAF, lit))
+
+
+class Vogelscheuche:
+    """A scarecrow left in a paddy, leaning: a pole, a cross arm with a tattered coat, a straw hat."""
+    def __init__(s, x, y, seed=84):
+        s.x, s.y, s.seed = x, y, seed
+
+    def box(s):
+        return (s.x - 7, s.y - 18, s.x + 9, s.y + 2)
+
+    def draw(s, img, G):
+        x, y = s.x, s.y
+        for d in range(15):
+            put(img, x + d // 6, y - d, WOOD[3])
+        for i in range(-5, 7):
+            put(img, x + 2 + i, y - 11 + (i > 3), WOOD[2])
+        for j in range(y - 11, y - 5):                                 # the coat, torn at the hem
+            for i in range(x - 2, x + 6):
+                if j < y - 7 or (i + j) % 3:
+                    put(img, i, j, pick(CLOTH, 2.2 - 0.3 * (i - x)))
+        for i in range(-4, 7):                                         # the straw hat
+            put(img, x + 2 + i, y - 15, pick(THATCH, 3.6 - 0.3 * i))
+        for i in range(-1, 4):
+            put(img, x + 2 + i, y - 16, pick(THATCH, 4.0 - 0.4 * i))
+            put(img, x + 2 + i, y - 17, pick(THATCH, 3.2 - 0.4 * i))
+
+
 def ndi_noise(seed, h, w):
     from scipy import ndimage as ndi
     n = ndi.gaussian_filter(np.random.default_rng(seed).normal(0, 1, (h, w)), 1.5)
