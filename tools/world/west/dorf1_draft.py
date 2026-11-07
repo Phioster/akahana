@@ -19,6 +19,7 @@ from field6 import patches, CMAP  # noqa: E402
 import extras  # noqa: E402
 import mood_map  # noqa: E402
 import objects_west as o  # noqa: E402
+import objects_lake as ol  # noqa: E402
 import zone2_draft as z2  # noqa: E402   (the south's: Blade, Wildflower, Bank, Steinlaterne)
 from objects_south import Fackel, Kerzen  # noqa: E402
 
@@ -122,15 +123,47 @@ def main(out, scale=2):
     from scipy.interpolate import splprep, splev
     tck, _ = splprep(np.array([(x - X0, y - Y0) for x, y in BROOK], float).T, s=0, k=3)
     bc = np.array(splev(np.linspace(0, 1, 900), tck)).T
-    brook = ow.Brooks([(bc, 4, 19)], H, W, y0=0)
+    brook = ow.Brooks([(bc, 8, 19)], H, W, y0=0)
     seam = WW + EDGE - X0
-    brook.mask[:, seam:] = False
-    brook.depth[:, seam:] = 0
-    img[ndi.distance_transform_edt(~brook.mask) < 7] *= 0.85        # damp soil along the banks
-    brook.draw(img, rng)
+    # painted as today's brook is (gen_world: WAT, the ripples, an earth rim with moss, reeds on the banks)
+    from scipy.spatial import cKDTree
+    from field6 import DG, K
+    seg = np.hypot(*np.diff(bc, axis=0).T)
+    arc = np.r_[0, np.cumsum(seg)]
+    sd, ki = cKDTree(bc).query(np.stack([xx.ravel(), yy.ravel()], 1).astype(float))
+    sd, salong = sd.reshape(H, W), arc[ki].reshape(H, W)
+    swid = (4 + 5.5 * np.clip(salong / 260, 0, 1)) + 1.6 * np.sin(salong * 0.06) + 0.8 * fbm(H, W, 2, 81)
+    sbank_ = (sd < swid + 2.2)
+    wmask = (sd < swid) & (xx < seam)
+    sbank_ &= ~wmask & (xx < seam)
+    g_ = rng.random((H, W))
+    EARTH3 = [o.hx('#2a2422'), o.hx('#3b332e'), o.hx('#51463e')]
+    MOSS3 = [o.hx('#3f4632'), o.hx('#5b6447'), o.hx('#7d8660')]
+    img[sbank_] = np.array(EARTH3)[np.clip((g_[sbank_] * 3).astype(int), 0, 2)]
+    mossy = sbank_ & (fbm(H, W, 1.2, 82) > 0.6)
+    img[mossy] = MOSS3[1]
+    WAT = [o.hx(c) for c in ['#3c4650', '#4e5a65', '#64717c', '#7f8c96', '#a3aeb6', '#d6dde1']]
+    rip = np.sin(salong * 1.5 + sd * 0.9 + 2 * fbm(H, W, 1.5, 83))
+    wv = 0.52 - 0.22 * np.clip(1 - sd / swid, 0, 1) + 0.12 * rip + 0.06 * (g_ - .5)
+    wi = np.clip((wv * 6).astype(int), 0, 5)
+    img[wmask] = np.array(WAT)[wi][wmask]
+    img[wmask & (rip > 0.92) & (g_ < 0.35)] = WAT[5]
+    img[wmask & (sd > swid - 1.2) & (g_ < 0.4)] = WAT[4]
+    for _ in range(int(arc[-1] * 1.2)):                                  # reeds on the banks
+        k = int(rng.integers(0, len(bc)))
+        side = rng.choice([-1, 1])
+        x0_ = int(bc[k, 0] + rng.normal(0, 2))
+        y0_ = int(bc[k, 1] + side * (swid[min(H - 1, max(0, int(bc[k, 1]))), min(W - 1, max(0, int(bc[k, 0])))] + rng.uniform(0.5, 3)))
+        if not (2 <= x0_ < seam - 2 and 9 <= y0_ < H) or wmask[y0_, x0_] or rng.random() < 0.5:
+            continue
+        hgt = int(rng.integers(4, 9))
+        lean = int(rng.choice([-1, 0, 1]))
+        for j in range(hgt):
+            o.put(img, x0_ + (lean if j > hgt * 0.6 else 0), y0_ - j, K if j < hgt - 2 else DG)
+        if rng.random() < 0.5:
+            o.put(img, x0_ + lean, y0_ - hgt, o.hx('#5a4634'))
+    brook.mask = wmask
     oldw = np.array(Image.open(os.path.join(FULL, 'water.png')).convert('RGBA'))[Y0:Y1, EDGE:EDGE + W - seam].astype(float)
-    al = oldw[..., 3:] / 255.0
-    img[:, seam:] = img[:, seam:] * (1 - al) + oldw[..., :3] * al
     water = brook.mask.copy()
     water[:, seam:] |= oldw[..., 3] > 0
     LAWN = np.array([0.60, 0.74, 0.56])
@@ -231,7 +264,8 @@ def main(out, scale=2):
     for row, ty in enumerate(range(oy0 + 34, oy1 - 10, 50)):              # the old rows, gone loose
         for tx in range(ox0 + 22 + (row % 2) * 26, ox1 - 10, 52):
             x_, y_ = tx + int(r3.integers(-7, 8)), ty + int(r3.integers(-6, 7))
-            if orch[y_, x_] < 0.4 or ndi.distance_transform_edt(~pathm[max(0, y_ - 20):y_ + 20, max(0, x_ - 20):x_ + 20]).min() < 9                     if pathm[max(0, y_ - 20):y_ + 20, max(0, x_ - 20):x_ + 20].any() else orch[y_, x_] < 0.4:
+            near = pathm[max(0, y_ - 9):y_ + 10, max(0, x_ - 9):x_ + 10].any()
+            if orch[y_, x_] < 0.4 or near:
                 continue
             k = r3.random()
             t = o.Kaki(x_, y_, seed=80 + row * 10 + tx % 97, size=r3.uniform(0.65, 0.85)) if k < 0.6 else \
@@ -263,7 +297,12 @@ def main(out, scale=2):
             past = y_ - edge_y[x_]                                       # > 0: out in the meadow
             if past > 0 and (past > 40 or r4.random() > 0.08 * (1 - past / 40)):
                 continue                                                 # a few strays beyond the edge
-            if clear[y_, x_] > 1.1 or r4.random() < 0.25 + 0.3 * smooth(clear[y_, x_] - 0.2):
+            if clear[y_, x_] > 0.8 or r4.random() < 0.45 + 0.35 * smooth(clear[y_, x_] + 0.2):
+                continue                                                 # thinner, more glades (Philip, round 2)
+            if r4.random() < (0.09 if past > -70 else 0.03):              # now and then a broadleaf from the south
+                lb = ol.Laubbaum(x_, y_, seed=int(r4.integers(0, 9999)), size=r4.uniform(0.7, 1.05))
+                things.append(lb)
+                blocked[max(0, y_ - 6):y_ + 3, max(0, x_ - 8):x_ + 9] = True
                 continue
             if x_ + X0 > WW - 60 and r4.random() < 0.45 + 0.4 * (x_ + X0 > WW):
                 continue                                                  # thinning out to today's scattered firs

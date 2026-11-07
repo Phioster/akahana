@@ -921,7 +921,7 @@ VERM = [hx(c) for c in ['#351812', '#55261b', '#7a3826', '#9c5034', '#b86c48']] 
 PATINA = [hx(c) for c in ['#1c2a27', '#283f39', '#38584e', '#4f7766', '#6e9783']]      # copper roof gone green
 SHIDE = [hx(c) for c in ['#7c7a72', '#a5a297', '#c9c5b8']]                            # paper, greyed
 ROPE = [hx(c) for c in ['#4a3f2a', '#6e5f3d', '#958353', '#b3a06a']]                   # straw rope
-KAKI = [hx(c) for c in ['#7a3210', '#b8541a', '#e2822a', '#f2a650']]                   # persimmons
+KAKI = [hx(c) for c in ['#683014', '#9c4c20', '#c26a2c', '#d08a46']]                   # persimmons, muted in the dusk (Philip)
 
 
 class Torii:
