@@ -148,7 +148,7 @@ def main(out, scale=2):
             side = int(r.choice([-1, 1]))
             cx_ = hx_ + side * int(r.integers(8, hw // 2 - 4))
             pts = [(cx_, hy_ + 2), (cx_ + 2, hy_ + 3), (cx_ - 2, hy_ + 3), (cx_ + 4, hy_ + 2), (cx_ - 1, hy_ + 4)]
-            k = Kerzen(pts[:int(r.integers(3, 6))], seed=seed)
+            k = Kerzen(pts[:int(r.integers(2, 4))], seed=seed)          # two or three (Philip: five were too many)
             things.append(k)
             lights += [dict(l, k=0.45, r=16.0) for l in k.lights()]   # a few together: a glow you see from the path
         prop = r.random()
