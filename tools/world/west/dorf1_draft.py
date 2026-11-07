@@ -20,7 +20,7 @@ import extras  # noqa: E402
 import mood_map  # noqa: E402
 import objects_west as o  # noqa: E402
 import zone2_draft as z2  # noqa: E402   (the south's: Blade, Wildflower, Bank, Steinlaterne)
-from objects_south import Fackel  # noqa: E402
+from objects_south import Fackel, Kerzen  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(HERE, '..', '..', '..'))
 FULL = os.path.join(ROOT, 'build', 'world_full')
@@ -144,6 +144,13 @@ def main(out, scale=2):
         blocked[hy_ + 10:hy_ + 42, bx - 1:bx + 24] = True
         if r.random() < 0.8:
             things.append(o.Obstbaum(int(r.choice([left + 14, right - 14])), hy_ + int(r.integers(28, 44)), seed=seed))
+        if seed in (1, 4, 6, 8):                     # candles left on the veranda of a few houses (Philip, round 2)
+            side = int(r.choice([-1, 1]))
+            cx_ = hx_ + side * int(r.integers(8, hw // 2 - 4))
+            pts = [(cx_, hy_ + 2), (cx_ + 2, hy_ + 3), (cx_ - 2, hy_ + 3), (cx_ + 4, hy_ + 2), (cx_ - 1, hy_ + 4)]
+            k = Kerzen(pts[:int(r.integers(3, 6))], seed=seed)
+            things.append(k)
+            lights += [dict(l, k=0.45, r=16.0) for l in k.lights()]   # a few together: a glow you see from the path
         prop = r.random()
         if prop < 0.35:
             things.append(z2.Bank(hx_ + int(r.choice([-1, 1])) * (hw // 2 - 8), hy_ + 7))   # beside the stones, not on them
