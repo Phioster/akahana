@@ -51,6 +51,7 @@ BROOK_C = [(640, 3700), (720, 3734), (830, 3758), (WW + EDGE + 6, 3766)]
 MILL = (500, 3288)
 SPRING = (640, 3690)
 BAMBOO = (120, 2250, 96, 74)
+Z3_FROM = 3290                              # where the south's tall grass turns patchy (zone 3)
 GRASS_FROM, GRASS_FULL = 2900, 3200        # the south's tall grass, as it comes in at the seam today
 # (garden centre, house seed, roof kind, how fallen in); the house stands at the back of its plot, facing south
 HOUSES = [((380, 2180), 1, 'kawara', 0.5), ((560, 2150), 2, 'kaya', 0.8), ((690, 2230), 3, 'kawara', 0.35),
@@ -107,7 +108,7 @@ def ground(og, rng):
     return g
 
 
-def draw_terraces(img, rng, pathm):
+def draw_terraces(img, rng, pathm, outflow=None):
     """The old paddies (Furuta) stepping down south: each a band between two curving contours, of its own depth and
     reaching out its own way at both ends, a bund (aze) of earth along its top, the drop to the next one as a dark
     earth face. Only a few still hold water (dull, the old stubble rows in it, reeds), and even those half grown
@@ -143,6 +144,11 @@ def draw_terraces(img, rng, pathm):
     din = ndi.distance_transform_edt(terr)
     fade = smooth((din - 2 + 8 * fbm(H, W, 6, 106)) / 24.0)               # the field runs out into the meadow at its rim
     wet = terr & np.isin(k_of, list(flooded)) & (patch > -0.35) & (din > 7 + 5 * fbm(H, W, 5, 107))   # pools inset
+    if outflow is not None:                                              # the mill brook leaves from a pool in its band
+        ox, oy = outflow
+        ko = k_of[oy, ox]
+        pool = ((xx - ox) / 34.0) ** 2 + ((yy - oy) / 11.0) ** 2 + 0.3 * patch < 1
+        wet |= terr & (k_of == ko) & pool
     dry = terr & ~wet
     WAT = [hx(c) for c in ['#3c4650', '#4e5a65', '#5a6670', '#64717c']]
     g = rng.random((H, W))
@@ -187,8 +193,15 @@ def match_seam(img, skip, seam, gy, band=40, reach=280):
     wy = smooth((gy[:, 0] - 2780) / 120.0)[:, None]                     # only the south: the north was approved as is
     xs = np.arange(img.shape[1])
     wx = np.clip(1 - (seam - xs) / reach, 0, 1) * (xs < seam)
-    gain = 1 + (ratio[:, None, :] - 1) * (wy[..., None] * wx[None, :, None])
-    return img * gain
+    fade = wy[..., None] * wx[None, :, None]
+    img = img * (1 + (ratio[:, None, :] - 1) * fade)
+    base = ndi.uniform_filter(img, (9, 9, 1))                            # and the contrast: today's stalks are softer
+    dev = np.abs(img - base).mean(2)
+    def row_dev(x0, x1):
+        m = ~skip[:, x0:x1]
+        return ndi.gaussian_filter1d((dev[:, x0:x1] * m).sum(1) / np.maximum(m.sum(1), 1), 24)
+    k = np.clip(row_dev(seam + 4, seam + band + 4) / np.maximum(row_dev(seam - band - 4, seam - 4), 1), 0.7, 1.15)
+    return base + (img - base) * (1 + (k[:, None, None] - 1) * fade)
 
 
 def path_masks(rng):
@@ -266,7 +279,7 @@ def main(out, scale=2):
     dens_s = smooth((gy - GRASS_FROM + 40 * fbm(H, W, 24, 91) + 12 * fbm(H, W, 6, 92)) / (GRASS_FULL - GRASS_FROM)) ** 1.8
     newc = (xx < seam)[..., None]
     img = np.where(newc, img * (1 - 0.6 * dens_s[..., None] * np.array([0.12, 0.0, 0.14])) * (1 - 0.38 * dens_s[..., None]), img)
-    terr, terr_dry, terr_fade = draw_terraces(img, rng, pathm)
+    terr, terr_dry, terr_fade = draw_terraces(img, rng, pathm, (BROOK_A[0][0] - X0, BROOK_A[0][1] - Y0))
     southw = []
     for pts, w0, w1 in ((BROOK_A, 6, 15), (BROOK_C, 4, 7)):
         tk, _ = splprep(np.array([(x - X0, y - Y0) for x, y in pts], float).T, s=0, k=3)
@@ -425,7 +438,13 @@ def main(out, scale=2):
             forest_things.append(sp)
             blocked[max(0, y_ - 6):y_ + 2, max(0, x_ - 6):x_ + 7] = True
     # ---- zone 4a: the mill, its bridge, the spring, a scarecrow, the bamboo grove
-    things.append(o.Muehle(MILL[0] - X0, MILL[1] - Y0))
+    ca, aw0, aw1 = southw[0]
+    arc = np.r_[0, np.cumsum(np.hypot(*np.diff(ca, axis=0).T))]
+
+    def brook_at(x_):                                                   # the mill brook's centre and half width at x
+        i_ = int(np.abs(ca[:, 0] - x_).argmin())
+        return ca[i_, 1], (aw0 + (aw1 - aw0) * arc[i_] / arc[-1]) / 2
+    things.append(o.Muehle(MILL[0] - X0, MILL[1] - Y0, brook=brook_at))
     def glade(cx, cy, rx, ry, seed):                                    # trodden round a place, no hard edge
         return ((xx - cx) / rx) ** 2 + ((yy - cy) / ry) ** 2 + 0.35 * fbm(H, W, 6, seed)
     gl = glade(MILL[0] - X0 - 26, MILL[1] - Y0 - 8, 56, 34, 109)
@@ -433,7 +452,7 @@ def main(out, scale=2):
     tc = ca[np.hypot(ca[:, 0] - (548 - X0), ca[:, 1] - (3342 - Y0)).argmin()]
     things.append(ow.Bruecke(int(round(tc[0])), int(round(tc[1])), np.pi / 2 - 0.5, 15))
     things.append(ow.Quelle(SPRING[0] - X0, SPRING[1] - Y0))
-    gl = np.minimum(gl, glade(SPRING[0] - X0 + 1, SPRING[1] - Y0 - 7, 32, 25, 110))
+    gl = np.minimum(gl, glade(SPRING[0] - X0 + 1, SPRING[1] - Y0 - 6, 20, 15, 110))
     blocked |= gl < 0.7
     things.append(o.Vogelscheuche(200 - X0, 2968 - Y0))
     bx, by, brx, bry = BAMBOO
@@ -495,6 +514,8 @@ def main(out, scale=2):
     dens[terr & ~terr_dry] = 0
     dens *= np.clip((gl - 0.7) / 0.9, 0, 1) ** 1.5                     # the grass grows back in round the glades
     grass_free = ndi.binary_dilation(blocked, iterations=2)
+    d3 = np.clip(0.78 + 0.32 * fbm(H, W, 16, 306), 0.38, 1)             # the south's zone 3: patchier from Z3_FROM on
+    patch3 = 1 - (1 - d3) * np.clip((gy - Z3_FROM) / 90.0, 0, 1)
     for _ in range(int(W * H / 3)):                         # short garden grass: dark tufts close together
         x, y = int(rng.integers(2, W - 2)), int(rng.integers(4, H))
         if rng.random() > plots[y, x] ** 1.5 or grass_free[y, x]:
@@ -504,12 +525,12 @@ def main(out, scale=2):
     for _ in range(int(W * H / 7)):
         x, y = rng.uniform(2, W - 2), rng.uniform(14, H)
         xi, yi = int(x), min(int(y), H - 1)
-        if rng.random() > dens[yi, xi] or grass_free[yi, xi]:
+        if rng.random() > dens[yi, xi] * (1 - 0.18 * dens_s[yi, xi]) * patch3[yi, xi] or grass_free[yi, xi]:   # 1 in 8.5
             continue
         things.append(z2.Blade(x, yi, rng))
     for _ in range(16000):
         x, y = int(rng.integers(4, W - 4)), int(rng.integers(6, H - 2))
-        if rng.random() > 0.05 + 0.4 * dens[y, x] + 0.9 * plots[y, x] ** 2 or grass_free[y, x]:
+        if rng.random() > 0.05 + 0.4 * dens[y, x] * (1 - 0.75 * dens_s[y, x]) + 0.9 * plots[y, x] ** 2 or grass_free[y, x]:
             continue
         things.append(z2.Wildflower(x, y, int(rng.choice(3, p=[0.45, 0.33, 0.22])), rng, int(dens[y, x] * 6)))
 

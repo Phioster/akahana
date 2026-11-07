@@ -1235,10 +1235,12 @@ IRON = [hx(c) for c in ['#1c1d20', '#33353a', '#55585e']]
 class Wasserrad:
     """The mill's waterwheel seen face on (its axle runs north-south, across the brook): two rings with the paddles
     between them, eight spokes two wide, an iron-banded hub, open between the spokes (the bank shows through, a
-    little shaded), joints in the rims, moss and wet dark wood low down, two paddles broken off, a trickle into the
-    brook. (x, y) its hub."""
-    def __init__(s, x, y, r=17, seed=81):
-        s.x, s.y, s.r, s.seed = x, y, r, seed
+    little shaded), joints in the rims, moss, two paddles broken off. Still turns, very slowly: s.rot (radians)
+    turns everything fixed to the wheel, the light stays. (x, y) its hub; brook(x) -> (centre y, half width):
+    where the wheel reaches into the water it goes under."""
+    def __init__(s, x, y, r=17, seed=81, brook=None):
+        s.x, s.y, s.r, s.seed, s.rot = x, y, r, seed, 0.0
+        s.brook = brook
 
     def box(s):
         return (s.x - s.r - 3, s.y - s.r - 3, s.x + s.r + 4, s.y + s.r + 3)
@@ -1250,12 +1252,15 @@ class Wasserrad:
         broken = set(int(k) for k in rng.choice(NP, 2, replace=False))
         tone = rng.uniform(-0.35, 0.35, NP)                            # each rim segment its own plank
         ri = r - 5                                                     # the inner ring
+        WAT = hx('#4e5a65')
         for j in range(y - r - 4, y + r + 5):
             for i in range(x - r - 4, x + r + 5):
+                if not (0 <= j < img.shape[0] and 0 <= i < img.shape[1]):
+                    continue
                 dx, dy = i - x, j - y
                 d = np.hypot(dx, dy)
-                a = np.arctan2(dy, dx)
-                u = (a + np.pi) / (2 * np.pi) * NP
+                a = np.arctan2(dy, dx) - s.rot                         # in the wheel's own turn
+                u = ((a + np.pi) / (2 * np.pi) * NP) % NP
                 k = int(u) % NP
                 lit = 3.2 - 1.3 * dx / r - 1.0 * dy / r + tone[k]          # light from the upper left
                 lit -= 0.8 * max(0, dy / r - 0.35)                       # wet and dark low down
@@ -1271,36 +1276,56 @@ class Wasserrad:
                 elif ri <= d < r - 2 and pd < 0.9 and k not in broken:   # paddles between the rings
                     c = pick(WHEEL, lit - 0.1 + 0.5 * (pd < 0.4))
                 elif ri <= d < r - 2:
-                    c = img[j, i] * 0.55 if 0 <= j < img.shape[0] and 0 <= i < img.shape[1] else None   # the gap: shadow
+                    c = img[j, i] * 0.55                                 # the gap: shadow
                 elif r + 0.6 <= d < r + 3.2 and pd < 0.8 and k not in broken:   # paddle ends standing out
                     c = pick(WHEEL, lit - 0.4)
                 elif d < 2.0:
-                    c = pick(IRON, 1.6 - 0.6 * dx - 0.4 * dy)            # the axle end
+                    c = pick(IRON, 1.6 - 0.6 * dx - 0.4 * dy)            # the axle end (does not turn)
                 elif d < 3.6:
                     c = pick(IRON, 1.2 - 0.3 * dx / 3 - 0.3 * dy / 3) if abs(d - 2.8) < 0.5 else pick(WHEEL, lit + 0.4)
                 elif d < ri - 1.6 and sd < 1.05:                         # spokes, two wide
                     c = pick(WHEEL, lit + 1.0 - 1.4 * (sd > 0.55))
-                elif d < ri - 1.6 and 0 <= j < img.shape[0] and 0 <= i < img.shape[1]:
+                elif d < ri - 1.6:
                     c = img[j, i] * 0.86                                 # open: the wheel's own shadow behind
-                if c is not None:
-                    if dy > r * 0.2 and g_at(G, i * 5, j * 3) < 0.22 and d >= ri - 1.6:
-                        c = pick(MOSS, 1.4 + 0.8 * g_at(G, i, j))
-                    put(img, i, j, c)
-        for d in range(5):                                             # water running off the lowest paddles
-            put(img, x - 3 + d, y + r + 2 + d % 2, hx('#a3aeb6'))
-            if d % 2:
-                put(img, x - 2 + d, y + r + 4, hx('#d6dde1'))
+                if c is None:
+                    continue
+                if d >= ri - 1.6 and g_at(G, int(u * 3) * 7, int(d) * 5) < 0.16:
+                    c = pick(MOSS, 1.4 + 0.8 * g_at(G, int(u * 5), int(d)))   # moss, turning with the wheel
+                if s.brook is not None:
+                    cy, hw = s.brook(i)
+                    surf = int(round(cy - hw * 0.5))
+                else:
+                    surf, hw, cy = 10 ** 6, 0, 0
+                if surf <= j <= cy + hw:
+                    c = c * 0.4 + WAT * 0.6                              # under the water
+                    if j == surf and (i + j) % 2:
+                        c = hx('#a3aeb6')                                # the line where it cuts the water
+                put(img, i, j, c)
+
+
+def glint(k, pos, period, width=1.3):
+    """0..1: how much of a drifting glint (one every period px, at pos) lies on pixel k: no jumps between frames."""
+    u = (k - pos) % period
+    return max(0.0, 1 - min(u, period - u) / width)
 
 
 class Muehle:
-    """The water mill (Suisha-goya): a small thatched house on the bank, its wheel turning no more on the brook
-    side, a wooden flume on posts bringing the water from upstream onto the top of the wheel, moss on everything.
-    (x, y) the house's foot; the wheel stands in front-right, in the brook."""
-    def __init__(s, x, y, seed=82):
-        s.x, s.y, s.seed = x, y, seed
+    """The water mill (Suisha-goya): a small thatched house on the bank, its wheel standing in the brook on the
+    house's gable side, a wooden flume (kakehi) taking water from a weir upstream and carrying it level along the
+    north bank on posts while the bed drops away, out past the top of the wheel so it pours onto the far paddles.
+    brook(x) -> (centre y, half width) of the brook, so wheel, posts and weir stand where the water is.
+    s.t (seconds) moves the glints in the flume, the falling water and the wheel (one turn in TURN s).
+    (x, y) the house's foot."""
+    TURN = 36.0
+
+    def __init__(s, x, y, seed=82, brook=None):
+        s.x, s.y, s.seed, s.t = x, y, seed, 0.0
+        s.brook = brook or (lambda x_: (y + 22, 4))
         s.house = Minka(x, y, w=34, wall=12, roof=17, seed=seed, kind='kaya', ruin=0.55, pal=1, rich=True)
-        s.wheel = Wasserrad(x - 33, y + 6, seed=seed + 1)     # upstream (west) of the house, on its gable side
-        s.phase = 0                                            # the flume's water, for the slow loop
+        wx = x - 33
+        cy, hw = s.brook(wx)
+        r = 17
+        s.wheel = Wasserrad(wx, int(round(cy)) + 2 - r, r=r, seed=seed + 1, brook=s.brook)
 
     def box(s):
         hb = s.house.box()
@@ -1308,37 +1333,47 @@ class Muehle:
 
     def draw(s, img, G):
         s.house.draw(img, G)
+        s.wheel.rot = 2 * np.pi * s.t / s.TURN
         s.wheel.draw(img, G)
         wx, wy, r = s.wheel.x, s.wheel.y, s.wheel.r
-        # the flume (kakehi): a plank trough on posts from a weir upstream on the bank onto the top of the wheel,
-        # the ground falling away under it so the posts grow taller; water in it, glints drifting down (s.phase)
-        x0, y0, x1, y1 = wx - 64, wy - 38, wx - 2, wy - r - 3          # drawn line: intake .. over the wheel
-        gy0, gy1 = wy - 33, wy + r                                     # the ground under both ends
+        x1, y1 = wx + 7, wy - r - 9                                    # out past the wheel's top, clear of it
+        xi = min(range(wx - 110, wx - 40), key=lambda q: abs(s.brook(q)[0] - (y1 - 1)))   # the weir upstream,
+        cyi, _ = s.brook(xi)                                           # where the water stands that high
+        x0, y0 = xi, int(round(cyi)) - 2                               # so the flume falls a little all along
         n = x1 - x0
+        flow = 5.0 * s.t                                               # px a second, downstream along the flume
+        W0, W1, GL, WH = hx('#64717c'), hx('#4e5a65'), hx('#a3aeb6'), hx('#d6dde1')
         for k in range(n + 1):
-            t = k / n
-            i, j = x0 + k, int(round(y0 + (y1 - y0) * t))
+            i, j = x0 + k, int(round(y0 + (y1 - y0) * k / n))
             put(img, i, j - 1, WHEEL[5] if k % 11 else WHEEL[2])       # back board's top edge, joints
-            put(img, i, j, hx('#64717c') if (k + s.phase) % 9 else hx('#a3aeb6'))   # the water, seen into
-            put(img, i, j + 1, hx('#4e5a65') if (k + s.phase + 4) % 18 else hx('#d6dde1'))
+            put(img, i, j, W0 + (GL - W0) * glint(k, flow, 9))         # the water, seen into
+            put(img, i, j + 1, W1 + (WH - W1) * glint(k, flow + 4, 18, 1.0))
             put(img, i, j + 2, WHEEL[5] if k % 11 else WHEEL[2])       # front board, its top lit
             put(img, i, j + 3, WHEEL[3])
             put(img, i, j + 4, WHEEL[0])                               # its underside, in shadow
-        for t in (0.08, 0.36, 0.64):                                   # the posts, clear of the wheel
-            i = int(round(x0 + n * t))
-            j0 = int(round(y0 + (y1 - y0) * t)) + 5
-            for j in range(j0, int(round(gy0 + (gy1 - gy0) * t)) + 1):
-                put(img, i, j, WHEEL[3])
-                put(img, i + 1, j, WHEEL[1])
-            put(img, i - 1, j0, WHEEL[2])                              # a cross piece under the trough
-            put(img, i + 2, j0, WHEEL[2])
-        for d in (-2, 2):                                              # the weir: two stakes in the brook
-            for j in range(gy0 - 4, gy0 + 3):
-                put(img, x0 - 2 + d, j, WHEEL[3] if j < gy0 else WHEEL[1])
-        put(img, x0 - 2, gy0 - 2, hx('#a3aeb6'))
-        for d in range(4):                                             # falling off its end onto the wheel
-            if (d + s.phase) % 3:
-                put(img, x1 + 1, y1 + 3 + d * 2 + s.phase % 2, hx('#d6dde1') if d == 0 else hx('#a3aeb6'))
+        for px in range(x0 + 14, wx - r - 3, 13):                      # posts on the north bank, clear of wheel and water
+            cy, hw = s.brook(px)
+            foot = int(round(cy - hw)) - 2
+            top = int(round(y0 + (y1 - y0) * (px - x0) / n)) + 5
+            if foot - top < 2:
+                continue
+            for j in range(top, foot + 1):
+                put(img, px, j, WHEEL[3])
+                put(img, px + 1, j, WHEEL[1])
+            put(img, px - 1, top, WHEEL[2])                            # a cross piece under the trough
+            put(img, px + 2, top, WHEEL[2])
+            put(img, px, foot + 1, WHEEL[0])                           # its shadow on the bank
+        for d in (-3, 1):                                              # the weir: two stakes standing in the water
+            for j in range(y0 - 2, int(round(cyi)) + 3):
+                put(img, xi + d, j, WHEEL[3] if j < cyi else WHEEL[1])
+        put(img, xi - 1, int(round(cyi)) + 1, GL)
+        fall = y1 + 5                                                  # pouring off the end, down onto the paddles
+        rim = wy - int(np.sqrt(max(0, (r + 2) ** 2 - (x1 + 1 - wx) ** 2)))   # where it meets the wheel, past its top
+        for j in range(fall, rim):
+            v = glint(j - fall, 7.0 * s.t, 4, 1.5)
+            put(img, x1 + 1, j, GL * (0.55 + 0.45 * v))
+        put(img, x1, rim, WH)                                          # the splash on the paddle
+        put(img, x1 + 2, rim, GL)
 
 
 class Bambus:
