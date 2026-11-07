@@ -147,10 +147,10 @@ def main(out, scale=2):
         if seed in (1, 4, 6, 8):                     # candles left on the veranda of a few houses (Philip, round 2)
             side = int(r.choice([-1, 1]))
             cx_ = hx_ + side * int(r.integers(8, hw // 2 - 4))
-            pts = [(cx_, hy_ + 2), (cx_ + 2, hy_ + 3), (cx_ - 2, hy_ + 3), (cx_ + 4, hy_ + 2), (cx_ - 1, hy_ + 4)]
-            k = Kerzen(pts[:int(r.integers(2, 4))], seed=seed)          # two or three (Philip: five were too many)
+            pts = [(cx_, hy_ + 5), (cx_ + 3, hy_ + 6), (cx_ - 3, hy_ + 6)]   # in front of the veranda: the house (drawn by its foot) hid them on it
+            k = Kerzen(pts[:int(r.integers(2, 4))], seed=seed)          # the south's candles; two or three (Philip)
             things.append(k)
-            lights += [dict(l, k=0.45, r=16.0) for l in k.lights()]   # a few together: a glow you see from the path
+            lights += k.lights()
         prop = r.random()
         if prop < 0.35:
             things.append(z2.Bank(hx_ + int(r.choice([-1, 1])) * (hw // 2 - 8), hy_ + 7))   # beside the stones, not on them

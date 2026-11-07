@@ -480,3 +480,4 @@ class Platten:
                         img[j, i] = img[j, i] * 0.6                           # the dark seam round it
                     elif e < 1.6 and j > y and 0 <= j < img.shape[0] and 0 <= i < img.shape[1]:
                         img[j, i] = img[j, i] * 0.75
+
