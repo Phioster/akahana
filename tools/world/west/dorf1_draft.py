@@ -27,7 +27,8 @@ from objects_south import Fackel, Kerzen  # noqa: E402
 ROOT = os.path.abspath(os.path.join(HERE, '..', '..', '..'))
 FULL = os.path.join(ROOT, 'build', 'world_full')
 WW = 900                                   # columns the world grows to the west
-X0, Y0, X1, Y1 = 0, 1380, 1180, 3820       # the window drawn (west coordinates): zone 3 up to 1380, 4a down to 3820
+X0, X1, Y1 = 0, 1180, 4800                 # the window drawn (west coordinates): zone 3 up to 1380, 4b to the world's end
+Y0 = int(os.environ.get('WEST_Y0', 1380))   # a later first row only to look at the south quickly (other noise)
 W, H = X1 - X0, Y1 - Y0
 EDGE = 24                                  # today's columns 0..EDGE are the fir wall: they go
 SQUARE = (520, 2330)
@@ -51,6 +52,17 @@ BROOK_C = [(640, 3700), (720, 3734), (830, 3758), (WW + EDGE + 6, 3766)]
 MILL = (500, 3288)
 SPRING = (640, 3690)
 BAMBOO = (120, 2250, 96, 74)
+# zone 4b: the west lake with its own shore (plan step 65, round 3), the iris bay in the north with the zigzag
+# bridge from the fisherman's hut, the teahouse on the north-east shore, the shore path on to today's
+LAKE = [(872, 4150), (850, 4128), (800, 4078), (735, 4066), (690, 4098), (640, 4084), (590, 4110),
+        (540, 4150), (490, 4170), (468, 4215), (500, 4262), (520, 4300), (470, 4318), (418, 4340), (402, 4400),
+        (430, 4452), (408, 4510), (440, 4560), (512, 4578), (560, 4630), (640, 4660), (730, 4648), (790, 4672),
+        (840, 4640), (870, 4590), (858, 4520), (884, 4460), (876, 4380), (890, 4300), (868, 4230),
+        (886, 4190)]
+IRISES = [(530, 4150), (570, 4132), (610, 4118), (650, 4106), (700, 4110), (750, 4090), (790, 4094)]
+HUT = (548, 4072)
+BRIDGE = [(578, 4094), (578, 4112), (604, 4112), (604, 4140), (586, 4140), (586, 4172), (622, 4172), (622, 4204)]
+TEA_X = 834
 Z3_FROM = 3290                              # where the south's tall grass turns patchy (zone 3)
 GRASS_FROM, GRASS_FULL = 2900, 3200        # the south's tall grass, as it comes in at the seam today
 # (garden centre, house seed, roof kind, how fallen in); the house stands at the back of its plot, facing south
@@ -67,7 +79,9 @@ PATHS = {
     'sued': [(SQUARE[0] + 8, SQUARE[1] + 14), (560, 2420), (620, 2520), (600, 2620), (540, 2700), (470, 2770),
              (432, 2840), (440, 2920), (446, 3000), (432, 3080), (452, 3170), (482, 3240), (498, 3284)],   # 4a: by the terraces to the mill
     'muehle': [(506, 3294), (528, 3318), (548, 3346), (600, 3420), (700, 3480), (800, 3540), (WW + EDGE + 4, 3559), (972, 3561), (994, 3563)],   # into today's
-    'see': [(600, 3420), (608, 3560), (612, 3640), (616, 3740), (612, 3820)],
+    'see': [(600, 3420), (608, 3560), (612, 3640), (616, 3740), (610, 3860), (600, 3950), (590, 4020), (582, 4070)],
+    'ufer': [(592, 4026), (640, 4024), (700, 4018), (760, 4020), (820, 4032), (866, 4066), (896, 4116), (910, 4180),
+             (916, 4250), (922, 4290), (930, 4320), (930, 4342)],                   # 4b: round the lake into today's
     'bambus': [(250, 2520), (196, 2420), (150, 2300), (136, 2272)],
     'glas': [(603, 2604), (624, 2627), (656, 2630), (680, 2616)],              # zone 2: below the beds to the door
     'west': [(SQUARE[0] - 16, SQUARE[1] + 4), (420, 2360), (350, 2440), (300, 2470), (250, 2520)],
@@ -177,6 +191,45 @@ def draw_terraces(img, rng, pathm, outflow=None):
     return terr, dry, fade
 
 
+def draw_lake(img, rng, xx, yy, gx, gy, seam):
+    """Zone 4b: the west lake (the south's lake water: objects_lake.paint_lake), a shallow rim, the wide shallows of
+    the iris bay in the north; and at the world's southern edge today's reed sea, marsh and open water running on
+    west (zone4_layout.edge, in today's x). -> masks."""
+    from PIL import ImageDraw
+    from scipy.interpolate import splprep, splev
+    from scipy.spatial import cKDTree
+    import zone4_layout as L4
+    p = np.array(LAKE + [LAKE[0]], float).T
+    tck, _ = splprep(p, s=0, k=3, per=True)
+    sh = np.array(splev(np.linspace(0, 1, 1600), tck)).T - (X0, Y0)
+    pts = np.stack([xx.ravel(), yy.ravel()], 1)
+    mk = Image.new('L', (xx.shape[1], xx.shape[0]), 0)
+    ImageDraw.Draw(mk).polygon([tuple(q) for q in sh], fill=1)
+    lake = np.array(mk) > 0
+    tx = TEA_X - X0                                                     # the teahouse: its front on the bank, a
+    rows = [y_ for x_ in range(tx - 20, tx + 21, 4) for y_ in [int(np.argmax(lake[4040 - Y0:, x_]))] if y_ > 0]
+    ty = 4040 - Y0 + min(rows) + 1                                      # cove under its deck
+    lake |= (((xx - tx) / 26.0) ** 2 + ((yy - ty - 10) / 12.0) ** 2 + 0.2 * fbm(*xx.shape, 3, 127) < 1) & (yy > ty)
+    lake = ndi.binary_opening(lake, iterations=1)                                  # no single-pixel jags
+    din = ndi.distance_transform_edt(lake)
+    tk, _ = splprep(np.array(IRISES, float).T, s=0, k=3)
+    ic = np.array(splev(np.linspace(0, 1, 300), tk)).T - (X0, Y0)
+    di = cKDTree(ic).query(pts)[0].reshape(xx.shape)
+    bc_ = np.mean(BRIDGE, 0) - (X0, Y0)
+    bay = (di < 15 + 6 * fbm(*xx.shape, 5, 121)) | (((xx - bc_[0]) / 48.0) ** 2 + ((yy - bc_[1] + 6) / 54.0) ** 2
+                                                    + 0.3 * fbm(*xx.shape, 5, 128) < 1)   # the iris shallows
+    edge = 4000 + L4.edge(gx - WW) - Y0 + 4 * fbm(*xx.shape, 6, 122)              # today's edge, in its own x
+    west = xx < seam
+    sea_reeds = (yy > edge) & west
+    marsh = (yy > edge + 30 + 8 * fbm(*xx.shape, 8, 123)) & (fbm(*xx.shape, 4, 124) > -0.3) & west
+    open_w = (yy > edge + 52 + 6 * np.sin((gx - WW) / 23.0)) & west
+    shallow = (lake & ((din < 5 + 3 * fbm(*xx.shape, 4, 125)) | bay)) | (marsh & ~open_w)
+    water = lake | marsh | open_w
+    ol.paint_lake(img, 0, water, shallow, rng)
+    return dict(lake=lake, din=din, bay=bay & lake, sea_reeds=sea_reeds, marsh=marsh, open_w=open_w,
+                water=water, shallow=shallow, shore=ndi.distance_transform_edt(~lake), tea=(tx, ty))
+
+
 def match_seam(img, skip, seam, gy, band=40, reach=280):
     """The new columns, row by row, to the brightness of today's world just across the seam, fading out westward
     over reach px (the two grass fields are made apart and differ a little in tone)."""
@@ -223,7 +276,8 @@ def main(out, scale=2):
 
     # ---- the square: trodden gravel round the well
     sq = extras.forecourt(H, W, SQUARE[0] - X0, SQUARE[1] - Y0, 46, 26, rng)
-    extras.draw_gravel(img, sq, rng)
+    if sq.any():                                     # (outside a WEST_Y0 window)
+        extras.draw_gravel(img, sq, rng)
     # ---- paths (earth, like the old ones)
     pathm = np.zeros((H, W), bool)
     for name, m, core, d, width in path_masks(rng):
@@ -304,9 +358,12 @@ def main(out, scale=2):
     near_b = (ndi.distance_transform_edt(~sb.mask) < 7) & (xx < seam)   # the dark bank, fading out at the seam
     img[near_b] *= (1 - 0.15 * np.clip((seam - xx) / 40.0, 0, 1))[near_b][:, None]
     sb.draw(img, rng)
+    lk = draw_lake(img, rng, xx, yy, gx, gy, seam)
     oldw = np.array(Image.open(os.path.join(FULL, 'water.png')).convert('RGBA'))[Y0:Y1, EDGE:EDGE + W - seam].astype(float)
-    water = brook.mask | sb.mask
+    water = brook.mask | sb.mask | lk['water']
     water[:, seam:] |= oldw[..., 3] > 0
+    oldw_full = np.zeros((H, W, 4))
+    oldw_full[:, seam:] = oldw
     LAWN = np.array([0.60, 0.74, 0.56])
 
     # ---- houses and their gardens
@@ -406,7 +463,7 @@ def main(out, scale=2):
         for tx in range(ox0 + 22 + (row % 2) * 26, ox1 - 10, 52):
             x_, y_ = tx + int(r3.integers(-7, 8)), ty + int(r3.integers(-6, 7))
             near = pathm[max(0, y_ - 9):y_ + 10, max(0, x_ - 9):x_ + 10].any()
-            if orch[y_, x_] < 0.4 or near:
+            if not 0 <= y_ < H or orch[y_, x_] < 0.4 or near:
                 continue
             k = r3.random()
             t = o.Kaki(x_, y_, seed=80 + row * 10 + tx % 97, size=r3.uniform(0.65, 0.85)) if k < 0.6 else \
@@ -493,6 +550,71 @@ def main(out, scale=2):
     things.append(t)
     lights += t.lights()
     blocked |= terr & ~terr_dry
+    # ---- zone 4b: the fisherman's hut with its zigzag bridge through the irises, the teahouse, the lake's things
+    lake, shore, din = lk['lake'], lk['shore'], lk['din']
+    def first_water(x_, below):                                         # the first lake row at column x below a row
+        col = lake[below:, x_]
+        return below + int(np.argmax(col)) if col.any() else None
+    hx0, hy0 = HUT[0] - X0, HUT[1] - Y0
+    things.append(o.Minka(hx0, hy0, w=26, wall=9, roof=15, seed=31, kind='kaya', ruin=0.55, pal=1))
+    things.append(o.Netzgestell(hx0 - 36, hy0 + 3))
+    blocked[hy0 - 30:hy0 + 7, hx0 - 38:hx0 + 22] = True
+    br = [(x - X0, y - Y0) for x, y in BRIDGE]
+    steg = o.yatsuhashi(br, width=7, dry=first_water(br[0][0], br[0][1]))
+    things += steg
+    bridge_m = np.zeros((H, W), bool)
+    for t in steg:
+        x0b, y0b, x1b, y1b = t.box()
+        bridge_m[max(0, y0b):y1b, max(0, x0b):x1b] = True
+    bx_, by_ = br[-1][0] + 15, br[-1][1] - 4
+    things.append(ol.Boot(bx_, by_))                                     # moored at the bridge's end
+    bridge_m[by_ - 6:by_ + 6, bx_ - 12:bx_ + 13] = True
+    things.append(o.Platten((hx0 + 4, hy0 + 5), (br[0][0] + 2, br[0][1] - 10), seed=31))   # from the hut to the path
+    blocked[hy0 + 2:br[0][1] - 6, hx0:br[0][0] + 5] = True
+    tx, ty = lk['tea']
+    tea = o.Teehaus(tx, ty, deck=6)
+    things.append(tea)
+    x0b, y0b, x1b, y1b = tea.box()
+    blocked[max(0, y0b + 10):y1b, max(0, x0b):x1b] = True
+    bridge_m[max(0, y0b):y1b + 18, max(0, x0b):x1b] = True              # reeds below it would hide the deck
+    r6 = np.random.default_rng(130)
+    deep = lake & (din > 14) & ~ndi.binary_dilation(lk['bay'] | bridge_m, iterations=10)
+    spots = np.argwhere(deep)
+    pick = spots[r6.choice(len(spots), 17, replace=False)]
+    for k, (y_, x_) in enumerate(pick[:12]):
+        things.append(ol.Seerosen(int(x_), int(y_), int(r6.integers(4, 9)), 140 + k))
+    for k, (y_, x_) in enumerate(pick[12:16]):
+        things.append(ol.WasserStein(int(x_), int(y_), r6.uniform(3, 5), 150 + k))
+    things.append(ol.Treibholz(int(pick[16][1]), int(pick[16][0]), int(r6.integers(18, 26)), r6.uniform(-0.6, 0.6), 155))
+    kind_n = fbm(H, W, 6, 131)                                           # the irises: patches of one colour each
+    free_i = ~ndi.binary_dilation(bridge_m, iterations=2)
+    iris_area = (lk['bay'] | (ndi.binary_dilation(lk['bay'], iterations=4) & ~lake)) & free_i
+    ys_, xs_ = np.nonzero(iris_area & (r6.random((H, W)) < 1 / 26 * np.clip(0.6 + 0.5 * fbm(H, W, 4, 132), 0.15, 1.2)))
+    for y_, x_ in zip(ys_, xs_):
+        v = kind_n[y_, x_]
+        things.append(o.Iris(int(x_), int(y_), seed=int(r6.integers(0, 10 ** 6)),
+                             kind='weiss' if v > 1.1 else 'indigo' if v < -1.1 else 'lila', wet=bool(lake[y_, x_])))
+    westness = np.clip((660 - gx) / 260.0, 0, 1) + np.clip((gy - 4420) / 200.0, 0, 1) * 0.5
+    belt = (((lake & (din < 6)) | (~lake & (shore < 4))) & (fbm(H, W, 10, 126) > 0.35 - 0.9 * westness)
+            & ~lk['bay'] & ~ndi.binary_dilation(lk['bay'], iterations=6))
+    reed_land = (belt | (lk['sea_reeds'] & ~lk['open_w'])) & ~ndi.binary_dilation(pathm | bridge_m, iterations=3)
+    reed_land &= ~ndi.binary_dilation(sb.mask | brook.mask, iterations=2)
+    ys_, xs_ = np.nonzero(reed_land)
+    pk = r6.random(len(ys_)) < np.where(lk['sea_reeds'][ys_, xs_], 1 / 9, 1 / 16)
+    for y_, x_ in zip(ys_[pk], xs_[pk]):
+        if r6.random() < 0.78:
+            things.append(ow.Schilf(int(x_), int(y_), int(r6.integers(6, 12)), int(r6.integers(0, 10 ** 6))))
+        else:
+            things.append(ow.Rohrkolben(int(x_), int(y_), int(r6.integers(3, 6)), int(r6.integers(0, 10 ** 6))))
+    blocked |= reed_land | iris_area
+    wet6 = ndi.binary_dilation(water, iterations=6)
+    for k, (x, y) in enumerate([(380, 4040), (300, 4210), (230, 4420), (330, 4560), (150, 4640), (520, 3930),
+                                (720, 3960), (130, 4180), (300, 4700), (600, 4720)]):
+        x_, y_ = x - X0, y - Y0
+        if not (0 <= y_ < H) or wet6[y_, x_] or pathm[y_ - 8:y_ + 5, x_ - 9:x_ + 10].any():
+            continue
+        things.append(ol.Laubbaum(x_, y_, seed=160 + k, size=r6.uniform(0.9, 1.2), leaf=ol.LEAVES[k % 8]))
+        blocked[y_ - 4:y_ + 3, x_ - 6:x_ + 7] = True
     # ---- the well, lanterns at the square and the way in, a torch by the first house
     things.append(o.Brunnen(SQUARE[0] - X0, SQUARE[1] - Y0 + 4))
     for (x, y) in ((SQUARE[0] - 34, SQUARE[1] - 10), (SQUARE[0] + 40, SQUARE[1] + 12), (860, 2290)):
@@ -581,6 +703,8 @@ def main(out, scale=2):
         if X0 <= l['x'] + WW < X1 and Y0 <= l['y'] < Y1:
             lights.append(dict(l, x=l['x'] + WW - X0, y=l['y'] - Y0))
     for t in sorted(things, key=lambda t: getattr(t, 'order', None) or t.box()[3]):
+        if -9999 < t.box()[3] < -60:                                     # (above a WEST_Y0 window)
+            continue
         t.draw(img, G)
     if os.environ.get('WEST_DEBUG'):
         np.save(os.environ['WEST_DEBUG'] + '_pre.npy', img.astype(np.float32))
@@ -588,7 +712,12 @@ def main(out, scale=2):
     if os.environ.get('WEST_DEBUG'):
         np.save(os.environ['WEST_DEBUG'] + '_post.npy', img.astype(np.float32))
     ww = dict(w, lights=lights, wisps=[])
-    out_img = mood_map.mood(np.clip(img, 0, 255), ww, 2.0, grass_mist=0.45)
+    lakes = lk['water'] | ((oldw_full[..., 3] > 0) & (gy > 3950))       # the mist's band and the calm over the lakes
+    band = np.clip(ndi.gaussian_filter(lakes.astype(float), 4) * 1.3, 0, 1)
+    calm = ndi.gaussian_filter(lakes.astype(float), 6)
+    out_img = mood_map.mood(np.clip(img, 0, 255), ww, 2.0, grass_mist=0.45, water_band=band, calm=calm)
+    fog = np.clip((gy - 4690) / 110.0, 0, 1) ** 1.4 * 0.88                # the world's end in mist, as the south's
+    out_img = out_img * (1 - fog[..., None]) + np.array([180.0, 181.0, 180.0]) * fog[..., None]
     Image.fromarray(np.clip(out_img, 0, 255).astype(np.uint8)).resize((W * scale, H * scale), Image.NEAREST).save(out)
 
 

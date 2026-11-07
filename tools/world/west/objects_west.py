@@ -1441,3 +1441,150 @@ def ndi_noise(seed, h, w):
     from scipy import ndimage as ndi
     n = ndi.gaussian_filter(np.random.default_rng(seed).normal(0, 1, (h, w)), 1.5)
     return n / (n.std() + 1e-9)
+
+
+IRIS = {                                              # hanashobu: mostly violet, a few pale and a few deep indigo
+    'lila': [hx(c) for c in ['#2c2244', '#45356e', '#6652a0', '#8f7cc4']],
+    'weiss': [hx(c) for c in ['#4a4858', '#7a778c', '#aeaabc', '#d4d0dc']],
+    'indigo': [hx(c) for c in ['#1e2242', '#2e3868', '#46559a', '#6a7abc']],
+}
+ILEAF = [hx(c) for c in ['#1e2a1c', '#2e4128', '#435c36', '#5c7a46']]
+
+
+class Iris:
+    """A clump of Japanese irises standing in the shallows: sword leaves fanning up from one foot, lit on the left,
+    one to three flowers on taller stalks, their three falls spread with a yellow fleck; ripples at the foot."""
+    def __init__(s, x, y, seed=1, kind='lila', wet=True):
+        s.x, s.y, s.seed, s.kind, s.wet = x, y, seed, kind, wet
+
+    def box(s):
+        return (s.x - 5, s.y - 14, s.x + 6, s.y + 2)
+
+    def draw(s, img, G):
+        from objects_water import WATER
+        rng = np.random.default_rng(s.seed)
+        if s.wet:
+            for i in range(s.x - 3, s.x + 4):
+                if rng.random() < 0.6:
+                    put(img, i, s.y + 1, WATER[3])
+        for k in range(int(rng.integers(5, 9))):
+            a = rng.uniform(-0.5, 0.5)
+            h = int(rng.integers(5, 10))
+            for d in range(h):
+                i = int(round(s.x + a * d * 0.9 + (k % 3 - 1) * 0.5))
+                put(img, i, s.y - d, pick(ILEAF, 2.9 - 1.6 * (a > 0.1) - 0.5 * (d < 2) + 0.6 * (d > h - 3)))
+        pal = IRIS[s.kind]
+        for k in range(int(rng.choice([1, 2, 2, 3]))):
+            fx = s.x + int(rng.integers(-3, 4))
+            h = int(rng.integers(9, 13))
+            for d in range(h - 1):
+                put(img, fx, s.y - d, ILEAF[2])
+            fy = s.y - h
+            for (di, dj, v) in [(0, -1, 3.6), (-1, 0, 2.6), (1, 0, 1.6), (0, 0, 2.2), (-2, 1, 1.4), (2, 1, 0.8),
+                                (-1, 1, 2.0), (1, 1, 1.2), (0, 1, 1.0)]:
+                put(img, fx + di, fy + dj, pick(pal, v))
+            put(img, fx, fy, hx('#d8b456') if rng.random() < 0.3 else pick(pal, 2.8))
+
+
+def yatsuhashi(turns, width=5, dry=None):
+    """The zigzag plank bridge through the irises (yatsuhashi): straight runs of the jetty's planks, turning at a
+    right angle where the next begins beside the last, -> list of ol.Steg. turns: corner points, alternating
+    down and across, the first on the bank."""
+    out = []
+    for k, ((xa, ya), (xb, yb)) in enumerate(zip(turns, turns[1:])):
+        if xa == xb:
+            out.append(ol.Steg(xa, min(ya, yb), max(ya, yb), width=width, dry=dry if k == 0 else None))
+        else:
+            out.append(ol.Steg(ya, min(xa, xb) - width // 2, max(xa, xb) + width // 2, width=width, across=True))
+    for t in out:
+        t.order = None
+    return out
+
+
+MOSEN = [hx(c) for c in ['#3e1c1c', '#5e2a28', '#7e3a34', '#9a4c42']]      # the red felt, faded
+NOREN = [hx(c) for c in ['#1f2530', '#2c3646', '#3e4c60']]
+
+
+class Teehaus:
+    """The teahouse at the water (chaya), long closed: a small house of the village's kind with its front open,
+    the dark room behind, a faded indigo noren hanging over the doorway, a deck of planks out over the water on
+    short posts, a bench with its red felt gone pale and a closed red parasol leaning at the wall."""
+    def __init__(s, x, y, w=32, seed=12, deck=7):
+        s.x, s.y, s.w, s.seed, s.deck = x, y, w, seed, deck
+        s.house = Minka(x, y, w=w, wall=10, roof=14, seed=seed, kind='kawara', ruin=0.3, pal=1)
+
+    def box(s):
+        x0, y0, x1, y1 = s.house.box()
+        return (x0 - 4, y0, x1 + 4, s.y + s.deck + 2)
+
+    def draw(s, img, G):
+        from objects_water import WATER
+        x0, x1 = s.x - s.w // 2 - 4, s.x + s.w // 2 + 4
+        for j in range(s.y + 1, s.y + s.deck + 1):                     # the deck, its shadow on the water
+            for i in range(x0, x1 + 1):
+                put(img, i, j, pick(WOOD, 3.4 - 1.8 * (i - x0) / (x1 - x0) - 0.9 * ((j - s.y) % 3 == 0)
+                                    - 0.8 * (j == s.y + s.deck)))
+        lo = s.y + s.deck                                               # the deck stands on stilts in the water:
+        H_, W_ = img.shape[:2]
+        for j in range(lo + 2, lo + 7):                                 # its shadow on the water below
+            for i in range(x0 + 1, x1 + 2):
+                if 0 <= j < H_ and 0 <= i < W_ and (j < lo + 5 or (i + j) % 2):
+                    img[j, i] = img[j, i] * 0.55
+        for i in range(x0, x1 + 1):                                     # the front board of the deck
+            put(img, i, lo + 1, pick(WOOD, 1.6 - 0.8 * (i - x0) / (x1 - x0)))
+        for i in range(x0 + 2, x1, 7):
+            for d in range(2, 7):                                       # each stilt: lit left, dark right
+                put(img, i, lo + d, pick(WOOD, 3.6 - 0.25 * d))
+                put(img, i + 1, lo + d, WOOD[1])
+            for di, c in ((-1, WATER[4]), (2, WATER[4]), (0, WATER[3]), (1, WATER[3])):
+                put(img, i + di, lo + 7, c)                             # a ring of ripples round its foot
+        for i in range(x0 + 2, x1):                                     # a cross brace under the deck
+            if (i - x0) % 7 not in (2, 3):
+                put(img, i, lo + 3, WOOD[1])
+        s.house.draw(img, G)
+        h = s.house
+        top, a, b = s.y - 1 - h.wall, s.x - 9, s.x + 9                 # the front opened up: the dark room
+        for j in range(top, s.y - 1):
+            for i in range(a, b):
+                c = HOLE if j < s.y - 3 else pick(PAPER, 0.9 - 0.4 * ((i - a) % 4 == 0))   # a strip of old tatami
+                put(img, i, j, c)
+        for k, i0 in enumerate(range(a, b, 6)):                       # the noren: three cloth strips, one torn short
+            n = 5 if k != 1 else 3
+            for j in range(top, top + n):
+                for i in range(i0 + 1, i0 + 5):
+                    put(img, i, j, pick(NOREN, 2.4 - 0.4 * (i - i0) - 0.3 * (j - top > 2)))
+        bx = x0 + 3                                                    # the bench on the deck, left
+        for i in range(bx, bx + 11):
+            put(img, i, s.y + 2, pick(MOSEN, 3.4 - 0.2 * (i - bx)))
+            put(img, i, s.y + 3, pick(MOSEN, 2.2 - 0.15 * (i - bx)))
+            put(img, i, s.y + 4, MOSEN[0])
+        for i in (bx, bx + 10):
+            put(img, i, s.y + 5, WOOD[0])
+        px = x1 - 6                                                    # the parasol, closed, leaning at the wall
+        for d in range(16):
+            i = px + d // 6
+            put(img, i, s.y + 1 - d, pick(MOSEN, 3.4 - 1.2 * (d < 3)) if 3 <= d < 14 else WOOD[1])
+            if 4 <= d < 13:
+                put(img, i + 1, s.y + 1 - d, MOSEN[1])
+
+
+class Netzgestell:
+    """Poles with a fishing net hung out to dry, sagging between them, floats on its top line."""
+    def __init__(s, x, y, w=14):
+        s.x, s.y, s.w = x, y, w
+
+    def box(s):
+        return (s.x - 1, s.y - 12, s.x + s.w + 2, s.y + 1)
+
+    def draw(s, img, G):
+        for px in (s.x, s.x + s.w):
+            for d in range(12):
+                put(img, px, s.y - d, WOOD[3 if d > 8 else 2])
+        for i in range(s.x + 1, s.x + s.w):
+            u = (i - s.x) / s.w
+            sag = int(round(2 * np.sin(np.pi * u)))
+            for d in range(7):
+                if (i + d) % 2 == 0:
+                    put(img, i, s.y - 10 + sag + d + int(d > 4) * sag // 2, pick(CLOTH, 2.4 - 0.25 * d))
+            if (i - s.x) % 4 == 2:
+                put(img, i, s.y - 11 + sag, hx('#8a6a3a'))
