@@ -483,101 +483,217 @@ class Platten:
 
 
 
-GLASS = [hx(c) for c in ['#2c3a3c', '#3e5052', '#5a6e6e', '#7f9493', '#aebfbc']]       # old glass, greenish, dark .. glint
-FRAME = [hx(c) for c in ['#1e1a16', '#2e2822', '#443a30', '#5e5244']]
-INSIDE = [hx(c) for c in ['#1c2a19', '#2c4224', '#41602f', '#5c823e', '#7fa356']]       # the plants behind the glass
+RUST = [hx(c) for c in ['#1f140e', '#3a2215', '#5a321e', '#7a4829', '#9c6338']]      # old iron gone to rust
+TEAL = [hx(c) for c in ['#1f302d', '#2f4a45', '#476b63', '#6c9389', '#a3c3b8', '#cfe2d9']]   # old glass, green-blue
+INSIDE = [hx(c) for c in ['#1a2817', '#2a4022', '#3f5e2d', '#5a803c', '#7ca154']]       # the plants behind the glass
 WARMG = hx('#e0a050')
 
 
 class Gewaechshaus:
-    """The greenhouse, the one house still whole: a low stone footing, walls and a gabled roof of small glass panes in
-    dark wooden bars, the plants inside pressing against the glass, a lantern burning inside whose light shows through.
-    A few cracked panes, one gone. The door sits in the front (south) wall. About w + 6 wide."""
-    def __init__(s, x, y, w=68, wall=16, roof=22, seed=21):
-        s.x, s.y, s.w, s.wall, s.roof, s.seed = x, y, w, wall, roof, seed
+    """The greenhouse, the one house still whole (Philip's picture, 2026-11-07: an old Victorian glasshouse): a tall
+    middle pavilion facing the path with a rounded, pointed gable, an iron crest and a finial, an arched door between
+    two stone posts; to each side a long low wing with a curved glass roof. The iron has rusted brown, the glass gone
+    green; plants inside press on the panes, a lantern burns inside. A few panes cracked, a couple gone, grass and
+    creepers up the footing, stone-edged beds run wild in front. (x, y) the foot of the wings' front wall."""
+    PW, PWALL, GH, RD = 30, 24, 15, 5           # pavilion: width, wall, gable, how far its roof runs back
+    WW, WWALL, WR = 38, 11, 15                  # each wing: width, wall, curved roof
+
+    def __init__(s, x, y, seed=21):
+        s.x, s.y, s.seed = x, y, seed
 
     def box(s):
-        return (s.x - s.w // 2 - 6, s.y - s.wall - s.roof - 6, s.x + s.w // 2 + 14, s.y + 6)
+        return (s.x - s.PW // 2 - s.WW - 4, s.y - s.PWALL - s.GH - s.RD - 10, s.x + s.PW // 2 + s.WW + 8, s.y + 18)
 
     def lights(s):
-        return [{'x': s.x - 8.5, 'y': s.y - s.wall * 0.6, 'r': 34.0, 'k': 0.7, 'kind': 'lantern'}]
+        return [{'x': s.x + 0.5, 'y': s.y - 9.0, 'r': 40.0, 'k': 0.75, 'kind': 'lantern'}]
 
     def door(s):
-        return (s.x - 8, s.y)
+        return (s.x, s.y + 4)
 
     def draw(s, img, G):
-        rng = np.random.default_rng(s.seed)
-        w, x0, y = s.w, s.x - s.w // 2, s.y
-        x1 = x0 + w
-        lx, ly = s.x - 8, y - int(s.wall * 0.6)                       # the lantern inside
-        shade_ground(img, G, x0 - 2, x1 + 12, y - 4, y + 7, 0.62)
-        cracks = set((int(rng.integers(0, 12)), int(rng.integers(0, 4))) for _ in range(4))
         from scipy import ndimage as ndi
-        leaves = ndi.gaussian_filter(rng.normal(0, 1, (s.wall + s.roof + 8, w + 8)), 1.3)
+        rng = np.random.default_rng(s.seed)
+        x, y = s.x, s.y
+        PW, PWALL, GH, RD, WW, WWALL, WR = s.PW, s.PWALL, s.GH, s.RD, s.WW, s.WWALL, s.WR
+        L, R = x - PW // 2 - WW, x + PW // 2 + WW                      # outer ends of the wings
+        lx, ly = x, y - 9                                              # the lantern inside, behind the door
+        leaves = ndi.gaussian_filter(rng.normal(0, 1, (80, R - L + 20)), 1.4)
         leaves /= leaves.std() + 1e-9
-        by0 = y - s.wall - s.roof - 6
-        gone = (int(rng.integers(0, 12)), int(rng.integers(0, 3)))
+        top_all = y - PWALL - GH - RD - 10
+        gone = set()
+        cracked = set()
 
-        def pane(i, j, u, cell, roof=False):
-            """One pixel of glass: the plants behind, the glass's own tint and glint, the lantern's warmth."""
-            n = leaves[(j - by0) % leaves.shape[0], (i - x0 + 4) % leaves.shape[1]]
-            leaf = n > (-0.3 if not roof else 0.5)                     # big leaves pressing on the glass, fewer up in the roof
-            base = pick(INSIDE, 2.6 + 1.6 * n - 1.2 * u - (0.6 if roof else 0)) if leaf else pick(GLASS, 0.8 - u)
-            glint = (i - j) % 11 == 0 or (i - j) % 11 == 1
-            glass = pick(GLASS, 3.0 - 2.0 * u + (1.4 if glint else 0))  # streaks of glint, light from the left
-            c = base * 0.7 + glass * 0.3 if not glint else base * 0.45 + glass * 0.55
-            d = np.hypot(i - lx, (j - ly) * 1.3)
-            warm = max(0.0, 1 - d / 22.0) ** 1.4
-            c = c * (1 - 0.6 * warm) + WARMG * 0.6 * warm
-            if cell == gone:
-                c = base * 0.9                                         # no glass: the leaves themselves, a darker hole
-            elif cell in cracks and (i + j) % 3 == 0:
-                c = pick(GLASS, 4.4)                                   # a crack catches the light
+        def pane(i, j, u, cell, roof=0.0):
+            """One pixel of glass: the leaves behind, the glass's tint and glint, the lantern's warmth. roof 0 wall
+            .. 1 glass facing the sky."""
+            n = leaves[(j - top_all) % leaves.shape[0], (i - L + 10) % leaves.shape[1]]
+            leaf = n > -0.35 + 1.0 * roof
+            base = pick(INSIDE, 2.5 + 1.5 * n - 1.0 * u) if leaf else pick(TEAL, 1.2 - u + 1.5 * roof)
+            glint = (i - j) % 13 in (0, 1)
+            glass = pick(TEAL, 2.6 - 1.6 * u + 1.6 * roof + (1.3 if glint else 0))
+            c = base * (0.62 - 0.2 * roof) + glass * (0.38 + 0.2 * roof)
+            dd = np.hypot(i - lx, (j - ly) * 1.25)
+            warm = max(0.0, 1 - dd / 24.0) ** 1.3
+            c = c * (1 - 0.6 * warm) + WARMG * 0.62 * warm
+            if cell in gone:
+                c = base * 0.75 if leaf else hx('#0f1412')            # no glass: the leaves themselves, or dark
+            elif cell in cracked and (i + 2 * j) % 4 == 0:
+                c = pick(TEAL, 5.2)
             return c
-        # footing
-        for j in (y - 1, y):
+
+        def growth(i0, i1, yb, hmax, seed):
+            """Grass and weeds up the footing, taller in tufts."""
+            g = np.random.default_rng(seed)
+            for i in range(i0, i1):
+                h = int(max(0, g.normal(hmax * 0.45, hmax * 0.35)))
+                for dj in range(h):
+                    put(img, i, yb - dj, pick(MOSS if g.random() < 0.6 else LEAF, 3.4 - 2.4 * dj / max(1, h) + g.normal(0, 0.3)))
+
+        shade_ground(img, G, L - 2, R + 14, y - 4, y + 9, 0.6)
+        # ---------- the wings: footing, a wall of tall panes, the curved roof with its ribs
+        for side in (-1, 1):
+            a = L if side < 0 else x + PW // 2
+            b = x - PW // 2 if side < 0 else R
+            outer = a if side < 0 else b - 1
+            for k in range(2):
+                gone.add(('w', side, int(rng.integers(0, WW // 4)), int(rng.integers(0, 4))))
+            for k in range(3):
+                cracked.add(('w', side, int(rng.integers(0, WW // 4)), int(rng.integers(0, 5))))
+            for j in (y - 1, y):
+                for i in range(a, b):
+                    put(img, i, j, pick(STONE, 3.0 - 1.6 * (i - L) / (R - L) - 0.8 * (j == y) + rng.normal(0, 0.2)))
+            wt = y - 2 - WWALL
+            for j in range(wt, y - 1):
+                for i in range(a, b):
+                    u = (i - L) / (R - L)
+                    bar = (i - a) % 4 == 0 or j in (wt, wt + 3) or i == b - 1
+                    cell = ('w', side, (i - a) // 4, 0 if j < wt + 3 else 4)
+                    put(img, i, j, pick(RUST, 2.8 - 1.6 * u) if bar else pane(i, j, u, cell))
+            for k in range(WR):                                         # the roof, rising back from the wall
+                j = wt - 1 - k
+                t = k / (WR - 1)
+                hip = int(round(k * 0.55))                              # the outer end curves round too
+                i0, i1 = (a + hip, b) if side < 0 else (a, b - hip)
+                for i in range(i0, i1):
+                    u = (i - L) / (R - L)
+                    rib = (i - a) % 4 == 0
+                    purlin = k % 4 == 3
+                    cell = ('w', side, (i - a) // 4, 1 + k // 4)
+                    if rib or purlin or i in (i0, i1 - 1):
+                        c = pick(RUST, 2.6 - 1.4 * u + 0.8 * t)
+                    else:
+                        c = pane(i, j, u, cell, roof=0.25 + 0.6 * t)
+                    if k == 0:
+                        c = pick(RUST, 1.6 - u)
+                    put(img, i, j, c)
+            rj = wt - WR                                                # the ridge cap
+            for i in range(a + (int(WR * 0.55) if side < 0 else 0), b - (0 if side < 0 else int(WR * 0.55))):
+                put(img, i, rj, pick(RUST, 3.4 - 1.6 * (i - L) / (R - L)))
+            growth(a - 1, b + 1, y - 1, 6, s.seed + side)
+            for d in range(int(WWALL * 1.2)):                           # creepers up the outer corner
+                put(img, outer + side * (d % 3 == 0) * -1, y - 2 - d, pick(MOSS, 3.0 - 1.6 * d / WWALL))
+        # ---------- the pavilion: its roof running back behind the gable, then the facade and gable in front
+        yb = y + 3                                                      # it stands a little forward of the wings
+        x0, x1 = x - PW // 2, x + PW // 2
+        ft = yb - 1 - PWALL                                             # facade top
+        rad = PW / 2 + 1
+
+        def half(d):                                                    # the gable's half width d rows above ft
+            t = d / GH                                                  # round shoulders, then drawn in to a point
+            return rad * np.sqrt(max(0.0, 1 - t ** 1.4)) * (1 - 0.55 * t ** 1.5)
+        for d in range(GH + RD + 1):                                    # roof: the gable outline swept back
+            for back in range(1, RD + 1):
+                dd = d - back
+                if dd < 0 or dd > GH:
+                    continue
+                hw = half(dd)
+                j = ft - d
+                for i in range(int(round(x - hw)), int(round(x + hw)) + 1):
+                    u = (i - x0) / PW
+                    if i == x or i == x - 1:
+                        c = pick(RUST, 3.2 if i < x else 2.0)              # the ridge
+                    elif back % 3 == 0:
+                        c = pick(RUST, 2.4 - 1.2 * u)
+                    else:
+                        c = pane(i, j, u, ('r', i // 4, back // 3), roof=0.75)
+                    put(img, i, j, c)
+        gone.add(('r', (x + 6) // 4, 1))
+        for j in (yb - 1, yb):                                          # footing
             for i in range(x0 - 1, x1 + 1):
-                put(img, i, j, pick(STONE, 3.4 - 2.0 * (i - x0) / w - 0.8 * (j == y) + rng.normal(0, 0.2)))
-        top = y - 1 - s.wall
-        dx = s.x - 8
-        for j in range(top, y - 1):                                    # the front wall of panes
+                put(img, i, j, pick(STONE, 3.4 - 2.0 * (i - x0) / PW - 0.8 * (j == yb) + rng.normal(0, 0.2)))
+        dw, dh = 10, 17                                                 # the door, arched
+        for j in range(ft, yb - 1):
             for i in range(x0, x1):
-                u = (i - x0) / w
-                bar = (i - x0) % 6 == 0 or (j - top) % 5 == 0 or i == x1 - 1
-                if dx - 3 <= i <= dx + 3:                              # the door: a frame, two panes, a handle
-                    bar = bar or i in (dx - 3, dx + 3) or j == top + 1
-                    if j < top + 1:
-                        bar = True
-                cell = ((i - x0) // 6, (j - top) // 5)
-                put(img, i, j, pick(FRAME, 2.6 - 1.6 * u) if bar else pane(i, j, u, cell))
-        put(img, dx + 2, y - 6, FRAME[3])
-        for (u_, v_, c) in ((0, 0, hx('#fff0b0')), (0, 1, hx('#ffc85a')), (-1, 0, hx('#f08a2a')), (1, 0, hx('#f08a2a')),
-                            (0, -1, FRAME[0])):                        # the lantern itself, hanging inside
-            put(img, lx + u_, ly + v_, c)
-        for i in range(x0 - 1, x1 + 1):
-            put(img, i, top - 1, FRAME[1])                             # the plate under the roof
-        # the roof: glass panes in bars, the ridge running left-right
-        for k in range(s.roof):
-            j = top - 2 - k
-            hw = w / 2 + 2 - k * 0.05
-            for i in range(int(s.x - hw), int(s.x + hw) + 1):
-                u = (i - (s.x - hw)) / (2 * hw)
-                bar = (i - int(s.x - hw)) % 6 == 0 or k % 6 == 0
-                cell = ((i - x0) // 6, 4 + k // 6)
-                c = pick(FRAME, 2.2 - 1.4 * u) if bar else pane(i, j, u, cell, roof=True)
-                if not bar and k > s.roof - 4:
-                    c = c * 0.85 + pick(GLASS, 3.8 - 2 * u) * 0.15     # towards the ridge the glass faces the sky more
+                u = (i - x0) / PW
+                bar = (i - x0) % 5 == 0 or i == x1 - 1 or j in (ft, ft + 1, ft + 7)
+                frieze = j == ft + 1 and (i % 2 == 0)
+                c = pick(RUST, (3.4 if frieze else 2.6) - 1.6 * u) if bar else pane(i, j, u, ('p', (i - x0) // 5, (j - ft) // 7))
+                ddx = i - x
+                in_door = abs(ddx + 0.5) <= dw / 2 and (j > yb - 1 - dh + 5 or
+                                                        (ddx + 0.5) ** 2 + ((j - (yb - 1 - dh + 5)) * 1.0) ** 2 <= (dw / 2) ** 2)
+                if in_door:
+                    edge = abs(ddx + 0.5) > dw / 2 - 1.2 or (j <= yb - 1 - dh + 5 and
+                                                             (ddx + 0.5) ** 2 + (j - (yb - 1 - dh + 5)) ** 2 > (dw / 2 - 1.2) ** 2)
+                    if edge:
+                        c = RUST[4] if ddx < 0 else RUST[3]               # the door's frame, the brightest iron
+                    elif j <= yb - 1 - dh + 5:                           # the fanlight: radial bars
+                        ang = np.arctan2(j - (yb - 1 - dh + 5), ddx + 0.5)
+                        c = pick(RUST, 2.6) if int(round(ang / 0.6)) % 2 == 0 and abs(ddx) > 0 else pane(i, j, u, ('f', 0))
+                    elif ddx < 0:                                        # the left leaf stands open: inside, lit
+                        warm = max(0.0, 1 - np.hypot(i - lx, (j - ly) * 1.2) / 9.0)
+                        c = hx('#141711') * (1 - warm) + WARMG * 0.8 * warm
+                        if j > yb - 4:
+                            c = pick(STONE, 1.4)                         # the threshold inside
+                    else:
+                        c = pick(RUST, 2.4) if ddx in (2, 4) else pane(i, j, u, ('d', 0))
                 put(img, i, j, c)
-        rj = top - 2 - s.roof
-        for i in range(x0 - 2, x1 + 3):                                # the ridge beam with a little finial at each end
-            put(img, i, rj, pick(FRAME, 3.0 - 2 * (i - x0) / w))
-        put(img, x0 - 2, rj - 1, FRAME[3])
-        put(img, x1 + 2, rj - 1, FRAME[2])
-        # creepers have started up one corner, but no more than that
-        for d in range(int(s.wall * 0.8)):
-            put(img, x1 - 1 - (d % 3 == 0), y - 2 - d, pick(MOSS, 3.0 - 1.4 * d / s.wall))
-        for d in range(5):
-            put(img, x1 - 2 - d, top - 2 - (d % 2), MOSS[2])
+        for (u_, v_, c) in ((0, 0, hx('#fff0b0')), (0, 1, hx('#ffc85a')), (-1, 0, hx('#f08a2a')),
+                            (1, 0, hx('#f08a2a')), (0, -1, RUST[0]), (0, -2, RUST[0])):
+            put(img, lx + u_, ly + v_, c)                               # the lantern hanging inside the door
+        for d in range(GH + 1):                                         # the gable: panes, bars, a rusted edge
+            hw = half(d)
+            j = ft - 1 - d
+            for i in range(int(round(x - hw)), int(round(x + hw)) + 1):
+                u = (i - x0) / PW
+                bar = (i - x0) % 5 == 0 or d == 0 or d == 6
+                c = pick(RUST, 2.6 - 1.4 * u) if bar else pane(i, j, u, ('g', (i - x0) // 5, d // 6), roof=0.2)
+                if abs(i - (x - hw)) < 1 or abs(i - (x + hw)) < 1:
+                    c = pick(RUST, 3.4 - 1.6 * u)
+                put(img, i, j, c)
+            if d % 3 == 1 and d < GH - 1:                               # the crest: scrolls along the edge
+                for sgn in (-1, 1):
+                    put(img, int(round(x + sgn * (hw + 1))), j - 1, RUST[3] if sgn < 0 else RUST[2])
+        aj = ft - 1 - GH                                                # the finial: a spike with a scroll
+        for d in range(1, 13):
+            put(img, x, aj - d, RUST[4] if d < 8 else RUST[3])
+        for (u_, v_) in ((-1, -2), (1, -2), (-2, -3), (2, -3), (-3, -2), (3, -2), (-1, -6), (1, -6)):
+            put(img, x + u_, aj + v_, RUST[3])
+        for px in (x0 - 1, x1):                                         # small pinnacles at the shoulders
+            for d in range(4):
+                put(img, px, ft - d, RUST[4] if px < x else RUST[2])
+            put(img, px, ft - 4, RUST[3])
+        growth(x0 - 1, x - dw // 2, yb - 1, 7, s.seed + 5)
+        growth(x + dw // 2 + 1, x1 + 1, yb - 1, 7, s.seed + 6)
+        for d in range(int(PWALL * 0.9)):                               # a creeper up the left of the facade
+            put(img, x0 + 1 + (d % 4 == 1), yb - 2 - d, pick(MOSS, 3.2 - 1.8 * d / PWALL))
+            if d % 3 == 0:
+                put(img, x0 + 2, yb - 2 - d, MOSS[1])
+        # ---------- in front: two stone posts at the door, stone-edged beds run wild
+        for px in (x - dw // 2 - 4, x + dw // 2 + 1):
+            Block(px, yb + 5, w=3, h=5, d=1, seed=s.seed + px).draw(img, G)
+        for (bx0, bx1) in ((x0 - WW + 4, x - dw // 2 - 7), (x + dw // 2 + 6, x1 + WW - 4)):
+            by0, by1 = y + 6, y + 15
+            for j in range(by0, by1 + 1):
+                for i in range(bx0, bx1 + 1):
+                    if j in (by0, by1) or i in (bx0, bx1):
+                        c = pick(STONE, 3.6 - 1.2 * (i - bx0) / (bx1 - bx0) - 0.9 * (j == by1 or i == bx1))
+                    else:
+                        n = leaves[(j * 3) % leaves.shape[0], (i * 2) % leaves.shape[1]]
+                        c = pick(MOSS if n > -0.2 else SOIL, 2.4 + 1.4 * n) if n > -0.8 else SOIL[1]
+                    put(img, i, j, c)
+            for i in range(bx0, bx1 + 1):                               # its shadow
+                if 0 <= by1 + 1 < img.shape[0] and 0 <= i < img.shape[1]:
+                    img[by1 + 1, i] = img[by1 + 1, i] * 0.7
 
 
 class Block:
@@ -615,78 +731,113 @@ class Block:
 
 
 class Steinmetz:
-    """The stonemason's open shed: four posts and a mossy tiled roof over a work floor pale with stone dust, a bench
-    with chisels and a mallet, a Jizo half out of its block, blocks waiting outside. Same chisel marks as the well and
-    the walls of the village (the plan's hint at who built them)."""
-    def __init__(s, x, y, w=40, seed=41):
-        s.x, s.y, s.w, s.seed = x, y, w, seed
+    """The stonemason's house (Philip, round 2: the workshop against a house, not standing alone): a small minka, and
+    under a lean-to roof tucked beneath its eave an open workshop on its east side - the house's wall its back, a plank
+    wall at the back running up to the roof, tools hanging on it, a bench, the floor pale with stone dust. Out in
+    front a Jizo half out of its block. Same chisel marks as the well and the walls of the village."""
+    LW = 34                                    # the workshop's width
+
+    def __init__(s, x, y, seed=41):
+        s.x, s.y, s.seed = x, y, seed
+        s.house = Minka(x - 22, y, w=42, wall=14, roof=18, seed=seed, kind='kawara', ruin=0.45, pal=1)
 
     def box(s):
-        return (s.x - s.w // 2 - 6, s.y - 34, s.x + s.w // 2 + 10, s.y + 10)
+        hb = s.house.box()
+        return (hb[0], hb[1], s.x + s.LW + 14, s.y + 10)
 
     def draw(s, img, G):
         rng = np.random.default_rng(s.seed)
-        w, x0, y = s.w, s.x - s.w // 2, s.y
-        x1 = x0 + w
+        y = s.y
+        xs = s.house.x + s.house.w // 2 - 1                            # the house's east wall
+        xe = xs + s.LW
         DUST = [hx(c) for c in ['#8e8a82', '#aaa69c', '#c4c0b4']]
-        for j in range(y - 16, y + 8):                                # stone dust on the floor and out in front
-            for i in range(x0 - 4, x1 + 6):
-                e = ((i - s.x) / (w / 2 + 5)) ** 2 + ((j - y + 3) / 9.0) ** 2
-                if e < 1 and g_at(G, i, j) < 0.95 - 0.6 * e:
-                    put(img, i, j, pick(DUST, 2.6 - 1.6 * e + g_at(G, i * 7, j) - 0.5))
-        # the back wall: a few planks, tools hanging on it
-        bt = y - 22
-        for j in range(bt, y - 12):
-            for i in range(x0 + 2, x1 - 2):
-                put(img, i, j, pick(WOOD, 2.4 - 1.4 * (i - x0) / w + (-0.8 if (i - x0) % 4 == 0 else 0)))
-        for k, tx in enumerate(range(x0 + 6, x0 + 20, 3)):            # chisels and a saw on pegs
-            for d in range(3 + k % 2):
-                put(img, tx, bt + 2 + d, hx('#8c9096') if d < 2 else WOOD[3])
-        for i in range(x1 - 14, x1 - 6):
-            put(img, i, bt + 3, hx('#6c7076'))
-        # the bench with a mallet and chisels
-        for i in range(x0 + 4, x0 + 18):
-            put(img, i, y - 10, WOOD[4])
-            put(img, i, y - 9, WOOD[2])
-        for leg in (x0 + 5, x0 + 16):
-            for d in range(4):
-                put(img, leg, y - 8 + d, WOOD[1])
-        for (i, j, c) in ((x0 + 7, y - 11, WOOD[3]), (x0 + 8, y - 11, WOOD[3]), (x0 + 8, y - 12, WOOD[4]),
-                          (x0 + 9, y - 11, WOOD[2]), (x0 + 12, y - 11, hx('#9a9ea4')), (x0 + 13, y - 11, hx('#9a9ea4')),
-                          (x0 + 14, y - 11, WOOD[3])):
+        fe, fb = y - 16, y - 8                                         # eave of the lean-to, back of its floor
+        for j in range(fb, y + 9):                                     # stone dust on the floor and out in front
+            for i in range(xs - 2, xe + 8):
+                e = ((i - (xs + xe) / 2) / (s.LW / 2 + 6)) ** 2 + ((j - y) / 9.0) ** 2
+                if (j <= y and i < xe) or (e < 1 and g_at(G, i, j) < 0.95 - 0.6 * e):
+                    put(img, i, j, pick(DUST, 2.0 - 1.6 * min(e, 1) + g_at(G, i * 7, j) - 0.6 - 0.8 * (j < fb + 3)
+                                        - 0.5 * (j > y or i >= xe)))
+        # the back wall: planks from the floor right up under the roof, the full width, tools on it
+        for j in range(fe + 1, fb):
+            for i in range(xs, xe):
+                put(img, i, j, pick(WOOD, 2.0 - 1.0 * (i - xs) / s.LW + (-0.8 if (i - xs) % 4 == 0 else 0)
+                                    - 0.6 * (j < fe + 3)))
+        for k, tx in enumerate(range(xs + 4, xs + 16, 3)):             # chisels and a mallet on pegs
+            put(img, tx, fe + 3, WOOD[0])
+            for dd in range(1, 4 + k % 2):
+                put(img, tx, fe + 3 + dd, hx('#9aa0a6') if dd < 3 else WOOD[4])
+        for i in range(xs + 19, xs + 28):                              # a saw: the blade, its teeth, the grip
+            put(img, i, fe + 4, hx('#80868c'))
+            if i % 2:
+                put(img, i, fe + 5, hx('#5c6268'))
+        put(img, xs + 28, fe + 4, WOOD[4])
+        put(img, xs + 29, fe + 4, WOOD[3])
+        # the bench against the wall with a mallet, chisels and a small stone on it
+        for i in range(xs + 3, xs + 19):
+            put(img, i, fb + 1, WOOD[4])
+            put(img, i, fb + 2, WOOD[2])
+        for leg in (xs + 4, xs + 17):
+            for dd in range(3, 7):
+                put(img, leg, fb + dd, WOOD[1])
+        for (i, j, c) in ((xs + 6, fb, WOOD[3]), (xs + 7, fb, WOOD[3]), (xs + 7, fb - 1, WOOD[4]),
+                          (xs + 10, fb, hx('#9aa0a6')), (xs + 11, fb, hx('#9aa0a6')), (xs + 12, fb, WOOD[3]),
+                          (xs + 14, fb, STONE[3]), (xs + 15, fb, STONE[2]), (xs + 14, fb - 1, STONE[4])):
             put(img, i, j, c)
-        # the half-made Jizo: a head and shoulders out of a rough block
-        jx, jy = x1 - 12, y - 2
-        Block(jx - 5, jy, w=10, h=5, d=3, seed=s.seed + 1, worked=False).draw(img, G)
-        for j in range(jy - 13, jy - 4):
-            t = (j - (jy - 13)) / 9.0
-            hw = 2 + int(t * 2.4)
-            for i in range(-hw, hw + 1):
-                put(img, jx + i, j, pick(STONE, 3.2 - 1.6 * (i + hw) / (2 * hw) + rng.normal(0, 0.15)))
-        for j in range(jy - 18, jy - 13):
-            for i in range(-3, 4):
-                if i * i + (j - (jy - 15.5)) ** 2 * 1.3 < 9:
-                    put(img, jx + i, j, pick(STONE, 3.4 - 0.4 * i + rng.normal(0, 0.15)))
-        # posts and the roof
-        for px in (x0, x1 - 1):
-            for j in range(y - 24, y + 1):
-                put(img, px, j, WOOD[3] if px == x0 else WOOD[1])
-                put(img, px + 1, j, WOOD[1] if px == x0 else WOOD[0])
-        mn = ndi_noise(s.seed, 14, w + 14)
-        for k in range(12):
-            j = y - 25 - k
-            hw = w / 2 + 5 - k * 0.3
-            for i in range(int(s.x - hw), int(s.x + hw) + 1):
-                u = (i - (s.x - hw)) / (2 * hw)
-                lit = 3.3 - 2.0 * u + (0.6, 0.0, -0.9)[(i - int(s.x - hw)) % 3] - (0.5 if k % 3 == 0 else 0)
+        # the corner post at the front, the beam under the lean-to's eave
+        for j in range(fe, y + 1):
+            put(img, xe - 2, j, WOOD[2])
+            put(img, xe - 1, j, WOOD[0])
+        for i in range(xs, xe + 1):
+            put(img, i, fe, WOOD[0])
+        # the lean-to roof: tiles from the eave back up under the house's eave, lower towards its outer end
+        mn = ndi_noise(s.seed, 14, s.LW + 10)
+        for i in range(xs - 2, xe + 3):
+            u = (i - xs) / s.LW
+            depth = int(round(10 - 2.5 * max(0.0, u)))
+            for k in range(depth):
+                j = fe - 1 - k
+                lit = 2.8 - 1.4 * u + (0.6, 0.0, -0.9)[(i - xs) % 3] - (0.5 if k % 3 == 0 else 0) + 0.4 * k / depth
                 c = pick(ROOFS['kawara'][1], lit)
-                if mn[k, min(int(i - s.x + hw), mn.shape[1] - 1)] > 0.6:
+                if mn[k, min(max(0, i - xs + 2), mn.shape[1] - 1)] > 0.5:
                     c = pick(MOSS, lit * 0.8 + 0.4)
                 if k == 0:
                     c = pick(ROOFS['kawara'][1], 1.0 - u)
                 put(img, i, j, c)
-        for i in range(int(s.x - w / 2 - 5), int(s.x + w / 2 + 6)):
-            put(img, i, y - 24, WOOD[0])                               # the shadow under the eave
+        # then the house over it, its eave over the lean-to's top
+        s.house.draw(img, G)
+        # the half-made Jizo out in front: head, shoulders and folded hands cut, the rest still the rough block
+        jx, jy = xe + 4, y + 5                                         # beside the corner post, out in the dust
+        Block(jx - 6, jy, w=11, h=6, d=3, seed=s.seed + 1, worked=False).draw(img, G)
+        body = jy - 5
+        hc = body - 11.5
+        for j in range(int(hc) - 5, body + 1):                         # a dark rim first, so it stands off the dust
+            for i in range(-6, 7):
+                t = (j - (body - 8)) / 8.0
+                if (i * i + (j - hc) ** 2 < 21) or (j >= body - 8 and abs(i) <= 3.0 + t * 1.8 + 1):
+                    put(img, jx + i, j, STONE[0])
+        for j in range(body - 8, body + 1):                            # the robe, a bell from the head down to the block
+            t = (j - (body - 8)) / 8.0
+            hw = 3.0 + t * 1.8
+            for i in range(int(-hw), int(hw) + 1):
+                c = pick(STONE, 3.0 - 2.0 * (i + hw) / (2 * hw) + rng.normal(0, 0.12))
+                if (j - body) % 3 == 0 and abs(i) < hw - 1:
+                    c = pick(STONE, 1.6)                               # the robe's folds
+                put(img, jx + i, j, c)
+        for (i, j, c) in ((0, -4, STONE[4]), (-1, -4, STONE[3]), (1, -4, STONE[2]), (0, -3, STONE[1])):
+            put(img, jx + i, body + j, c)                               # the hands folded in front
+        for j in range(int(hc) - 4, int(hc) + 5):                       # the big round shaven head
+            for i in range(-4, 5):
+                e = i * i + (j - hc) ** 2
+                if e < 14:
+                    c = pick(STONE, 3.9 - 0.4 * i - 0.25 * (j - hc) + rng.normal(0, 0.1))
+                    if e > 9.5:
+                        c = pick(STONE, 1.5 + (i < 0) + (j < hc))
+                    put(img, jx + i, j, c)
+        for i in range(-4, 5):                                          # the cut line where the block still waits
+            put(img, jx + i, body + 1, STONE[1] if i % 2 else STONE[2])
+        for (i, j) in ((jx + 7, jy + 1), (jx + 8, jy + 2), (jx - 8, jy + 2), (jx + 5, jy + 3)):
+            put(img, i, j, STONE[3])                                    # chips round it
 
 
 def ndi_noise(seed, h, w):

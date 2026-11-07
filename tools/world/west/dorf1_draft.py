@@ -30,7 +30,7 @@ W, H = X1 - X0, Y1 - Y0
 EDGE = 24                                  # today's columns 0..EDGE are the fir wall: they go
 SQUARE = (520, 2330)
 GLASHAUS = (680, 2600)                     # zone 2: the greenhouse's foot (front wall middle)
-STEINMETZ = (330, 2500)                    # zone 2: the stonemason's shed
+STEINMETZ = (330, 2500)                    # zone 2: the stonemason's house, its workshop on the east
 FIRE = (222 + WW, 2292)
 # (garden centre, house seed, roof kind, how fallen in); the house stands at the back of its plot, facing south
 HOUSES = [((380, 2180), 1, 'kawara', 0.5), ((560, 2150), 2, 'kaya', 0.8), ((690, 2230), 3, 'kawara', 0.35),
@@ -41,7 +41,7 @@ PATHS = {
                 (SQUARE[0] + 16, SQUARE[1] + 2)],
     'nord': [(SQUARE[0] - 6, SQUARE[1] - 14), (500, 2250), (470, 2150), (446, 2060), (430, 1990)],
     'sued': [(SQUARE[0] + 8, SQUARE[1] + 14), (560, 2420), (620, 2520), (600, 2620), (540, 2700), (470, 2770)],
-    'glas': [(603, 2596), (620, 2603), (645, 2607), (672, 2606)],              # zone 2: to the greenhouse door
+    'glas': [(603, 2600), (626, 2619), (656, 2623), (680, 2611)],              # zone 2: below the beds to the door
     'west': [(SQUARE[0] - 16, SQUARE[1] + 4), (420, 2360), (350, 2440), (300, 2470), (250, 2520)],
 }
 
@@ -175,7 +175,7 @@ def main(out, scale=2):
     things.append(st)
     x0b, y0b, x1b, y1b = st.box()
     blocked[max(0, y0b):y1b, max(0, x0b):x1b] = True
-    for k, (bx_, by_, bw, bh) in enumerate([(356, 2506, 7, 4), (368, 2512, 5, 6), (348, 2516, 9, 3), (378, 2502, 6, 3)]):
+    for k, (bx_, by_, bw, bh) in enumerate([(376, 2512, 7, 4), (388, 2508, 5, 6), (352, 2514, 9, 3), (392, 2518, 6, 3)]):
         things.append(o.Block(bx_ - X0, by_ - Y0, w=bw, h=bh, seed=50 + k))
         blocked[by_ - Y0 - 10:by_ - Y0 + 3, bx_ - X0 - 2:bx_ - X0 + bw + 6] = True
     # ---- the well, lanterns at the square and the way in, a torch by the first house
