@@ -647,17 +647,21 @@ def main(out, scale=2):
         if not wet6[y - Y0, x - X0]:
             things.append(cls_(x - X0, y - Y0, seed=175 + x % 7, size=sz))
             blocked[y - Y0 - 3:y - Y0 + 4, x - X0 - 4:x - X0 + 5] = True
+    gl4 = []
     for k, (x, y) in enumerate([(205, 3990), (395, 4380)]):            # the drying racks of the old fields
         things.append(o.Hasagi(x - X0, y - Y0, w=30 - 8 * k, seed=170 + k))
-        blocked[y - Y0 - 6:y - Y0 + 14, x - X0 - 8:x - X0 + 38] = True    # no tall blades in front of it
+        gl4.append((x - X0 + 15 - 4 * k, y - Y0 + 2, 24 - 4 * k, 12, 190 + k))   # trodden round, no tall blades
     for k, (x, y, r_) in enumerate([(60, 3930, 7), (230, 4120, 6), (120, 4380, 8), (260, 4560, 6), (40, 4600, 7),
                                     (370, 4290, 5), (90, 4700, 6)]):
         if not wet6[y - Y0, x - X0]:
             things.append(Findling(x - X0, y - Y0, r_, 180 + k))
             blocked[y - Y0 - r_:y - Y0 + 3, x - X0 - r_:x - X0 + r_ + 2] = True
     pcx, pcy = POOLS[0][0] - X0, POOLS[0][1] - Y0                       # a bench by the iris pool, the trail's end
-    things.append(z2.Bank(pcx + 6, pcy - POOLS[0][2] - 12))
-    blocked[pcy - POOLS[0][2] - 20:pcy - POOLS[0][2] + 2, pcx - 6:pcx + 22] = True
+    things.append(o.SanfteBank(pcx + 6, pcy - POOLS[0][2] - 12))
+    gl4.append((pcx + 6, pcy - POOLS[0][2] - 13, 20, 11, 192))
+    for cx_, cy_, rx_, ry_, sd_ in gl4:                                 # soft glades, as round the mill
+        gl = np.minimum(gl, glade(cx_, cy_, rx_, ry_, sd_))
+    blocked |= gl < 0.7
     for k, (x, y) in enumerate([(380, 4040), (440, 4200), (230, 4420), (330, 4560), (150, 4640), (520, 3930),
                                 (720, 3960), (130, 4180), (300, 4700), (600, 4720), (40, 4150), (170, 4280),
                                 (60, 4500), (210, 4720), (380, 3960), (290, 3870)]):

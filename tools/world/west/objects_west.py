@@ -1623,3 +1623,34 @@ class Hasagi:
                 for i in range(bx, bx + 3):
                     if j < 4 or (i + j) % 2:
                         put(img, i, s.y - 16 + j, pick(THATCH[:4] if k % 2 else ROOFS['kaya'][1], 3.2 - 0.5 * j - 0.4 * (i - bx)))
+
+
+class SanfteBank:
+    """The south's stone bench, its cast shadow soft: the ground under it only darkened, dithered out at the rim,
+    instead of the flat dark patch (Philip, west 4b round 4)."""
+    def __init__(s, x, y):
+        import zone2_draft as z2
+        s.b, s.x, s.y = z2.Bank(x, y), x, y
+
+    def box(s):
+        return s.b.box()
+
+    def draw(s, img, G):
+        x, y = s.x, s.y
+        before = img[y - 8:y + 6, x - 14:x + 18].copy()
+        s.b.draw(img, G)
+        for j in range(-1, 5):                                        # where the bench put its flat shadow
+            for i in range(-3, 15):
+                if ((i - 9) / 10) ** 2 + ((j - 2) / 2.6) ** 2 >= 1 or not (-2 <= j - 1 <= 0 or j - 1 > 0):
+                    continue
+                jj, ii = y + j - 1, x - 3 + i
+                if jj <= y - 2 and -10 <= ii - x <= 10:
+                    continue                                          # the slab and its underside stay
+                if jj in (y - 2, y - 1, y, y + 1) and any(0 <= ii - x - bx < 4 for bx in (-8, 5)):
+                    continue                                          # the legs stay
+                e = ((i - 9) / 10) ** 2 + ((j - 2) / 2.6) ** 2
+                k = 0.62 + 0.3 * e
+                if e > 0.55 and g_at(G, ii, jj) < 0.5:
+                    k = 1.0
+                b0 = before[jj - (y - 8), ii - (x - 14)]
+                put(img, ii, jj, b0 * k)
