@@ -1228,11 +1228,16 @@ CULM = [hx(c) for c in ['#2a3420', '#3c4a2c', '#53643a', '#6e7f4a', '#8c9a5e']] 
 BLEAF = [hx(c) for c in ['#1a2416', '#26341e', '#344828', '#465e32', '#5c763e']]
 
 
+WHEEL = [hx(c) for c in ['#17130f', '#241d18', '#33291f', '#45372b', '#5a4838', '#7a6248', '#957a58']]  # dark, wet timber
+IRON = [hx(c) for c in ['#1c1d20', '#33353a', '#55585e']]
+
+
 class Wasserrad:
-    """The mill's waterwheel seen face on (its axle runs north-south, across the brook): a rim of two rings, eight
-    spokes, paddles all round, two of them broken off, moss and a trickle off the bottom paddles into the brook.
-    (x, y) its hub."""
-    def __init__(s, x, y, r=13, seed=81):
+    """The mill's waterwheel seen face on (its axle runs north-south, across the brook): two rings with the paddles
+    between them, eight spokes two wide, an iron-banded hub, open between the spokes (the bank shows through, a
+    little shaded), joints in the rims, moss and wet dark wood low down, two paddles broken off, a trickle into the
+    brook. (x, y) its hub."""
+    def __init__(s, x, y, r=17, seed=81):
         s.x, s.y, s.r, s.seed = x, y, r, seed
 
     def box(s):
@@ -1241,32 +1246,50 @@ class Wasserrad:
     def draw(s, img, G):
         rng = np.random.default_rng(s.seed)
         x, y, r = s.x, s.y, s.r
-        broken = set(int(k) for k in rng.choice(16, 2, replace=False))
-        for j in range(y - r - 3, y + r + 4):
-            for i in range(x - r - 3, x + r + 4):
-                d = np.hypot(i - x, j - y)
-                a = np.arctan2(j - y, i - x)
-                lit = 4.4 - 0.9 * (i - x) / r - 0.6 * (j - y) / r
-                k = int(((a + np.pi) / (2 * np.pi)) * 16) % 16
+        NP = 16
+        broken = set(int(k) for k in rng.choice(NP, 2, replace=False))
+        tone = rng.uniform(-0.35, 0.35, NP)                            # each rim segment its own plank
+        ri = r - 5                                                     # the inner ring
+        for j in range(y - r - 4, y + r + 5):
+            for i in range(x - r - 4, x + r + 5):
+                dx, dy = i - x, j - y
+                d = np.hypot(dx, dy)
+                a = np.arctan2(dy, dx)
+                u = (a + np.pi) / (2 * np.pi) * NP
+                k = int(u) % NP
+                lit = 3.2 - 1.3 * dx / r - 1.0 * dy / r + tone[k]          # light from the upper left
+                lit -= 0.8 * max(0, dy / r - 0.35)                       # wet and dark low down
+                sa = a % (np.pi / 4)
+                sd = d * abs(np.sin(min(sa, np.pi / 4 - sa)))            # off the nearest spoke, in pixels
+                pd = d * abs(np.sin(((u % 1) - 0.5) * 2 * np.pi / NP))   # off the nearest paddle
+                joint = abs((u % 1) - 0.5) > 0.46
                 c = None
-                spoke = abs(((a * 4 / np.pi) % 1) - 0.5) > 0.36
-                paddle = abs(((a + np.pi) * 16 / (2 * np.pi)) % 1 - 0.5) < 0.24 and k not in broken
-                if r - 2.2 <= d < r + 0.8:
-                    c = pick(WOOD, lit + 0.3)                           # the rim, thick and lit
-                elif r + 0.8 <= d < r + 3.6 and paddle:
-                    c = pick(WOOD, lit - 0.2)                           # a paddle standing out
-                elif r + 0.8 <= d < r + 1.8:
-                    c = WOOD[0]                                         # the dark rim's edge
-                elif d < 2.2:
-                    c = pick(WOOD, lit + 0.6)                           # the hub
-                elif d < r - 2.2:
-                    c = pick(WOOD, lit - 0.3) if spoke else HOLE * 0.6 + WOOD[0] * 0.4   # spokes on the dark inside
+                if r - 2 <= d < r + 0.6:                                 # outer ring
+                    c = WHEEL[0] if joint else pick(WHEEL, lit + 1.1 - 1.6 * (d >= r - 0.4))
+                elif ri - 1.6 <= d < ri:                                 # inner ring
+                    c = WHEEL[1] if joint else pick(WHEEL, lit + 0.2)
+                elif ri <= d < r - 2 and pd < 0.9 and k not in broken:   # paddles between the rings
+                    c = pick(WHEEL, lit - 0.1 + 0.5 * (pd < 0.4))
+                elif ri <= d < r - 2:
+                    c = img[j, i] * 0.55 if 0 <= j < img.shape[0] and 0 <= i < img.shape[1] else None   # the gap: shadow
+                elif r + 0.6 <= d < r + 3.2 and pd < 0.8 and k not in broken:   # paddle ends standing out
+                    c = pick(WHEEL, lit - 0.4)
+                elif d < 2.0:
+                    c = pick(IRON, 1.6 - 0.6 * dx - 0.4 * dy)            # the axle end
+                elif d < 3.6:
+                    c = pick(IRON, 1.2 - 0.3 * dx / 3 - 0.3 * dy / 3) if abs(d - 2.8) < 0.5 else pick(WHEEL, lit + 0.4)
+                elif d < ri - 1.6 and sd < 1.05:                         # spokes, two wide
+                    c = pick(WHEEL, lit + 1.0 - 1.4 * (sd > 0.55))
+                elif d < ri - 1.6 and 0 <= j < img.shape[0] and 0 <= i < img.shape[1]:
+                    c = img[j, i] * 0.86                                 # open: the wheel's own shadow behind
                 if c is not None:
-                    if g_at(G, i * 5, j * 3) < 0.14:
-                        c = pick(MOSS, lit * 0.7)
+                    if dy > r * 0.2 and g_at(G, i * 5, j * 3) < 0.22 and d >= ri - 1.6:
+                        c = pick(MOSS, 1.4 + 0.8 * g_at(G, i, j))
                     put(img, i, j, c)
-        for d in range(4):                                             # water running off the lowest paddles
-            put(img, x - 2 + d, y + r + 2 + d % 2, hx('#a3aeb6'))
+        for d in range(5):                                             # water running off the lowest paddles
+            put(img, x - 3 + d, y + r + 2 + d % 2, hx('#a3aeb6'))
+            if d % 2:
+                put(img, x - 2 + d, y + r + 4, hx('#d6dde1'))
 
 
 class Muehle:
@@ -1276,29 +1299,46 @@ class Muehle:
     def __init__(s, x, y, seed=82):
         s.x, s.y, s.seed = x, y, seed
         s.house = Minka(x, y, w=34, wall=12, roof=17, seed=seed, kind='kaya', ruin=0.55, pal=1, rich=True)
-        s.wheel = Wasserrad(x - 30, y + 6, seed=seed + 1)     # upstream (west) of the house, on its gable side
+        s.wheel = Wasserrad(x - 33, y + 6, seed=seed + 1)     # upstream (west) of the house, on its gable side
+        s.phase = 0                                            # the flume's water, for the slow loop
 
     def box(s):
         hb = s.house.box()
-        return (s.x - 70, hb[1], hb[2], s.y + 22)
+        return (s.x - 104, hb[1], hb[2], s.y + 26)
 
     def draw(s, img, G):
         s.house.draw(img, G)
         s.wheel.draw(img, G)
         wx, wy, r = s.wheel.x, s.wheel.y, s.wheel.r
-        top = wy - r - 3                                               # the flume: a trough on two posts
-        for i in range(wx - 2, wx - 34, -1):                            # coming in from upstream onto its top
-            put(img, i, top, WOOD[4])
-            put(img, i, top + 1, WOOD[2])
-            put(img, i, top + 2, WOOD[1])
-            if i % 3 == 0:
-                put(img, i, top - 1, hx('#7f8c96'))                     # a thread of water in it still
-        for px in (wx - 30, wx - 16):
-            for j in range(top + 3, s.y + 4):
-                put(img, px, j, WOOD[3])
-                put(img, px + 1, j, WOOD[1])
-        for d in range(3):                                             # dripping off its end onto the wheel
-            put(img, wx - 3, top + 3 + d * 2, hx('#a3aeb6'))
+        # the flume (kakehi): a plank trough on posts from a weir upstream on the bank onto the top of the wheel,
+        # the ground falling away under it so the posts grow taller; water in it, glints drifting down (s.phase)
+        x0, y0, x1, y1 = wx - 64, wy - 38, wx - 2, wy - r - 3          # drawn line: intake .. over the wheel
+        gy0, gy1 = wy - 33, wy + r                                     # the ground under both ends
+        n = x1 - x0
+        for k in range(n + 1):
+            t = k / n
+            i, j = x0 + k, int(round(y0 + (y1 - y0) * t))
+            put(img, i, j - 1, WHEEL[5] if k % 11 else WHEEL[2])       # back board's top edge, joints
+            put(img, i, j, hx('#64717c') if (k + s.phase) % 9 else hx('#a3aeb6'))   # the water, seen into
+            put(img, i, j + 1, hx('#4e5a65') if (k + s.phase + 4) % 18 else hx('#d6dde1'))
+            put(img, i, j + 2, WHEEL[5] if k % 11 else WHEEL[2])       # front board, its top lit
+            put(img, i, j + 3, WHEEL[3])
+            put(img, i, j + 4, WHEEL[0])                               # its underside, in shadow
+        for t in (0.08, 0.36, 0.64):                                   # the posts, clear of the wheel
+            i = int(round(x0 + n * t))
+            j0 = int(round(y0 + (y1 - y0) * t)) + 5
+            for j in range(j0, int(round(gy0 + (gy1 - gy0) * t)) + 1):
+                put(img, i, j, WHEEL[3])
+                put(img, i + 1, j, WHEEL[1])
+            put(img, i - 1, j0, WHEEL[2])                              # a cross piece under the trough
+            put(img, i + 2, j0, WHEEL[2])
+        for d in (-2, 2):                                              # the weir: two stakes in the brook
+            for j in range(gy0 - 4, gy0 + 3):
+                put(img, x0 - 2 + d, j, WHEEL[3] if j < gy0 else WHEEL[1])
+        put(img, x0 - 2, gy0 - 2, hx('#a3aeb6'))
+        for d in range(4):                                             # falling off its end onto the wheel
+            if (d + s.phase) % 3:
+                put(img, x1 + 1, y1 + 3 + d * 2 + s.phase % 2, hx('#d6dde1') if d == 0 else hx('#a3aeb6'))
 
 
 class Bambus:

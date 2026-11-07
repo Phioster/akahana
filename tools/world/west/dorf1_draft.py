@@ -121,7 +121,10 @@ def draw_terraces(img, rng, pathm):
         edges.append(edges[-1] + depths[len(edges) - 1])
     n = len(edges) - 1
     xs = xx[0].astype(float)
-    b = np.stack([edges[k] + 9 * np.sin(xs / 70.0 + k * 0.9) + 3 * np.sin(xs / 23.0 + k * 2.1) for k in range(n + 1)])
+    cx_, R_ = (x0 + x1) / 2, (x1 - x0) * 0.62
+    bow = np.clip(1 - ((xs - cx_) / R_) ** 2, 0, 1)                      # the hill's spur: every contour bows downhill
+    b = np.stack([edges[k] + 14 * bow + 7 * np.sin(xs / 70.0 + k * 0.9) + 3 * np.sin(xs / 23.0 + k * 2.1)
+                  for k in range(n + 1)])
     k_of = np.full((H, W), -1)
     for k in range(n):
         k_of[(yy >= b[k][None, :]) & (yy < b[k + 1][None, :])] = k
@@ -130,14 +133,16 @@ def draw_terraces(img, rng, pathm):
     mid = (x0 + x1) / 2 + 34 * np.sin(np.arange(n) * 0.8 + 1) + r.uniform(-10, 10, n)
     lo, hi = mid - half, mid + half
     kk = np.clip(k_of, 0, n - 1)
-    wob = 6 * fbm(H, W, 5, 95)
+    wob = 6 * fbm(H, W, 5, 95) + 16 * fbm(H, W, 14, 105)                # ragged ends, no straight cut
     terr = (k_of >= 0) & (xx > lo[kk] + wob) & (xx < hi[kk] + wob)
     terr &= ~ndi.binary_dilation(pathm, iterations=3)                    # the path keeps its way by them
     lab, nl = ndi.label(terr)
     terr &= np.isin(lab, np.argsort(np.bincount(lab.ravel()))[::-1][1:2])  # one piece: no stray specks at the rim
     flooded = set(int(v) for v in r.choice(n, max(2, n // 3), replace=False))
     patch = fbm(H, W, 6, 96)
-    wet = terr & np.isin(k_of, list(flooded)) & (patch > -0.35)          # water, its far ends grown over
+    din = ndi.distance_transform_edt(terr)
+    fade = smooth((din - 2 + 8 * fbm(H, W, 6, 106)) / 24.0)               # the field runs out into the meadow at its rim
+    wet = terr & np.isin(k_of, list(flooded)) & (patch > -0.35) & (din > 7 + 5 * fbm(H, W, 5, 107))   # pools inset
     dry = terr & ~wet
     WAT = [hx(c) for c in ['#3c4650', '#4e5a65', '#5a6670', '#64717c']]
     g = rng.random((H, W))
@@ -152,16 +157,38 @@ def draw_terraces(img, rng, pathm):
     img[weed] = hx('#4f5d43')
     reed = wet & (g > 0.97)
     img[reed] = hx('#6e7048')
-    img[dry] = img[dry] * np.array([0.8, 0.88, 0.74]) * (0.9 + 0.12 * g[dry, None])
+    tint = 1 - 0.75 * fade[..., None] * (1 - np.array([0.84, 0.9, 0.8]) * (0.92 + 0.1 * g[..., None]))
+    img[dry] = (img * tint)[dry]
+    lines = fade > 0.25 + 0.6 * np.random.default_rng(108).random((H, W)) * (1 - fade)          # bunds and faces peter out at the rim
     EARTH = [hx('#2a2422'), hx('#3b332e'), hx('#51463e'), hx('#6a5a48')]
-    bund = terr & (into < 2)
+    bund = terr & (into < 2) & (lines | wet)
     img[bund] = np.array(EARTH)[np.clip((2 + g * 2).astype(int), 0, 3)][bund]
     grassy = bund & (fbm(H, W, 1.5, 97) > 0.1)
     img[grassy] = hx('#5b6447')
-    face = terr & (below <= 3)
+    face = terr & (below <= 3) & (lines | ndi.binary_dilation(wet, iterations=3))
     img[face] = np.array(EARTH)[np.clip((g * 2).astype(int), 0, 1)][face]
     img[face & (g > 0.88)] = hx('#666a70')
-    return terr, dry
+    return terr, dry, fade
+
+
+def match_seam(img, skip, seam, gy, band=40, reach=280):
+    """The new columns, row by row, to the brightness of today's world just across the seam, fading out westward
+    over reach px (the two grass fields are made apart and differ a little in tone)."""
+    def row_mean(a, m):
+        n = m.sum(1)
+        v = (a * m[..., None]).sum(1) / np.maximum(n, 1)[:, None]
+        ok = n > band // 3
+        idx = np.arange(len(v))
+        return np.stack([np.interp(idx, idx[ok], v[ok, c]) for c in range(3)], 1)
+    L = row_mean(img[:, seam - band - 4:seam - 4], ~skip[:, seam - band - 4:seam - 4])
+    R = row_mean(img[:, seam + 4:seam + band + 4], ~skip[:, seam + 4:seam + band + 4])
+    ratio = np.clip(ndi.gaussian_filter1d(R, 24, axis=0) / np.maximum(ndi.gaussian_filter1d(L, 24, axis=0), 1),
+                    0.8, 1.25)
+    wy = smooth((gy[:, 0] - 2780) / 120.0)[:, None]                     # only the south: the north was approved as is
+    xs = np.arange(img.shape[1])
+    wx = np.clip(1 - (seam - xs) / reach, 0, 1) * (xs < seam)
+    gain = 1 + (ratio[:, None, :] - 1) * (wy[..., None] * wx[None, :, None])
+    return img * gain
 
 
 def path_masks(rng):
@@ -239,7 +266,7 @@ def main(out, scale=2):
     dens_s = smooth((gy - GRASS_FROM + 40 * fbm(H, W, 24, 91) + 12 * fbm(H, W, 6, 92)) / (GRASS_FULL - GRASS_FROM)) ** 1.8
     newc = (xx < seam)[..., None]
     img = np.where(newc, img * (1 - 0.6 * dens_s[..., None] * np.array([0.12, 0.0, 0.14])) * (1 - 0.38 * dens_s[..., None]), img)
-    terr, terr_dry = draw_terraces(img, rng, pathm)
+    terr, terr_dry, terr_fade = draw_terraces(img, rng, pathm)
     southw = []
     for pts, w0, w1 in ((BROOK_A, 6, 15), (BROOK_C, 4, 7)):
         tk, _ = splprep(np.array([(x - X0, y - Y0) for x, y in pts], float).T, s=0, k=3)
@@ -399,12 +426,15 @@ def main(out, scale=2):
             blocked[max(0, y_ - 6):y_ + 2, max(0, x_ - 6):x_ + 7] = True
     # ---- zone 4a: the mill, its bridge, the spring, a scarecrow, the bamboo grove
     things.append(o.Muehle(MILL[0] - X0, MILL[1] - Y0))
-    blocked[MILL[1] - Y0 - 40:MILL[1] - Y0 + 20, MILL[0] - X0 - 70:MILL[0] - X0 + 24] = True
+    def glade(cx, cy, rx, ry, seed):                                    # trodden round a place, no hard edge
+        return ((xx - cx) / rx) ** 2 + ((yy - cy) / ry) ** 2 + 0.35 * fbm(H, W, 6, seed)
+    gl = glade(MILL[0] - X0 - 26, MILL[1] - Y0 - 8, 56, 34, 109)
     ca = southw[0][0]
     tc = ca[np.hypot(ca[:, 0] - (548 - X0), ca[:, 1] - (3342 - Y0)).argmin()]
     things.append(ow.Bruecke(int(round(tc[0])), int(round(tc[1])), np.pi / 2 - 0.5, 15))
     things.append(ow.Quelle(SPRING[0] - X0, SPRING[1] - Y0))
-    blocked[SPRING[1] - Y0 - 30:SPRING[1] - Y0 + 16, SPRING[0] - X0 - 26:SPRING[0] - X0 + 28] = True   # a clearing round it
+    gl = np.minimum(gl, glade(SPRING[0] - X0 + 1, SPRING[1] - Y0 - 7, 32, 25, 110))
+    blocked |= gl < 0.7
     things.append(o.Vogelscheuche(200 - X0, 2968 - Y0))
     bx, by, brx, bry = BAMBOO
     eb = ((xx - (bx - X0)) / brx) ** 2 + ((yy - (by - Y0)) / bry) ** 2 + 0.25 * fbm(H, W, 8, 93)
@@ -461,8 +491,9 @@ def main(out, scale=2):
     # tall grass only in loose drifts between the gardens; inside the plots it is short and full of flowers
     dens = smooth((WW - 40 - gx + 30 * fbm(H, W, 20, 7)) / 220.0) * np.clip(0.18 + 0.32 * fbm(H, W, 14, 8), 0, 1)
     dens = np.clip(dens * (1 - 0.85 * plots), 0, 1)
-    dens = np.where(xx < seam, np.maximum(np.maximum(dens, dens_s), 0.45 * terr_dry), dens)
+    dens = np.where(xx < seam, np.maximum(np.maximum(dens, dens_s), 0.45 * terr_dry * terr_fade ** 2), dens)
     dens[terr & ~terr_dry] = 0
+    dens *= np.clip((gl - 0.7) / 0.9, 0, 1) ** 1.5                     # the grass grows back in round the glades
     grass_free = ndi.binary_dilation(blocked, iterations=2)
     for _ in range(int(W * H / 3)):                         # short garden grass: dark tufts close together
         x, y = int(rng.integers(2, W - 2)), int(rng.integers(4, H))
@@ -511,6 +542,7 @@ def main(out, scale=2):
             lights.append(dict(l, x=l['x'] + WW - X0, y=l['y'] - Y0))
     for t in sorted(things, key=lambda t: getattr(t, 'order', None) or t.box()[3]):
         t.draw(img, G)
+    img = match_seam(img, water | pathm, seam, gy)
     ww = dict(w, lights=lights, wisps=[])
     out_img = mood_map.mood(np.clip(img, 0, 255), ww, 2.0, grass_mist=0.45)
     Image.fromarray(np.clip(out_img, 0, 255).astype(np.uint8)).resize((W * scale, H * scale), Image.NEAREST).save(out)
