@@ -19,21 +19,22 @@ BROOK_A = [(250, 3110), (330, 3190), (430, 3270), (520, 3330), (640, 3390), (780
 BROOK_C = [(640, 3690), (720, 3730), (830, 3758), (924, 3766)]                                         # a spring -> brook C
 # a natural shore (Philip, plan round 2): a bay in the north for the irises, a tongue of land in the west, a
 # reedy inlet in the south-west, the east shore hugging the path
-LAKE = [(924, 4092), (890, 4140), (850, 4130), (800, 4078), (735, 4066), (690, 4098), (640, 4084), (590, 4110),
+LAKE = [(872, 4150), (850, 4128), (800, 4078), (735, 4066), (690, 4098), (640, 4084), (590, 4110),
         (540, 4150), (490, 4170), (468, 4215), (500, 4262), (520, 4300), (470, 4318), (418, 4340), (402, 4400),
         (430, 4452), (408, 4510), (440, 4560), (512, 4578), (560, 4630), (640, 4660), (730, 4648), (790, 4672),
-        (860, 4662), (924, 4662)]
+        (840, 4640), (870, 4590), (858, 4520), (884, 4460), (876, 4380), (890, 4300), (868, 4230),
+        (886, 4190)]
 TERRACES = (60, 2830, 430, 3110)
 PATHS = {
     'sued': [(470, 2770), (380, 2830), (300, 2900), (260, 3000), (300, 3080), (400, 3200), (470, 3290)],
     'muehle': [(470, 3290), (560, 3390), (680, 3470), (800, 3540), (924, 3560)],
     'see': [(560, 3400), (600, 3560), (620, 3800), (600, 3960), (580, 4040)],
-    'ufer': [(580, 4040), (700, 4020), (820, 4030), (875, 4110), (900, 4300), (924, 4330)],
+    'ufer': [(580, 4040), (700, 4020), (820, 4030), (890, 4110), (912, 4250), (924, 4330)],
     'bambus': [(250, 2520), (180, 2400), (130, 2280)],
 }
 PLACES = {8: (240, 2970, 'alte Reisfelder (Furuta)'), 9: (475, 3300, 'Wassermühle (Suisha-goya)'),
           10: (120, 2250, 'Bambushain (Takeyabu)'), 11: (575, 4060, 'Fischerhütte + Zickzack-Steg'),
-          12: (862, 4170, 'Teehaus am Wasser'), 13: (640, 3690, 'Quelle')}
+          12: (880, 4170, 'Teehaus am Wasser'), 13: (640, 3690, 'Quelle')}
 
 
 def P(x, y):
@@ -54,8 +55,11 @@ def main(out):
         t = np.clip(((y / S + Y0) - 2950) / 250, 0, 1)
         c = tuple(int(a * (1 - t) + b * t) for a, b in zip((176, 170, 166), (104, 120, 84)))
         d.line([(0, y), (WW * S, y)], fill=c)
-    now = Image.open(os.path.join(ROOT, 'build/preview/world_now.png')).crop((0, Y0, SHOW, Y1))
-    img.paste(now.resize((int(SHOW * S), Hp)), (int(WW * S), 0))
+    EDGE = 24                                                    # today's first columns (edge firs, the water strip) go
+    now = Image.open(os.path.join(ROOT, 'build/preview/world_now.png')).crop((EDGE, Y0, SHOW, Y1))
+    img.paste(now.resize((int((SHOW - EDGE) * S), Hp)), (int((WW + EDGE) * S), 0))
+    for y in range(Hp):
+        d.line([(WW * S, y), ((WW + EDGE) * S, y)], fill=img.getpixel((int(WW * S) - 2, y)))
     d.line([(WW * S, 0), (WW * S, Hp)], fill=(200, 60, 50), width=2)
     x0, y0, x1, y1 = TERRACES                                    # terraces: bands stepping down
     for k, yy in enumerate(range(y0, y1, 28)):
@@ -63,7 +67,7 @@ def main(out):
         d.rounded_rectangle([P(x0 + sh, yy), P(x1 - 20 + sh, yy + 22)], 4,
                             fill=(124, 138, 120) if k % 2 else (98, 116, 112), outline=(70, 66, 52))
     d.ellipse([P(40, 2170), P(230, 2340)], fill=(78, 112, 64))   # bamboo
-    lake = [(min(x, WW * S), y) for x, y in curve(LAKE, 400)] + [P(WW, 4662), P(WW, 4092)]
+    lake = curve(LAKE, 400, closed=True)      # its own east shore: the meadow and the shore path run on to today's
     d.polygon(lake, fill=(44, 62, 74), outline=(150, 138, 90))
     irises = curve([(540, 4135), (590, 4140), (640, 4110), (700, 4110), (760, 4090)], 40)
     for q in irises:
