@@ -270,6 +270,18 @@ def main(out, scale=2):
     rng = np.random.default_rng(61)
     og, ofl, w = today()
     img = ground(og, rng)
+    seam_ = WW + EDGE - X0                                              # under today's south-west reed belt the
+    gy_ = np.arange(H)[:, None] + Y0                                    # ground runs light past the seam: to its
+    sub = img[:, seam_:seam_ + 14]                                      # neighbours' tone, grass only
+    near = img[:, seam_ + 16:seam_ + 26]
+    lightp = lambda a: (a[..., 0] > a[..., 1] + 3) & (a.mean(2) > 112)
+    okm = ~ndi.binary_dilation(lightp(img[:, seam_:seam_ + 26]), iterations=2)
+    def vmean(a, m):
+        return ndi.gaussian_filter1d((a.mean(2) * m).sum(1), 16) / np.maximum(ndi.gaussian_filter1d(m.sum(1).astype(float), 16), 0.5)
+    cols = np.stack([vmean(sub[:, k:k + 1], okm[:, k:k + 1]) for k in range(14)], 1)
+    tgt = vmean(near, okm[:, 16:26])[:, None]
+    gain = np.clip(tgt / np.maximum(cols, 1), 0.8, 1.3) ** (smooth((gy_ - 3990) / 60.0))
+    img[:, seam_:seam_ + 14] = np.where(okm[:, :14, None], sub * gain[..., None], sub)
     yy, xx = np.mgrid[0:H, 0:W]
     gx, gy = xx + X0, yy + Y0
     G = np.random.default_rng(3).random((H, W))
@@ -631,6 +643,12 @@ def main(out, scale=2):
     fl = ofl[Y0:Y1, :X1 - WW]
     heads[:, WW - X0:] = fl
     heads[:, WW - X0:WW - X0 + EDGE] = 0
+    REEDS = np.array(ow.REED + ow.PLUME + ow.CATTAIL)                 # today's reed belt at the old south-west edge
+    sx_ = slice(WW + EDGE - X0, WW + EDGE + 14 - X0)                  # reaches past the fir wall's columns: gone too
+    hs = heads[:, sx_, :3].astype(float)
+    is_reed = (np.abs(hs[..., None, :] - REEDS[None, None]).sum(-1).min(-1) < 6) & (heads[:, sx_, 3] > 0)
+    is_reed &= (gy[:, sx_] > 3990)
+    heads[:, sx_][is_reed] = 0
     field6.HEADS[:] = field6.make_heads(np.random.default_rng(31))
     keep = 0.79 * (1 - smooth((WW + 40 - gx) / 260.0)) + 0.05 + 0.08 * smooth(-fbm(H, W, 30, 5)) + 0.6 * orch
     keep = keep * (1 - 0.92 * dens_s)
