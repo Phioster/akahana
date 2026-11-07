@@ -46,7 +46,7 @@ ORCHARD = (470, 1630, 800, 1850)
 # on into today's brook A (today x 20, y 3437..3451), the spring of today's brook C (y 3763..3769), the bamboo grove
 TERR = (56, 2836, 432, 3112)
 BROOK_A = [(250, 3112), (320, 3190), (400, 3262), (470, 3306), (540, 3340), (640, 3390), (780, 3430),
-           (WW + EDGE + 6, 3444)]
+           (WW + EDGE + 6, 3447)]
 BROOK_C = [(640, 3700), (720, 3734), (830, 3758), (WW + EDGE + 6, 3766)]
 MILL = (500, 3288)
 SPRING = (640, 3690)
@@ -66,7 +66,7 @@ PATHS = {
              (660, 1632), (740, 1544), (830, 1474), (924, 1428)],          # zone 3: through the orchard to Kogarashi
     'sued': [(SQUARE[0] + 8, SQUARE[1] + 14), (560, 2420), (620, 2520), (600, 2620), (540, 2700), (470, 2770),
              (432, 2840), (440, 2920), (446, 3000), (432, 3080), (452, 3170), (482, 3240), (498, 3284)],   # 4a: by the terraces to the mill
-    'muehle': [(506, 3294), (528, 3318), (548, 3346), (600, 3420), (700, 3480), (800, 3540), (WW + EDGE + 4, 3560)],
+    'muehle': [(506, 3294), (528, 3318), (548, 3346), (600, 3420), (700, 3480), (800, 3540), (WW + EDGE + 4, 3559), (972, 3561), (994, 3563)],   # into today's
     'see': [(600, 3420), (608, 3560), (612, 3640), (616, 3740), (612, 3820)],
     'bambus': [(250, 2520), (196, 2420), (150, 2300), (136, 2272)],
     'glas': [(603, 2604), (624, 2627), (656, 2630), (680, 2616)],              # zone 2: below the beds to the door
@@ -278,16 +278,18 @@ def main(out, scale=2):
     # ---- zone 4a: the south's grass field comes in (tinted and darkened as zone2_draft does), the paddies, the brooks
     dens_s = smooth((gy - GRASS_FROM + 40 * fbm(H, W, 24, 91) + 12 * fbm(H, W, 6, 92)) / (GRASS_FULL - GRASS_FROM)) ** 1.8
     newc = (xx < seam)[..., None]
+    newc = newc & ~ndi.binary_dilation(pathm, iterations=1)[..., None]   # the paths stay light, as today's do
     img = np.where(newc, img * (1 - 0.6 * dens_s[..., None] * np.array([0.12, 0.0, 0.14])) * (1 - 0.38 * dens_s[..., None]), img)
     terr, terr_dry, terr_fade = draw_terraces(img, rng, pathm, (BROOK_A[0][0] - X0, BROOK_A[0][1] - Y0))
     southw = []
-    for pts, w0, w1 in ((BROOK_A, 6, 15), (BROOK_C, 4, 7)):
+    for pts, w0, w1 in ((BROOK_A, 6, 12), (BROOK_C, 4, 7)):
         tk, _ = splprep(np.array([(x - X0, y - Y0) for x, y in pts], float).T, s=0, k=3)
         southw.append((np.array(splev(np.linspace(0, 1, 900), tk)).T, w0, w1))
     sb = ow.Brooks(southw, H, W, y0=0)
     sb.mask[:, seam:] = False
     sb.depth[:, seam:] = 0
-    img[(ndi.distance_transform_edt(~sb.mask) < 7) & (xx < seam)] *= 0.85
+    near_b = (ndi.distance_transform_edt(~sb.mask) < 7) & (xx < seam)   # the dark bank, fading out at the seam
+    img[near_b] *= (1 - 0.15 * np.clip((seam - xx) / 40.0, 0, 1))[near_b][:, None]
     sb.draw(img, rng)
     oldw = np.array(Image.open(os.path.join(FULL, 'water.png')).convert('RGBA'))[Y0:Y1, EDGE:EDGE + W - seam].astype(float)
     water = brook.mask | sb.mask
@@ -514,6 +516,8 @@ def main(out, scale=2):
     dens[terr & ~terr_dry] = 0
     dens *= np.clip((gl - 0.7) / 0.9, 0, 1) ** 1.5                     # the grass grows back in round the glades
     grass_free = ndi.binary_dilation(blocked, iterations=2)
+    bank_s = ndi.binary_dilation(sb.mask, iterations=5) & ~ndi.binary_dilation(sb.mask, iterations=1) & ~pathm
+    grass_free &= ~bank_s                                               # up to the water, as today's brooks
     d3 = np.clip(0.78 + 0.32 * fbm(H, W, 16, 306), 0.38, 1)             # the south's zone 3: patchier from Z3_FROM on
     patch3 = 1 - (1 - d3) * np.clip((gy - Z3_FROM) / 90.0, 0, 1)
     for _ in range(int(W * H / 3)):                         # short garden grass: dark tufts close together
@@ -527,7 +531,9 @@ def main(out, scale=2):
         xi, yi = int(x), min(int(y), H - 1)
         if rng.random() > dens[yi, xi] * (1 - 0.18 * dens_s[yi, xi]) * patch3[yi, xi] or grass_free[yi, xi]:   # 1 in 8.5
             continue
-        things.append(z2.Blade(x, yi, rng))
+        b_ = z2.Blade(x, yi, rng)
+        b_.h = max(4, int(round(b_.h * (1 - 0.3 * dens_s[yi, xi]))))   # as short as today's, where they crowd
+        things.append(b_)
     for _ in range(16000):
         x, y = int(rng.integers(4, W - 4)), int(rng.integers(6, H - 2))
         if rng.random() > 0.05 + 0.4 * dens[y, x] * (1 - 0.75 * dens_s[y, x]) + 0.9 * plots[y, x] ** 2 or grass_free[y, x]:
