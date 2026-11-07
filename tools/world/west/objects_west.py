@@ -551,6 +551,7 @@ class Gewaechshaus:
         top_all = y - PWALL - GH - RD - 10
         gone = set()
         cracked = set()
+        panes = {}
 
         def pane(i, j, u, cell, roof=0.0):
             """One pixel of glass: the leaves behind, the glass's tint and glint, the lantern's warmth. roof 0 wall
@@ -566,8 +567,8 @@ class Gewaechshaus:
             c = c * (1 - 0.6 * warm) + WARMG * 0.62 * warm
             if cell in gone:
                 c = base * 0.75 if leaf else hx('#0f1412')            # no glass: the leaves themselves, or dark
-            elif cell in cracked and (i + 2 * j) % 4 == 0:
-                c = pick(TEAL, 5.2)
+            else:
+                panes.setdefault(cell, []).append((i, j, c))            # for the cracks, drawn at the end
             return c
 
         def growth(i0, i1, yb, hmax, seed):
@@ -707,6 +708,40 @@ class Gewaechshaus:
             put(img, x0 + 1 + (d % 4 == 1), yb - 2 - d, pick(MOSS, 3.2 - 1.8 * d / PWALL))
             if d % 3 == 0:
                 put(img, x0 + 2, yb - 2 - d, MOSS[1])
+        # ---------- cracks: a few panes with a thin jagged crack from one corner, a short branch off it; only
+        # where the glass still shows (not under the weeds and creepers drawn over it since)
+        cg = np.random.default_rng(s.seed + 77)
+        big = sorted(panes, key=lambda k: -len(panes[k]))[:30]           # the big panes: a crack needs room to show
+        for n in cg.permutation(len(big))[:6]:
+            pts = panes[big[n]]
+            free = {(i, j): c for i, j, c in pts if np.allclose(img[j, i], c)}
+            if len(free) < 8:
+                continue
+            xs_ = [p[0] for p in free]
+            ys_ = [p[1] for p in free]
+            ci = min(xs_) if cg.random() < 0.5 else max(xs_)
+            cj = min(ys_) if cg.random() < 0.5 else max(ys_)
+            di, dj = (1 if ci == min(xs_) else -1), (1 if cj == min(ys_) else -1)
+            walk = [(ci, cj)]
+            for step in range(int(cg.integers(4, 8))):
+                i_, j_ = walk[-1]
+                if cg.random() < 0.6:
+                    i_ += di
+                if cg.random() < 0.7:
+                    j_ += dj
+                if (i_, j_) not in free:
+                    break
+                walk.append((i_, j_))
+            if len(walk) > 3 and cg.random() < 0.7:                    # a branch off the middle
+                i_, j_ = walk[len(walk) // 2]
+                for step in range(2):
+                    i_ -= di
+                    if (i_, j_) in free:
+                        walk.append((i_, j_))
+            for k, (i_, j_) in enumerate(walk):
+                if (i_, j_) in free:
+                    a_ = 0.75 if k < len(walk) - 2 else 0.4            # fainter at its ends
+                    img[j_, i_] = img[j_, i_] * (1 - a_) + TEAL[5] * a_
         # ---------- in front: two stone posts at the door, stone-edged beds run wild
         for px in (x - dw // 2 - 4, x + dw // 2 + 1):
             Block(px, yb + 5, w=3, h=5, d=1, seed=s.seed + px).draw(img, G)
