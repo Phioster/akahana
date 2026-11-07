@@ -649,6 +649,8 @@ def main(out, scale=2):
     is_reed = (np.abs(hs[..., None, :] - REEDS[None, None]).sum(-1).min(-1) < 6) & (heads[:, sx_, 3] > 0)
     is_reed &= (gy[:, sx_] > 3990)
     heads[:, sx_][is_reed] = 0
+    refill = np.zeros((H, W))                                          # where it stood our grass grows in instead
+    refill[:, sx_] = np.clip(ndi.gaussian_filter(is_reed.astype(float), 3) * 2.2, 0, 1)
     field6.HEADS[:] = field6.make_heads(np.random.default_rng(31))
     keep = 0.79 * (1 - smooth((WW + 40 - gx) / 260.0)) + 0.05 + 0.08 * smooth(-fbm(H, W, 30, 5)) + 0.6 * orch
     keep = keep * (1 - 0.92 * dens_s)
@@ -666,6 +668,7 @@ def main(out, scale=2):
     dens = smooth((WW - 40 - gx + 30 * fbm(H, W, 20, 7)) / 220.0) * np.clip(0.18 + 0.32 * fbm(H, W, 14, 8), 0, 1)
     dens = np.clip(dens * (1 - 0.85 * plots), 0, 1)
     dens = np.where(xx < seam, np.maximum(np.maximum(dens, dens_s), 0.45 * terr_dry * terr_fade ** 2), dens)
+    dens = np.maximum(dens, dens_s * refill)
     dens[terr & ~terr_dry] = 0
     dens *= np.clip((gl - 0.7) / 0.9, 0, 1) ** 1.5                     # the grass grows back in round the glades
     grass_free = ndi.binary_dilation(blocked, iterations=2)
