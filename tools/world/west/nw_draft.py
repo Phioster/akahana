@@ -17,9 +17,13 @@ from scipy import ndimage as ndi
 HERE = os.path.dirname(os.path.abspath(__file__))
 NORTH = os.path.join(HERE, '..', 'north')
 sys.path[:0] = [HERE, NORTH, os.path.join(HERE, '..', 'lib')]
-from common import fbm, smooth, snow_ground, Firs, draw_things, noise_maps, HN  # noqa: E402
+from common import fbm, smooth, snow_ground, Firs, draw_things, noise_maps, footpath, through, HN  # noqa: E402
+import objects_west as o  # noqa: E402
 from objects_north import Gorge, facet_rock  # noqa: E402
-import zone2_draft as nz2  # noqa: E402   (the north's: the gorge's line)
+import importlib.util  # noqa: E402
+_sp = importlib.util.spec_from_file_location('north_zone2', os.path.join(NORTH, 'zone2_draft.py'))
+nz2 = importlib.util.module_from_spec(_sp)                        # the north's zone 2 (the gorge's line): by path,
+_sp.loader.exec_module(nz2)                                        # the south has a zone2_draft too
 
 ROOT = os.path.abspath(os.path.join(HERE, '..', '..', '..'))
 FULL = os.path.join(ROOT, 'build', 'world_full')
@@ -27,6 +31,10 @@ WW = 900
 X0, X1, Y0, Y1 = 0, 1020, 0, 1520          # west coordinates; today's x 0 = WW
 W, H = X1 - X0, Y1 - Y0
 MIX = 60                                   # today's ground takes over in clumps over these columns east of WW
+QUARRY = (360, 400)                         # the old quarry under the ridge (Philip, round 2)
+BRUCH = [(885, 1444), (862, 1394), (868, 1340), (830, 1282), (792, 1236), (772, 1172), (716, 1120), (682, 1052),
+         (618, 1002), (590, 934), (532, 882), (500, 812), (444, 762), (430, 692), (394, 642), (404, 582), (374, 532),
+         (380, 472), (366, 430)]          # up from the orchard path, the sled's way
 GORGE_END = 610                            # where the crack runs out under the slope
 
 
@@ -89,6 +97,14 @@ def render():
     wood = np.where(glades, wood * 0.15, wood)
     wood *= 0.45 + 0.55 * smooth((WW - 30 - gx) / 220.0)                    # today's edge is open snow: thin out to it
     wood = np.minimum(wood, 0.72)
+    qb = o.Steinbruch(*QUARRY)
+    qfloor, qface = qb.masks(H, W)
+    qzone = ndi.binary_dilation(qfloor | qface, iterations=14)
+    from PIL import ImageDraw
+    pim = Image.new('L', (W, H), 0)
+    ImageDraw.Draw(pim).line([tuple(p) for p in through(BRUCH, 400)], fill=255, width=10)
+    bpath = np.array(pim) > 0
+    wood = np.where(ndi.binary_dilation(qzone, iterations=10), 0.0, wood)
     bare = n1 * 0.6 + fbm(rng, 10, (H, W)) + 0.5 * fbm(rng, 3, (H, W)) > 1.5 - 1.9 * smooth((560 - gy) / 360.0)
     g = snow_ground(rng, H, W, Y0, wood, bare=bare)                    # north rows are world rows here
     G, CL = noise_maps(rng, H, W)
@@ -109,10 +125,12 @@ def render():
     tk = take[:, WW - X0:]
     sub[tk] = oimg[tk]
 
-    # ---- flat things into the ground: the gorge, the ridge heaps, the top mist
+    # ---- flat things into the ground: the quarry and its way, the gorge, the ridge heaps, the top mist
+    qb.draw(img, G)
+    footpath(img, BRUCH, G, width=2.0, bank=1.8, rng_seed=7)
     G0.draw(img, G, CL)
     flat_rock = np.zeros((H, W), bool)
-    ry_, rx_ = np.nonzero(ridge & (gx < WW + 26) & (rng.random((H, W)) < 0.012))   # over the seam: today's edge had none
+    ry_, rx_ = np.nonzero(ridge & (gx < WW + 26) & ~ndi.binary_dilation(qzone, iterations=20) & (rng.random((H, W)) < 0.012))   # over the seam: today's edge had none
     for y, x in sorted(zip(ry_, rx_)):
         big = 1.0 + 0.8 * smooth((200 - (y + Y0)) / 200.0)
         ys, xs_ = facet_rock(img, int(x), int(y), rng.uniform(9, 17) * big, rng.uniform(7, 12) * big, False,
@@ -127,7 +145,11 @@ def render():
     ground = img.copy()
 
     # ---- standing things: firs, loose rocks (more higher up), a few felled trunks and stumps in the wood
-    keep = ndi.binary_dilation(gm, iterations=6) | ridge | (gy < 60) | ~west
+    keep = ndi.binary_dilation(gm, iterations=6) | ridge | (gy < 60) | ~west | qzone
+    lane = ndi.binary_dilation(bpath, iterations=5)
+    for d in range(2, 44, 2):                                         # a fir's top reaches ~45 px above its foot
+        keep[d:] |= lane[:-d]
+    keep |= lane
     occ = Firs()
     for s in w['sprites']:                                           # today's things at the edge keep their room
         cx = s['x'] + s['w'] // 2 + WW - X0
@@ -149,7 +171,24 @@ def render():
         things.append((y + 3, 'log', (x, y, int(x + L * np.cos(a)), int(y + L * np.sin(a)))))
         things.append((y + 6, 'stump', (x - 4, y + 6)))
         n_log += 1
-    draw_things(img, [t for t in things if t[1] in ('pine', 'rock', 'log', 'stump')], G, CL)
+    qx, qy = QUARRY                                                  # what was left in the quarry
+    for (dx, dy, bw, bh, bd) in ((-52, -8, 10, 6, 3), (-30, 6, 7, 5, 3), (8, -14, 12, 7, 4), (34, 4, 6, 4, 2),
+                                 (54, -6, 8, 5, 3), (-12, 14, 5, 3, 2)):
+        things.append((qy + dy, 'obj', o.QBlock(qx + dx, qy + dy, w=bw, h=bh, d=bd, seed=150 + dx)))
+    sx_, sy_ = qx - 64, qy + 16                                       # a stack by the way out
+    for k, (bw, bh) in enumerate(((14, 6), (12, 5), (9, 4))):
+        things.append((sy_ + 0.1 * k, 'obj', o.QBlock(sx_ + k, sy_, w=bw, h=bh, d=3, seed=160 + k)))
+        sy_ -= bh + 1
+    things.append((qy + 22, 'obj', o.Schlitten(qx - 14, qy + 22)))
+    hr = np.random.default_rng(142)                                  # the spoil heap east of the way out
+    for _ in range(26):
+        a_, r_ = hr.uniform(0, 2 * np.pi), hr.uniform(0, 1) ** 0.6
+        x_, y_ = int(qx + 88 + np.cos(a_) * 22 * r_), int(qy + 18 + np.sin(a_) * 12 * r_)
+        things.append((y_, 'rock', (x_, y_, int(hr.integers(2, 5)))))
+
+    def extra(kind, a):
+        a.draw(img, G)
+    draw_things(img, [t for t in things if t[1] in ('pine', 'rock', 'log', 'stump', 'obj')], G, CL, extra)
 
     # ---- today's standing things east of WW, as the game shows them (frame 0)
     root = os.path.join(ROOT, 'assets', 'world', 'sprites')
@@ -157,7 +196,7 @@ def render():
         if s['x'] < W - WW + X0 and s['y'] < Y1 and s['x'] > 2:
             paste(img, s, root)
     return img, dict(ground=ground, things=things, keep=keep, gorge=gm, ridge=ridge, flat_rock=flat_rock,
-                     wood=wood)
+                     wood=wood, quarry_floor=qfloor, quarry_face=qface, path=bpath)
 
 
 def main(out, scale=1):
