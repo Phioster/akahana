@@ -490,8 +490,10 @@ def light(img, cover, rng):
     shafts = np.clip(np.sin(along / 23.0) * 0.5 + 0.5 + 0.35 * fbm(np.random.default_rng(5), 14), 0, 1) ** 3
     shafts *= np.clip(np.sin(along / 61.0 + 1.0) * 0.6 + 0.6, 0, 1)
     sh = shafts * (1 - 0.55 * ndi.gaussian_filter(cover.astype(float), 3))
-    img = img * (0.66 + 0.6 * sh[..., None]) + GOLD * 0.14 * sh[..., None]
-    return img * 0.9 + np.array([150.0, 156.0, 96.0]) * 0.1
+    img = img * (0.8 + 0.6 * sh[..., None]) + GOLD * 0.14 * sh[..., None]
+    deep = np.clip((yy - TOP) / float(H - TOP), 0, 1)                  # the haze thickest in the middle of the room
+    haze = 0.2 + 0.06 * np.sin(np.pi * deep) + 0.05 * fbm(np.random.default_rng(6), 20)
+    return img * (1 - haze[..., None]) + np.array([150.0, 176.0, 116.0]) * haze[..., None]
 
 
 def render(with_monk=False):
@@ -578,7 +580,7 @@ def walk_mask(ways, clear, br):
 
 def grade_inside(img):
     """The preview's grade for in here: the game's, but warm (the interior keeps its gold)."""
-    return (img * 0.86 + img.mean(-1, keepdims=True) * 0.14) * np.array([0.98, 0.93, 0.74])
+    return (img * 0.88 + img.mean(-1, keepdims=True) * 0.12) * np.array([0.96, 1.0, 0.8])
 
 
 def main(out, with_monk=False):
