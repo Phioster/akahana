@@ -25,7 +25,7 @@ from field6 import L1, MG, DG, K  # noqa: E402
 
 W, H = 540, 400                             # three screens wide: the pavilion and its two wings, as outside
 P0, P1 = 190, 350                           # the pavilion's floor (x); it reaches up to its back wall
-BACK, WB = 66, 176                          # the pavilion's floor starts below BACK, the wings' below WB
+BACK = WB = 34                              # the floor starts below the back walls, all along (no dark edge)
 SIDE = 20                                   # the wings' end walls
 DOOR = (256, 284)                           # the door opening in the bottom wall
 BASIN = (270, 140, 20)
@@ -33,13 +33,13 @@ LANTERN = (281, 352)                        # its glass (the light)
 AISLE_Y = (270, 298)                        # the cross aisle through all three
 TERRA = [hx(c) for c in ['#3a1d14', '#5e2f1e', '#86452a', '#a85f3a', '#c27c52']]
 CREAM = [hx(c) for c in ['#5e5646', '#857a64', '#a89b80', '#c4b89c']]
-BEDS = [(196, 72, 246, 120), (294, 72, 344, 120), (196, 170, 246, 256), (294, 170, 344, 256),
-        (196, 312, 246, 372), (294, 312, 344, 372),
-        (26, WB + 6, 96, WB + 60), (110, WB + 6, 180, WB + 60), (26, 312, 96, 372),
-        (360, WB + 6, 430, WB + 60), (444, WB + 6, 514, WB + 60), (360, 312, 430, 372)]
+BEDS = [(198, 44, 246, 104), (294, 44, 342, 104), (198, 170, 246, 256), (294, 170, 342, 256),
+        (198, 312, 246, 372), (294, 312, 342, 372),
+        (26, 44, 96, 110), (110, 44, 176, 110), (26, 140, 96, 230), (110, 140, 176, 230), (26, 312, 96, 372),
+        (364, 44, 430, 110), (444, 44, 514, 110), (364, 140, 430, 230), (364, 312, 430, 372)]
 BENCH = (114, 318, 156, 334)
 GONE = (468, 482)                           # the pane gone from the right wing's back wall (x)
-WALL_H = 26                                 # the back walls: low, glass on a parapet, the dark beyond
+WALL_H = 36                                 # the back walls: glass on a parapet, right up to the top edge
 VOID = hx('#0d1110')
 
 
@@ -246,6 +246,60 @@ class Regal:
             put(img, x1 - 1, yb, WOOD[0])
 
 
+class Saeule:
+    """A slender cast-iron column where the pavilion meets a wing: a base plate, the shaft, a leafy capital."""
+    def __init__(s, x, y):
+        s.x, s.y = x, y
+
+    def box(s):
+        return (s.x - 3, s.y - 30, s.x + 4, s.y + 2)
+
+    def draw(s, img, G):
+        x, y = s.x, s.y
+        for i in range(x - 2, x + 4):
+            put(img, i, y, pick(RUST, 1.4))
+            put(img, i, y - 1, pick(RUST, 3.0 - 0.3 * (i - x + 2)))
+            put(img, i, y + 1, img[min(img.shape[0] - 1, y + 1), i] * 0.6)
+        for j in range(y - 26, y - 1):
+            put(img, x, j, pick(RUST, 3.2))
+            put(img, x + 1, j, pick(RUST, 1.6))
+        for i in range(x - 2, x + 4):
+            put(img, i, y - 27, pick(RUST, 2.6 - 0.3 * (i - x + 2)))
+            put(img, i, y - 28, pick(RUST, 3.4 - 0.3 * (i - x + 2)))
+
+
+class Gartentisch:
+    """A round iron garden table with two chairs, one pushed back; a cup left on it."""
+    def __init__(s, x, y):
+        s.x, s.y = x, y
+
+    def box(s):
+        return (s.x - 18, s.y - 18, s.x + 19, s.y + 4)
+
+    def draw(s, img, G):
+        x, y = s.x, s.y
+        for j in range(y - 4, y + 3):                                  # the leg's shadow and foot
+            put(img, x, j, pick(RUST, 1.4))
+        for i in range(x - 4, x + 5):
+            put(img, i, y + 2, pick(RUST, 1.2))
+            put(img, i, y + 3, img[min(img.shape[0] - 1, y + 3), i] * 0.6)
+        for j in range(y - 11, y - 4):                                 # the round top, a rim
+            for i in range(x - 9, x + 10):
+                d = ((i - x) / 9.0) ** 2 + ((j - y + 8) / 3.5) ** 2
+                if d < 1:
+                    put(img, i, j, pick(RUST, 3.0 - 1.4 * (i - x + 9) / 18 + (0.6 if d > 0.7 and j < y - 8 else 0)))
+        put(img, x + 2, y - 9, hx('#d8d0c0'))
+        put(img, x + 3, y - 9, hx('#a8a090'))                           # the cup
+        for cx, flip in ((x - 15, 1), (x + 13, -1)):                     # the chairs, iron, curly backs
+            for j in range(y - 12, y + 2):
+                put(img, cx, j, pick(RUST, 2.4))
+            for i in range(cx - 2, cx + 3):
+                put(img, i, y - 5, pick(RUST, 3.0))
+                put(img, i, y - 12, pick(RUST, 2.8))
+            for j in range(y - 4, y + 2):
+                put(img, cx + 2 * flip, j, pick(RUST, 1.6))
+
+
 class Ranke:
     """A creeper hanging over a bed's kerb and running out across the floor."""
     def __init__(s, x, y, dirx, seed):
@@ -399,7 +453,14 @@ def glass_walls(img, G, rng):
             return pick(STONE, 3.4 if y == foot - 6 else 2.4 - 0.15 * (y - foot + 6) + 0.3 * G[y, x])
         if GONE[0] <= x < GONE[1] and foot == WB + 2 and y < foot - 7:
             return INSIDE[1] if leaves[y, x] > -0.2 else hx('#0f1412')   # no glass: the leaves come in
-        bar = x % 14 in (0, 1) or y - top in (0, 1, 10)
+        if P0 - SIDE <= x < P1 + SIDE:                                 # the pavilion: tall pointed arches
+            u = (x - P0) % 20
+            arch = top + 4 + 9 * (abs(u - 10) / 10.0) ** 0.7
+            bar = u in (0, 1) or abs(y - arch) < 1.0 or y == top
+            if y < arch and not bar:
+                return pick(RUST, 1.2) if (x + y) % 2 else pick(TEAL, 0.8)    # the arch's tracery head
+        else:
+            bar = x % 14 in (0, 1) or y - top in (0, 1, 12)
         return pick(RUST, 2.6 - 1.2 * x / W) if bar else pane(y, x)
 
     for y in range(H):
@@ -417,8 +478,6 @@ def glass_walls(img, G, rng):
             elif not pav and WB + 2 - WALL_H <= y < WB + 2 and SIDE <= x < W - SIDE:
                 img[y, x] = face(y, x, WB + 2 - WALL_H, WB + 2)
             elif y < (BACK if pav else WB) + 2 - WALL_H:               # beyond the low back walls: the dark
-                img[y, x] = VOID * (0.85 + 0.15 * G[y, x])
-            elif y < WB + 2 - WALL_H and not (P0 - SIDE <= x < P0 or P1 <= x < P1 + SIDE):
                 img[y, x] = VOID * (0.85 + 0.15 * G[y, x])
             else:                                                      # side walls (wing ends, pavilion sides)
                 left = x < W // 2
@@ -483,6 +542,8 @@ def render(with_monk=False):
             img[y, x] = pick([hx('#5a3a1c'), hx('#8a5a26'), hx('#b08a3a')], 1 + 2 * G[y, x])
     for k in range(18):                                                # a pot knocked over, its soil spilled
         put(img, 262 + k // 3, 300 + (k % 3), pick(SOIL, 1.4 + G[300, 262 + k // 3]))
+    things += [Saeule(P0 - 2, y_) for y_ in (130, 262, 310)] + [Saeule(P1 + 1, y_) for y_ in (130, 262, 310)]
+    things += [Gartentisch(478, 190)]
     things += [Palme(222, 154, 5), Palme(318, 154, 6), Bank(), Giesskanne(160, 306), Stuhl(296, 150),
                Zitrone(62, 266, 11), Zitrone(146, 266, 12), Zitrone(396, 266, 13),
                Regal(452, 338, 512, 21), Giesskanne(440, 366)]
@@ -511,7 +572,9 @@ def walk_mask():
         m[y0 - 2:y1 + 1, x0 - 1:x1 + 1] = False
     bx, by, r = BASIN
     m &= np.hypot(xx - bx, (yy - by) * 1.05) > r + 2
-    for x0, y0, x1, y1 in (BENCH, (214, 144, 231, 156), (310, 144, 327, 156), (155, 296, 170, 308), (292, 136, 306, 154),
+    for x0, y0, x1, y1 in ((459, 176, 498, 194), (P0 - 4, 126, P0 + 2, 132), (P0 - 4, 258, P0 + 2, 264),
+                           (P0 - 4, 306, P0 + 2, 312), (P1 - 1, 126, P1 + 5, 132), (P1 - 1, 258, P1 + 5, 264),
+                           (P1 - 1, 306, P1 + 5, 312), BENCH, (214, 144, 231, 156), (310, 144, 327, 156), (155, 296, 170, 308), (292, 136, 306, 154),
                            (55, 258, 70, 268), (139, 258, 154, 268), (389, 258, 404, 268), (451, 316, 513, 340),
                            (435, 356, 450, 368), (LANTERN[0] - 3, LANTERN[1] - 2, LANTERN[0] + 9, LANTERN[1] + 20)):
         m[y0:y1, x0:x1] = False
