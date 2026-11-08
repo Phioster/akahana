@@ -201,7 +201,7 @@ def main():
     sd_dir = sd
     os.makedirs(sd, exist_ok=True)
     for f in glob.glob(os.path.join(sd, 'w[0-9]*.png')) + glob.glob(os.path.join(sd, 'wb[0-9]*.png')) \
-            + glob.glob(os.path.join(sd, 'wt[0-9]*.png')):
+            + glob.glob(os.path.join(sd, 'wt[0-9]*.png')) + glob.glob(os.path.join(sd, 'wl[0-9]*.png')):
         os.remove(f)
     w = shift_world(w0, WEST_W)
     w['sprites'] = [s for s in w['sprites'] if s['x'] > WEST_W + 2]  # the fir wall that stood at today's x 0
@@ -488,8 +488,47 @@ def main():
         w['sprites'].append(dict(name=name, x=int(x0b + xs[0]), y=int(y0b + ys[0]), w=int(rgba.shape[1]),
                                  h=int(rgba.shape[0]), foot=int(ty + 1), frames=1, fps=8))
         walk[ty - 3:ty + 2, tx - 3:tx + 4] = False                       # the trunk
-    ground[:] = np.clip(np.round(gf), 0, 255).astype(np.uint8)
     print('Westen: neue Baeume', len(trees), flush=True)
+
+    # ---- what stands about in the empty country (Philip and his girlfriend 2026-11-08, approved): benches, Jizo
+    # and carts by the paths, straw bales and stooks on the meadows, stumps and logs; the grass lies flat under each
+    import land_props as LP
+    boxes = [(q['x'], q['y'], q['x'] + q['w'], q['foot'], q['name']) for q in w['sprites']]
+    props = LP.place(water[..., 3], walk, mat, boxes, (w['start']['x'], w['start']['y']))
+    for npr, (kind, px, py, ps) in enumerate(props):
+        thing = LP.make(kind, px, py, ps)
+        fw = LP.flat_width(kind, thing)
+        LB.flatten(flowers, bend, water[..., 3], px, py, fw, ps)
+        x0b, y0b, x1b, y1b = max(0, px - 34), max(0, py - 34), min(W, px + 35), min(H, py + 10)
+        tl = LP.make(kind, px - x0b, py - y0b, ps)
+        gl = Gb[y0b:y1b, x0b:x1b]
+        canv = []
+        for bg in (0.0, 255.0):                                         # alike on black and on white = the thing
+            c = np.full((y1b - y0b, x1b - x0b, 3), bg)
+            tl.draw(c, gl)
+            canv.append(c)
+        alpha = np.all(np.abs(canv[0] - canv[1]) < 1, axis=2)
+        onground = gf[y0b:y1b, x0b:x1b].copy()
+        tl.draw(onground, gl)
+        sub = gf[y0b:y1b, x0b:x1b]
+        sub[~alpha] = onground[~alpha]                                  # its shade
+        if not alpha.any():
+            continue
+        rgba = np.zeros((y1b - y0b, x1b - x0b, 4), np.uint8)
+        rgba[alpha, :3] = np.clip(canv[0][alpha], 0, 255).astype(np.uint8)
+        rgba[alpha, 3] = 255
+        ys = np.nonzero(alpha.any(1))[0]
+        xs = np.nonzero(alpha.any(0))[0]
+        rgba = rgba[ys[0]:ys[-1] + 1, xs[0]:xs[-1] + 1]
+        name = 'wl%03d' % npr
+        Image.fromarray(rgba).save(os.path.join(sd_dir, name + '.png'))
+        w['sprites'].append(dict(name=name, x=int(x0b + xs[0]), y=int(y0b + ys[0]), w=int(rgba.shape[1]),
+                                 h=int(rgba.shape[0]), frames=1, fps=8,
+                                 foot=int(min(py + 1, y0b + ys[-1]))))   # flat things: the foot on their picture
+        hw = max(2, int(fw * 0.3))
+        walk[py - 3:py + 2, px - hw:px + hw + 1] = False                 # one walks round it
+    ground[:] = np.clip(np.round(gf), 0, 255).astype(np.uint8)
+    print('Westen: Landsachen', len(props), flush=True)
 
     # ---- the mist field: west edge, the bottom's fade, the top's wall; the bands over the lakes
     mist = grow(im['mist_fields.png'], WEST_W // 2)
