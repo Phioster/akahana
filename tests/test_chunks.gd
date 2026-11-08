@@ -286,6 +286,13 @@ func test_the_canopy_opens_more_while_he_stands() -> void:
 	assert_almost_eq(main.CANOPY_WALK, 0.6, 0.001)
 	assert_almost_eq(main.CANOPY_REST, 0.8, 0.001)
 
+func test_the_canopy_fades_in_behind_the_foot_line() -> void:
+	# 0.18.7 (Philip): it opened at once on crossing a foot line; now over FADE px, his outline too
+	var code: String = load("res://shaders/canopy.gdshader").code
+	assert_true(code.contains("smoothstep(0.0, FADE, foot - wanderer.y)"), "Einblenden hinter der Fusslinie")
+	assert_true(code.contains("float share = fade *"), "Kronenoeffnung blendet ein")
+	assert_eq(code.count("b < fade"), 2, "Umriss und Laterne blenden mit ein")
+
 func test_on_a_tree_s_foot_row_he_stands_behind_it() -> void:
 	# 0.11.8: standing on whole rows he often stood exactly on a trunk's foot row; the tie drew the tree over
 	# him while the canopy (foot > feet) left it shut. Half a pixel lower settles both the same way.
