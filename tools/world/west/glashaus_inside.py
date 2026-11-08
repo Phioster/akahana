@@ -33,17 +33,19 @@ JUNGLE = [hx(c) for c in ['#0f1a10', '#1a2c18', '#28421f', '#3a5c28', '#557a34',
 PINK = [hx(c) for c in ['#5a1a2a', '#8e2a44', '#c4446a', '#e07a96', '#f2b0c0']]
 REDF = [hx(c) for c in ['#4a1414', '#7e2020', '#b03428', '#d8603a']]
 GOLD = np.array([255.0, 206.0, 120.0])
+BARK = [hx(c) for c in ['#160f0b', '#2c2018', '#47372a', '#6c5842', '#977f60', '#c0a882']]      # broad trees
+PALMB = [hx(c) for c in ['#24201a', '#433b2e', '#665c48', '#8c8268', '#b4aa8a']]                # palm trunks
 POND = (270, 168)
 BENCH = (70, 286)                           # the potting bench's front middle
 WAYS = [                                    # the trodden ways (points), from the door
-    [(270, 398), (268, 360), (262, 326), (272, 296), (300, 262), (306, 228), (292, 204)],      # up to the bridge
-    [(240, 150), (226, 120), (236, 84), (262, 60), (300, 52)],                                 # beyond it, round the back
+    [(270, 398), (268, 360), (262, 326), (272, 296), (300, 262), (310, 236), (302, 216)],      # up to the bridge
+    [(222, 128), (210, 104), (228, 78), (262, 60), (300, 52)],                                 # beyond it, round the back
     [(262, 326), (220, 318), (176, 300), (134, 302), (96, 300)],                               # left: to the bench
     [(134, 302), (118, 250), (90, 214), (60, 170), (52, 120)],                                 # left, on up
     [(272, 296), (330, 316), (380, 300), (430, 312), (470, 290), (488, 246)],                  # right
     [(430, 312), (412, 260), (430, 200), (468, 160), (484, 110)],
 ]
-BRIDGE = ((292, 204), (240, 150))           # its two ends on the banks
+BRIDGE = ((302, 214), (222, 130))           # its two ends, each on a stone footing on the bank
 _c = ndi.gaussian_filter(np.random.default_rng(13).normal(0, 1, (H, W)), 1.6)
 CLUMP = np.clip(_c / _c.std() - np.roll(_c / _c.std(), 2, axis=0), -1.5, 1.5) / 1.5   # lit tops of leaf clumps
 
@@ -182,13 +184,27 @@ class Palme:
         s.x, s.y, s.seed, s.h, s.R = x, y, seed, h, R
 
     def trunk(s, img, G):
+        """Ringed, a little curved, wider at the foot; old leaf bases ragged under the crown."""
         r = np.random.default_rng(s.seed)
-        lean = r.uniform(-0.25, 0.25)
+        lean, bow = r.uniform(-0.2, 0.2), r.uniform(-4, 4)
         for j in range(s.h):
-            cx = s.x + lean * j
-            for i in range(-2, 3):
-                put(img, int(round(cx + i)), s.y - j, pick(WOOD, 3.4 - 0.8 * (i + 2) - (0.9 if j % 4 == 0 else 0)))
-        for i in range(s.x - 5, s.x + 6):
+            t = j / s.h
+            cx = s.x + lean * j + bow * np.sin(np.pi * t)
+            hw = 3.2 - 1.2 * t + (1.6 if j < 3 else 0)
+            for i in range(int(-hw), int(hw) + 1):
+                u = (i + hw) / (2 * hw)
+                lit = 3.6 - 2.6 * u
+                if j % 4 == 0:
+                    lit -= 1.0                                         # the ring's groove
+                elif j % 4 == 1:
+                    lit += 0.5                                         # the bulge above it
+                lit += 0.5 * (g_at(G, int(cx) + i, s.y - j) - 0.5)
+                put(img, int(round(cx + i)), s.y - j, pick(PALMB, lit))
+            if t > 0.85:                                               # old leaf bases, ragged
+                for i in (int(-hw) - 1, int(hw) + 1):
+                    if g_at(G, i + s.x, j) < 0.6:
+                        put(img, int(round(cx + i)), s.y - j, pick(PALMB, 2.6 if i < 0 else 1.2))
+        for i in range(s.x - 6, s.x + 7):
             put(img, i, s.y + 1, img[min(H - 1, s.y + 1), i] * 0.6)
         return s.x + lean * s.h, s.y - s.h
 
@@ -218,13 +234,47 @@ class Baum:
         s.x, s.y, s.seed, s.h, s.R = x, y, seed, h, R
 
     def trunk(s, img, G):
+        """Furrowed bark lit on the left, the foot flaring into roots over the ground, moss up its shaded side, a
+        knot here and there, the first boughs forking off under the crown."""
+        r = np.random.default_rng(s.seed)
+        lean = r.uniform(-0.15, 0.15)
+        for k in range(int(r.integers(3, 6))):                         # roots spreading over the ground
+            a = r.uniform(0.15, np.pi - 0.15)
+            L = r.uniform(6, 12)
+            for q in np.linspace(0, 1, int(L * 2)):
+                x = s.x + np.cos(a) * L * q * 1.3
+                y = s.y + np.sin(a) * L * q * 0.35 - 1
+                for dw in (-1, 0):
+                    put(img, int(round(x)), int(round(y)) + dw, pick(BARK, 3.6 - 1.8 * q - 1.0 * (dw == 0) * (np.cos(a) > 0)))
         for j in range(s.h):
-            w = 3 if j < s.h * 0.7 else 2
-            for i in range(-w, w + 1):
-                put(img, s.x + i, s.y - j, pick(WOOD, 3.2 - 0.6 * (i + w)))
-        for i in range(s.x - 7, s.x + 8):
-            put(img, i, s.y + 1, img[min(H - 1, s.y + 1), i] * 0.6)
-        return s.x, s.y - s.h
+            t = j / s.h
+            cx = s.x + lean * j
+            hw = 6.0 - 2.2 * t + 3.5 * max(0, 1 - j / 6.0) ** 2         # flaring at the foot
+            for i in range(int(-hw), int(hw) + 1):
+                u = (i + hw) / (2 * hw)
+                wig = int(round(1.3 * np.sin(j / 5.0 + i * 1.7 + s.seed)))
+                furrow = (i + wig) % 3 == 0                            # deep furrows running up the bark
+                ridge = (i + wig) % 3 == 2
+                lit = 4.4 - 3.6 * u - (1.6 if furrow else 0) + (0.6 if ridge else 0) \
+                    + 0.4 * (g_at(G, int(cx) + i, s.y - j) - 0.5)
+                c = pick(BARK, lit)
+                if u > 0.62 and g_at(G, int(cx) + i + 9, s.y - j) < 0.35 * (1 - t):
+                    c = pick(MOSS, 1.4 + 1.2 * g_at(G, i, j))           # moss on the shaded side
+                put(img, int(round(cx + i)), s.y - j, c)
+            if j == int(s.h * 0.45):
+                put(img, int(round(cx - 1)), s.y - j, BARK[0])          # a knot
+                put(img, int(round(cx)), s.y - j, BARK[0])
+                put(img, int(round(cx)), s.y - j - 1, pick(BARK, 4.2))
+        top = (s.x + lean * s.h, s.y - s.h)
+        for sd in (-1, 1):                                             # the first boughs forking off
+            for q in range(10):
+                x = top[0] + sd * q * 0.9
+                y = top[1] + 6 - q * 0.8
+                put(img, int(round(x)), int(round(y)), pick(BARK, 3.8 if sd < 0 else 2.0))
+                put(img, int(round(x)), int(round(y)) + 1, pick(BARK, 1.6))
+        for i in range(s.x - 9, s.x + 10):
+            put(img, i, s.y + 2, img[min(H - 1, s.y + 2), i] * 0.6)
+        return top
 
     def crown(s, img, G, top):
         r = np.random.default_rng(s.seed)
@@ -332,24 +382,52 @@ class Schale:
 
 
 def bridge(img):
-    """A small arched footbridge of black iron over the pond: boards, a railing of thin bars either side."""
+    """A small arched footbridge of black iron over the pond: a stone footing on each bank, a deck of boards laid
+    across, and on both sides a railing - posts with caps, thin bars close together, a continuous handrail lit on
+    top. Drawn in order: its shadow on the water, the deck, the far railing, the near one over the deck."""
     (ax, ay), (bx, by) = BRIDGE
     n = int(np.hypot(bx - ax, by - ay))
     ux, uy = (bx - ax) / n, (by - ay) / n
     nx, ny = -uy, ux
-    for k in range(n + 1):
-        lift = 6 * np.sin(np.pi * k / n)
-        cx, cy = ax + ux * k, ay + uy * k - lift
-        put(img, int(round(cx + nx * 6)), int(round(cy + ny * 6 + lift + 3)), hx('#0a1210'))   # its shadow
-        for dd in np.arange(-5, 5.01, 0.5):
-            put(img, int(round(cx + nx * dd)), int(round(cy + ny * dd)), pick(WOOD, 3.0 - 0.2 * dd + (0.7 if k % 3 == 0 else 0)))
-        for side in (-6, 6):                                           # the railings: black iron, a top rail, bars
-            rx, ry = cx + nx * side, cy + ny * side
-            for q in (8, 9):
-                put(img, int(round(rx)), int(round(ry - q)), hx('#101012') if q == 9 else hx('#3a3a40'))
-            if k % 3 == 0:
-                for q in range(9):
-                    put(img, int(round(rx)), int(round(ry - q)), hx('#141416'))
+    if ny > 0:
+        nx, ny = -nx, -ny                                              # (nx, ny) points to the far side (up)
+    IRON, IRONL, CAP = hx('#141416'), hx('#3e3e46'), hx('#5c5c66')
+
+    def at(k, dd, up=0.0):
+        lift = 5 * np.sin(np.pi * k / n)
+        return (int(round(ax + ux * k + nx * dd)), int(round(ay + uy * k + ny * dd - lift - up)))
+
+    for e in (0, n):                                                   # the stone footings on the banks
+        cx, cy = at(e, 0)
+        for j in range(cy - 2, cy + 6):
+            for i in range(cx - 7, cx + 8):
+                put(img, i, j, pick(STONE, (3.4 if j == cy - 2 else 2.4 - 0.15 * (j - cy)) - 0.08 * (i - cx)))
+    for k in range(n + 1):                                             # its shadow on the water
+        x, y = at(k, -2)
+        lift = 5 * np.sin(np.pi * k / n)
+        for q in range(3):
+            put(img, x, int(y + lift + 3 + q), hx('#08100e'))
+    for k in range(n + 1):                                             # the deck: boards across, worn
+        board = (k // 3) % 2
+        for dd in np.arange(-4.5, 4.51, 0.5):
+            x, y = at(k, dd)
+            edge = abs(dd) > 4.0
+            put(img, x, y, pick(WOOD, (1.6 if edge else 3.2 + 0.4 * board - 0.12 * dd) - (0.9 if k % 3 == 0 else 0)))
+    for side in (5.0, -5.0):                                           # far railing first, then the near one
+        for k in range(n + 1):
+            post = k in (0, n) or k % 12 == 0
+            x, y = at(k, side)
+            if post:
+                for q in range(11):
+                    put(img, x, y - q, IRON)
+                    put(img, x + 1, y - q, IRONL)
+                put(img, x, y - 11, CAP)
+                put(img, x + 1, y - 11, CAP)
+            elif k % (3 if side > 0 else 4) == 0:
+                for q in range(1, 8):
+                    put(img, x, y - q, IRON)                           # the bars, the deck showing between them
+            put(img, x, y - 8, IRON)                                   # the handrail, lit on its top
+            put(img, x, y - 9, IRONL)
 
 
 def walls(img, G, rng):
@@ -427,22 +505,24 @@ def render(with_monk=False):
     walls(img, G, rng)
     things = []
     r = np.random.default_rng(98)
-    for (x, y, rad) in ((244, 160, 19), (298, 182, 15), (312, 150, 12), (226, 186, 10), (276, 140, 9),
-                        (318, 190, 7)):
+    for (x, y, rad) in ((236, 176, 17), (300, 162, 15), (284, 196, 10), (318, 186, 8), (262, 140, 9),
+                        (224, 154, 7)):
         things.append((y, Victoria(x, y, rad)))
+    TREES = ((40, 120), (130, 90), (200, 56), (350, 64), (420, 100), (510, 140), (34, 250),
+             (180, 236), (362, 236), (506, 270), (120, 372), (440, 372))
     for _ in range(5200):                                              # the undergrowth: dense away from the ways
         x, y = int(r.integers(SIDE + 2, W - SIDE - 2)), int(r.integers(TOP + 6, H - 13))
         d = dist[y, x]
-        if d < 3 or r.random() > np.clip((d - 2) / 6.0, 0, 1):
+        near_trunk = any(abs(x - tx) < 17 and -2 < y - ty < 13 for tx, ty in TREES)  # the roots stay in view
+        if d < 3 or near_trunk or r.random() > np.clip((d - 2) / 6.0, 0, 1):
             continue
         if r.random() < 0.95:
             things.append((y, Farnwedel(x, y, int(r.integers(1 << 30)), r.uniform(0.7, 1.25))))
         else:
             things.append((y, Bluete(x, y, int(r.integers(1 << 30)), red=r.random() < 0.35)))
-    for k, (x, y) in enumerate(((40, 120), (130, 90), (200, 56), (350, 64), (420, 100), (510, 140), (34, 250),
-                                (180, 236), (362, 236), (506, 270), (120, 372), (440, 372))):
+    for k, (x, y) in enumerate(TREES):
         if k % 3 == 1:
-            things.append((y, Baum(x, y, 300 + k, h=int(r.integers(30, 44)), R=int(r.integers(30, 40)))))
+            things.append((y, Baum(x, y, 300 + k, h=int(r.integers(40, 54)), R=int(r.integers(32, 42)))))
         else:
             things.append((y, Palme(x, y, 300 + k, h=int(r.integers(44, 64)), R=int(r.integers(28, 38)))))
     things.append((BENCH[1], Werkbank()))
