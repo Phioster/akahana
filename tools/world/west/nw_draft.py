@@ -185,7 +185,7 @@ def render():
     hx_, hy_ = HERMIT                                                 # the hermitage (Yamadera): the village's own makes
     lights = []
     things.append((-1, 'obj', o.Verschneit(o.Treppe(hx_, hy_ + 32, n=8), [(None, None, 0.6)], seed=1, demoss=True)))
-    things.append((hy_, 'obj', o.Verschneit(o.Yashiro(hx_, hy_, w=40, seed=66), [(None, hy_ - 25, 0.38), (hy_ - 5, hy_ + 2, 0.7)], seed=2,
+    things.append((hy_, 'obj', o.Verschneit(o.Yashiro(hx_, hy_, w=40, seed=66, under=True), [(None, hy_ - 25, 0.38), (hy_ - 5, hy_ + 2, 0.7)], seed=2,
                                                demoss=(hy_ - 6, hy_ + 2))))
     things.append((hy_ + 28, 'obj', o.Verschneit(o.Minka(hx_ - 68, hy_ + 28, w=30, wall=10, roof=15, seed=33,
                                                          kind='kaya', ruin=0.4, pal=2), [(None, hy_ + 16, 0.38)], seed=3)))

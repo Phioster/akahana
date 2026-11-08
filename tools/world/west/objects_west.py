@@ -1051,8 +1051,9 @@ class Yashiro:
     little gable over the front, a deep eave over the steps; lattice doors, the offering box, the bell rope, a
     straw shimenawa sagging across the front with paper shide (one gone). Moss on the roof, left alone for years
     but still whole. (x, y) the foot of the base's front, middle."""
-    def __init__(s, x, y, w=36, seed=64):
+    def __init__(s, x, y, w=36, seed=64, under=False):
         s.x, s.y, s.w, s.seed = x, y, w, seed
+        s.under = under                                        # the space under the raised floor drawn closed
 
     def box(s):
         return (s.x - s.w // 2 - 8, s.y - 52, s.x + s.w // 2 + 14, s.y + 4)
@@ -1071,6 +1072,14 @@ class Yashiro:
                 if g_at(G, i * 3, j * 7) < 0.15 and j > y - 5:
                     c = pick(MOSS, 1.6)
                 put(img, i, j, c)
+        if s.under:                                                    # under the floor: shadow, posts on the base
+            for j in range(y - 11, y - 5):
+                for i in range(x0 - 2, x1 + 2):
+                    post = (i - x0 + 2) % 10 in (0, 1) or i >= x1
+                    c = pick(WOOD, 1.8 - 0.8 * (i - x0) / w) if post else (WOOD[0] if (i + j) % 3 else HOLE)
+                    if j == y - 11 and not post:
+                        c = HOLE                                       # right under the boards, darkest
+                    put(img, i, j, c)
         for k in range(3):                                             # wooden steps up to the floor
             for i in range(x - 5, x + 6):
                 put(img, i, y - 6 - k * 2, pick(WOOD, 3.6 - k * 0.3 - (i - x + 5) * 0.12))
