@@ -1331,27 +1331,55 @@ class Muehle:
         hb = s.house.box()
         return (s.x - 104, hb[1], hb[2], s.y + 26)
 
-    def draw(s, img, G):
-        s.house.draw(img, G)
-        s.wheel.rot = 2 * np.pi * s.t / s.TURN
-        s.wheel.draw(img, G)
+    def _geom(s):
         wx, wy, r = s.wheel.x, s.wheel.y, s.wheel.r
         x1, y1 = wx + 7, wy - r - 9                                    # out past the wheel's top, clear of it
         xi = min(range(wx - 110, wx - 40), key=lambda q: abs(s.brook(q)[0] - (y1 - 1)))   # the weir upstream,
         cyi, _ = s.brook(xi)                                           # where the water stands that high
         x0, y0 = xi, int(round(cyi)) - 2                               # so the flume falls a little all along
-        n = x1 - x0
-        flow = 5.0 * s.t                                               # px a second, downstream along the flume
-        W0, W1, GL, WH = hx('#64717c'), hx('#4e5a65'), hx('#a3aeb6'), hx('#d6dde1')
+        rim = wy - int(np.sqrt(max(0, (r + 2) ** 2 - (x1 + 1 - wx) ** 2)))   # where the fall meets the wheel
+        return wx, wy, r, x1, y1, xi, cyi, x0, y0, x1 - x0, y1 + 5, rim
+
+    def draw(s, img, G):
+        s.house.draw(img, G)
+        s.wheel.rot = 2 * np.pi * s.t / s.TURN
+        s.wheel.draw(img, G)
+        s.draw_boards(img)
+        s.draw_water(img, s.t)
+        s.draw_posts(img)
+        s.draw_fall(img, s.t)
+
+    def draw_boards(s, img):
+        """The flume's wooden trough (still): back board, front board and its underside."""
+        wx, wy, r, x1, y1, xi, cyi, x0, y0, n, fall, rim = s._geom()
         for k in range(n + 1):
             i, j = x0 + k, int(round(y0 + (y1 - y0) * k / n))
             put(img, i, j - 1, WHEEL[5] if k % 11 else WHEEL[2])       # back board's top edge, joints
-            put(img, i, j, W0 + (GL - W0) * glint(k, flow, 9))         # the water, seen into
-            put(img, i, j + 1, W1 + (WH - W1) * glint(k, flow + 4, 18, 1.0))
             put(img, i, j + 2, WHEEL[5] if k % 11 else WHEEL[2])       # front board, its top lit
             put(img, i, j + 3, WHEEL[3])
             put(img, i, j + 4, WHEEL[0])                               # its underside, in shadow
-        for px in range(x0 + 14, wx - r - 3, 13):                      # posts on the north bank, clear of wheel and water
+
+    def stake(s, i, j):
+        """Whether (i, j) is one of the weir's stakes (drawn over the trough's water)."""
+        wx, wy, r, x1, y1, xi, cyi, x0, y0, n, fall, rim = s._geom()
+        return i in (xi - 3, xi + 1) and y0 - 2 <= j < int(round(cyi)) + 3
+
+    def draw_water(s, img, t):
+        """The water in the trough, its glints drifting downstream (5 px a second)."""
+        wx, wy, r, x1, y1, xi, cyi, x0, y0, n, fall, rim = s._geom()
+        flow = 5.0 * t
+        W0, W1, GL, WH = hx('#64717c'), hx('#4e5a65'), hx('#a3aeb6'), hx('#d6dde1')
+        for k in range(n + 1):
+            i, j = x0 + k, int(round(y0 + (y1 - y0) * k / n))
+            if not s.stake(i, j):
+                put(img, i, j, W0 + (GL - W0) * glint(k, flow, 9))     # the water, seen into
+            if not s.stake(i, j + 1):
+                put(img, i, j + 1, W1 + (WH - W1) * glint(k, flow + 4, 18, 1.0))
+
+    def draw_posts(s, img):
+        """Posts on the north bank, clear of wheel and water, and the weir's two stakes."""
+        wx, wy, r, x1, y1, xi, cyi, x0, y0, n, fall, rim = s._geom()
+        for px in range(x0 + 14, wx - r - 3, 13):
             cy, hw = s.brook(px)
             foot = int(round(cy - hw)) - 2
             top = int(round(y0 + (y1 - y0) * (px - x0) / n)) + 5
@@ -1366,11 +1394,14 @@ class Muehle:
         for d in (-3, 1):                                              # the weir: two stakes standing in the water
             for j in range(y0 - 2, int(round(cyi)) + 3):
                 put(img, xi + d, j, WHEEL[3] if j < cyi else WHEEL[1])
-        put(img, xi - 1, int(round(cyi)) + 1, GL)
-        fall = y1 + 5                                                  # pouring off the end, down onto the paddles
-        rim = wy - int(np.sqrt(max(0, (r + 2) ** 2 - (x1 + 1 - wx) ** 2)))   # where it meets the wheel, past its top
+        put(img, xi - 1, int(round(cyi)) + 1, hx('#a3aeb6'))
+
+    def draw_fall(s, img, t, speed=7.0):
+        """Pouring off the trough's end down onto the paddles, and the splash."""
+        wx, wy, r, x1, y1, xi, cyi, x0, y0, n, fall, rim = s._geom()
+        GL, WH = hx('#a3aeb6'), hx('#d6dde1')
         for j in range(fall, rim):
-            v = glint(j - fall, 7.0 * s.t, 4, 1.5)
+            v = glint(j - fall, speed * t, 4, 1.5)
             put(img, x1 + 1, j, GL * (0.55 + 0.45 * v))
         put(img, x1, rim, WH)                                          # the splash on the paddle
         put(img, x1 + 2, rim, GL)

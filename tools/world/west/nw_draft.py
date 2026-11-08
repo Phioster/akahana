@@ -120,8 +120,9 @@ def render():
         ok = (ys >= 0) & (ys < H) & (xs_ >= 0) & (xs_ < W)
         flat_rock[ys[ok], xs_[ok]] = True
     BAY = (np.array([[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]) + 0.5) / 16.0
-    mist = np.clip((70 - gy + 12 * fbm(rng, 20, (H, W))) / 70.0, 0, 1) * (west | (gx < WW + 4))
-    on = (mist > BAY[gy % 4, gx % 4]) & west
+    mist = np.clip((70 - gy + 12 * fbm(rng, 20, (H, W))) / 70.0, 0, 1)
+    mine = west | flat_rock                                            # also my rocks reaching over the seam
+    on = (mist > BAY[gy % 4, gx % 4]) & mine
     img[on] = img[on] * 0.25 + np.array([214.0, 214, 212]) * 0.75
     ground = img.copy()
 

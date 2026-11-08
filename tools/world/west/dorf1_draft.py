@@ -238,9 +238,10 @@ def draw_lake(img, rng, xx, yy, gx, gy, seam):
                 water=water, shallow=shallow, pools=pools, shore=ndi.distance_transform_edt(~lake), tea=(tx, ty))
 
 
-def match_seam(img, skip, seam, gy, band=40, reach=280):
+def match_seam(img, skip, seam, gy, band=40, reach=280, params=None):
     """The new columns, row by row, to the brightness of today's world just across the seam, fading out westward
-    over reach px (the two grass fields are made apart and differ a little in tone)."""
+    over reach px (the two grass fields are made apart and differ a little in tone). params (a dict) gets what
+    apply_seam needs to do the same to a layer drawn apart (gen_west: ground, sway, sprites)."""
     def row_mean(a, m):
         n = m.sum(1)
         v = (a * m[..., None]).sum(1) / np.maximum(n, 1)[:, None]
@@ -262,7 +263,24 @@ def match_seam(img, skip, seam, gy, band=40, reach=280):
         m = ~skip[:, x0:x1]
         return ndi.gaussian_filter1d((dev[:, x0:x1] * m).sum(1) / np.maximum(m.sum(1), 1), 24)
     k = np.clip(row_dev(seam + 4, seam + band + 4) / np.maximum(row_dev(seam - band - 4, seam - 4), 1), 0.7, 1.15)
+    if params is not None:
+        params.update(ratio=ratio, k=k, wy=wy[:, 0], seam=seam, reach=reach,
+                      base=base[:, seam - reach:seam].astype(np.float32))
     return base + (img - base) * (1 + (k[:, None, None] - 1) * fade)
+
+
+def apply_seam(u, ys, xs, p):
+    """match_seam's change at the pixels (ys, xs) applied to the colours u (n, 3) of a layer drawn apart."""
+    u = np.asarray(u, float)
+    f = p['wy'][ys] * np.clip(1 - (p['seam'] - xs) / p['reach'], 0, 1) * (xs < p['seam'])
+    on = f > 0
+    out = u.copy()
+    if on.any():
+        y, x, ff = ys[on], xs[on], f[on][:, None]
+        u1 = u[on] * (1 + (p['ratio'][y] - 1) * ff)
+        b = p['base'][y, x - (p['seam'] - p['reach'])]
+        out[on] = b + (u1 - b) * (1 + (p['k'][y][:, None] - 1) * ff)
+    return out
 
 
 def path_masks(rng):
@@ -274,7 +292,10 @@ def path_masks(rng):
         yield name, m, core, d, width
 
 
-def main(out, scale=2):
+def render():
+    """The whole west window before the mood (the game's shader adds it). -> dict: img and what gen_west needs."""
+    import layers
+    col = layers._active                                                # gen_west collecting: None for a picture
     rng = np.random.default_rng(61)
     og, ofl, w = today()
     img = ground(og, rng)
@@ -706,7 +727,8 @@ def main(out, scale=2):
                     heads[y + j, x + i, :3] = CMAP[ch]
                     heads[y + j, x + i, 3] = 255
     m = heads[..., 3] > 0
-    img[m] = heads[m][:, :3]
+    if col is None or col.pass_ == 'full':                              # collecting: the heads are the sway layer
+        img[m] = heads[m][:, :3]
     # tall grass only in loose drifts between the gardens; inside the plots it is short and full of flowers
     dens = smooth((WW - 40 - gx + 30 * fbm(H, W, 20, 7)) / 220.0) * np.clip(0.18 + 0.32 * fbm(H, W, 14, 8), 0, 1)
     dens = np.clip(dens * (1 - 0.85 * plots), 0, 1)
@@ -752,6 +774,10 @@ def main(out, scale=2):
 
         def draw(s, img, G):
             sp = s.sp
+            if col is not None:                                         # collecting: the game has it as a sprite
+                if col.pass_ == 'ground':
+                    return
+                refs.append(sp)
             a = np.array(Image.open(os.path.join(ROOT, 'assets', 'world', 'sprites', sp['name'] + '.png'))
                          .convert('RGBA'))[:, :sp['w']].astype(float)
             x_, y_ = sp['x'] + WW - X0, sp['y'] - Y0
@@ -762,6 +788,7 @@ def main(out, scale=2):
             sub = a[ya - y_:yb - y_, xa - x_:xb - x_]
             al = sub[..., 3:] / 255.0
             img[ya:yb, xa:xb] = img[ya:yb, xa:xb] * (1 - al) + sub[..., :3] * al
+    refs = []                                                           # today's sprites drawn here (collecting)
     things += [Old(s) for s in sprites + forest_things]
     for l in w['lights']:
         if X0 <= l['x'] + WW < X1 and Y0 <= l['y'] < Y1:
@@ -772,9 +799,21 @@ def main(out, scale=2):
         t.draw(img, G)
     if os.environ.get('WEST_DEBUG'):
         np.save(os.environ['WEST_DEBUG'] + '_pre.npy', img.astype(np.float32))
-    img = match_seam(img, water | pathm, seam, gy)
+    seam_p = {}
+    if col is None or col.pass_ == 'full':                              # collecting: gen_west does it to each layer
+        img = match_seam(img, water | pathm, seam, gy, params=seam_p)
     if os.environ.get('WEST_DEBUG'):
         np.save(os.environ['WEST_DEBUG'] + '_post.npy', img.astype(np.float32))
+    return dict(img=img, w=w, lights=lights, lk=lk, water=water, pathm=pathm, brook=brook.mask, brook_line=bc,
+                sb=sb.mask, south_lines=southw, oldw=oldw_full, gy=gy, heads=heads, is_reed=is_reed, sx=sx_,
+                refs=refs, forest=forest_things, today_sprites=sprites, seam_p=seam_p, blocked=blocked,
+                bridge_m=bridge_m, terr=terr, terr_dry=terr_dry, bamboo=eb < 1.0, plots=plots, seam=seam,
+                old_flowers=ofl)
+
+
+def main(out, scale=2):
+    r = render()
+    img, w, lights, lk, oldw_full, gy = r['img'], r['w'], r['lights'], r['lk'], r['oldw'], r['gy']
     ww = dict(w, lights=lights, wisps=[])
     lakes = lk['water'] | ((oldw_full[..., 3] > 0) & (gy > 3950))       # the mist's band and the calm over the lakes
     band = np.clip(ndi.gaussian_filter(lakes.astype(float), 4) * 1.3, 0, 1)
