@@ -3,6 +3,9 @@ name: APK bauen
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 env:
   GODOT_VERSION: 4.7.2
 
@@ -62,8 +65,11 @@ jobs:
           godot --headless --export-debug "Android" build/mohnweg-debug.apk
           ls -la build/
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: mohnweg-debug-apk
-          path: build/mohnweg-debug.apk
-          retention-days: 1
+      # the APK goes to one rolling pre-release "dev" (replaced each build): release files do not count against
+      # the Actions storage, which ran full on 2026-11-08 and then blocked every upload for hours
+      - name: APK ans Release "dev" haengen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view dev >/dev/null 2>&1 || gh release create dev --prerelease --title "Entwicklungs-Build" --notes "Immer der letzte Build, wird ersetzt."
+          gh release upload dev build/mohnweg-debug.apk --clobber
