@@ -31,10 +31,10 @@ WW = 900
 X0, X1, Y0, Y1 = 0, 1020, 0, 1520          # west coordinates; today's x 0 = WW
 W, H = X1 - X0, Y1 - Y0
 MIX = 60                                   # today's ground takes over in clumps over these columns east of WW
-QUARRY = (360, 400)                         # the old quarry under the ridge (Philip, round 2)
+QUARRY = (360, 362)                         # the old quarry under the ridge (Philip, round 2)
 BRUCH = [(885, 1444), (862, 1394), (868, 1340), (830, 1282), (792, 1236), (772, 1172), (716, 1120), (682, 1052),
          (618, 1002), (590, 934), (532, 882), (500, 812), (444, 762), (430, 692), (394, 642), (404, 582), (374, 532),
-         (380, 472), (366, 430)]          # up from the orchard path, the sled's way
+         (380, 472), (368, 420), (364, 388)]          # up from the orchard path, the sled's way
 GORGE_END = 610                            # where the crack runs out under the slope
 
 
@@ -106,6 +106,9 @@ def render():
     bpath = np.array(pim) > 0
     wood = np.where(ndi.binary_dilation(qzone, iterations=10), 0.0, wood)
     bare = n1 * 0.6 + fbm(rng, 10, (H, W)) + 0.5 * fbm(rng, 3, (H, W)) > 1.5 - 1.9 * smooth((560 - gy) / 360.0)
+    qx_, qy_ = QUARRY                                                  # the quarry is cut into a knoll of rock
+    outcrop = (((gx - qx_) / 128.0) ** 2 + ((gy - qy_ + 52) / 92.0) ** 2 + 0.35 * fbm(rng, 12, (H, W))) < 1
+    bare |= outcrop & (fbm(rng, 5, (H, W)) > -0.6)
     g = snow_ground(rng, H, W, Y0, wood, bare=bare)                    # north rows are world rows here
     G, CL = noise_maps(rng, H, W)
 
@@ -130,13 +133,31 @@ def render():
     footpath(img, BRUCH, G, width=2.0, bank=1.8, rng_seed=7)
     G0.draw(img, G, CL)
     flat_rock = np.zeros((H, W), bool)
-    ry_, rx_ = np.nonzero(ridge & (gx < WW + 26) & ~ndi.binary_dilation(qzone, iterations=20) & (rng.random((H, W)) < 0.012))   # over the seam: today's edge had none
+    ry_, rx_ = np.nonzero(ridge & (gx < WW + 26) & ~ndi.binary_dilation(qfloor | qface, iterations=14) & (rng.random((H, W)) < 0.012))   # over the seam: today's edge had none
     for y, x in sorted(zip(ry_, rx_)):
         big = 1.0 + 0.8 * smooth((200 - (y + Y0)) / 200.0)
         ys, xs_ = facet_rock(img, int(x), int(y), rng.uniform(9, 17) * big, rng.uniform(7, 12) * big, False,
                              int(x * 3 + y * 7), True)
         ok = (ys >= 0) & (ys < H) & (xs_ >= 0) & (xs_ < W)
         flat_rock[ys[ok], xs_[ok]] = True
+    # the knoll's own rocks: heaped over the face's top and flanks, so the cut sits in living rock
+    rq = np.random.default_rng(143)
+    hold = ndi.binary_dilation(qfloor, iterations=3) | ndi.binary_erosion(qface, iterations=2)
+    oy, ox = np.nonzero(outcrop & ~hold & (rq.random((H, W)) < 0.010))
+    for y, x in sorted(zip(oy, ox)):
+        top_near = qface[min(H - 1, y + 6), x] or qface[min(H - 1, y + 3), x]
+        big = 1.3 if top_near else 1.0
+        ys, xs_ = facet_rock(img, int(x), int(y), rq.uniform(6, 13) * big, rq.uniform(5, 9) * big, False,
+                             int(x * 5 + y * 3), True)
+        ok = (ys >= 0) & (ys < H) & (xs_ >= 0) & (xs_ < W)
+        flat_rock[ys[ok], xs_[ok]] = True
+    for x in range(qx_ - 78, qx_ + 79):                               # the flanks: rock spilling over the face's ends
+        if abs(x - qx_) > 60 and rq.random() < 0.18:
+            yf = qb.foot.get(x, qy_ - 20)
+            ys, xs_ = facet_rock(img, x, int(yf - rq.uniform(4, 30)), rq.uniform(6, 11), rq.uniform(5, 8), False,
+                                 x * 7 + 1, True)
+            ok = (ys >= 0) & (ys < H) & (xs_ >= 0) & (xs_ < W)
+            flat_rock[ys[ok], xs_[ok]] = True
     BAY = (np.array([[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]) + 0.5) / 16.0
     mist = np.clip((70 - gy + 12 * fbm(rng, 20, (H, W))) / 70.0, 0, 1)
     mine = west | flat_rock                                            # also my rocks reaching over the seam
@@ -180,6 +201,15 @@ def render():
         things.append((sy_ + 0.1 * k, 'obj', o.QBlock(sx_ + k, sy_, w=bw, h=bh, d=3, seed=160 + k)))
         sy_ -= bh + 1
     things.append((qy + 22, 'obj', o.Schlitten(qx - 14, qy + 22)))
+    tr = np.random.default_rng(144)
+    for _ in range(34):                                               # talus fallen from the face, rubble at the rim
+        x_ = int(tr.integers(qx - 70, qx + 71))
+        if tr.random() < 0.6:
+            y_ = qb.foot.get(x_, qy - 20) + int(tr.integers(2, 7))
+        else:
+            ang = tr.uniform(0, np.pi)
+            x_, y_ = int(qx + np.cos(ang) * 74), int(qy + np.sin(ang) * 24 + tr.integers(-2, 3))
+        things.append((y_, 'rock', (x_, y_, int(tr.integers(2, 5)))))
     hr = np.random.default_rng(142)                                  # the spoil heap east of the way out
     for _ in range(26):
         a_, r_ = hr.uniform(0, 2 * np.pi), hr.uniform(0, 1) ** 0.6
