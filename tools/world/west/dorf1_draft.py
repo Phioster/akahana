@@ -127,6 +127,44 @@ def ground(og, rng):
     return g
 
 
+def crossing(pathm, water, x, y, reach=40, turn=0.0):
+    """How a bridge lies where a path crosses a brook near (x, y) (game 2026-11-08: square to the brook, or between
+    two bank points, it missed the path): along the strip of path that runs through the water - its middle, its
+    direction, its length. -> (x, y, angle, span)"""
+    H_, W_ = water.shape
+    y0, y1, x0, x1 = max(0, y - reach), min(H_, y + reach), max(0, x - reach), min(W_, x + reach)
+    hit = pathm[y0:y1, x0:x1] & water[y0:y1, x0:x1]
+    lab, k = ndi.label(hit)
+    ys, xs = np.nonzero(hit)
+    best = lab[ys, xs][np.argmin((ys + y0 - y) ** 2 + (xs + x0 - x) ** 2)]
+    ys, xs = np.nonzero(lab == best)
+    p = np.stack([xs + x0, ys + y0], 1).astype(float)
+    mid = p.mean(0)
+    ev, evec = np.linalg.eigh(np.cov((p - mid).T))
+    v = evec[:, 1]                                                    # the long axis: the path's own run
+    ang = float(np.arctan2(v[1], v[0]))
+    if np.sin(ang) < 0:
+        ang -= np.pi
+    u = (p - mid) @ v
+    span = u.max() - u.min()
+    if turn:                                                          # turned a little back towards square to the
+        wy, wx = np.nonzero(water[y0:y1, x0:x1])                      # brook (Philip, the mill: "only a bit")
+        q = np.stack([wx + x0, wy + y0], 1).astype(float)
+        bv = np.linalg.eigh(np.cov((q - q.mean(0)).T))[1][:, 1]
+        sq = np.arctan2(bv[1], bv[0]) + np.pi / 2
+        d = (sq - ang + np.pi / 2) % np.pi - np.pi / 2                # the nearer way round (a bridge has two ends)
+        ang = float(ang + turn * d)
+        dv = np.array([np.cos(ang), np.sin(ang)])
+        span = 0
+        for sg in (1, -1):                                            # as long as the water is wide that way
+            k = 0
+            while k < 60 and water[min(H_ - 1, max(0, int(round(mid[1] + sg * dv[1] * k)))),
+                                   min(W_ - 1, max(0, int(round(mid[0] + sg * dv[0] * k))))]:
+                k += 1
+            span += k
+    return int(round(mid[0])), int(round(mid[1])), ang, int(round(span))
+
+
 def draw_terraces(img, rng, pathm, outflow=None):
     """The old paddies (Furuta) stepping down south: each a band between two curving contours, of its own depth and
     reaching out its own way at both ends, a bund (aze) of earth along its top, the drop to the next one as a dark
@@ -482,7 +520,7 @@ def render():
         blocked[by_ - Y0 - 10:by_ - Y0 + 3, bx_ - X0 - 2:bx_ - X0 + bw + 6] = True
     # ---- zone 3: the shrine at the forest's edge, the orchard, the forest
     sx, sy = SHRINE[0] - X0, SHRINE[1] - Y0
-    z3 = [o.Yashiro(sx, sy), o.Treppe(sx, sy + 32, n=8), o.Torii(sx, sy + 36),
+    z3 = [o.Yashiro(sx, sy, under=True), o.Treppe(sx, sy + 32, n=8), o.Torii(sx, sy + 36),
           o.Komainu(sx - 20, sy + 34), o.Komainu(sx + 19, sy + 34, flip=True), o.Shinboku(sx + 54, sy - 10)]
     for t in z3:
         things.append(t)
@@ -494,10 +532,9 @@ def render():
         lights += t.lights()
         blocked[y - Y0 - 14:y - Y0 + 4, x - X0 - 5:x - X0 + 6] = True
     for (x, y), (a_, b_) in zip(((424, 1928), (548, 1931)), (('B', 0), ('P', 0))):
-        tc = bc[np.hypot(bc[:, 0] - (x - X0), bc[:, 1] - (y - Y0)).argmin()]
+        bx_, by_, ang, span = crossing(pathm, brook.mask, x - X0, y - Y0)
         Kind = ow.Bruecke if a_ == 'B' else ow.Brett
-        t = Kind(int(round(tc[0])), int(round(tc[1])), np.pi / 2 - 0.15, 11)
-        things.append(t)
+        things.append(Kind(bx_, by_, ang, span))
     orch = np.zeros((H, W))
     ox0, oy0, ox1, oy1 = [v - o_ for v, o_ in zip(ORCHARD, (X0, Y0, X0, Y0))]
     e = ((xx - (ox0 + ox1) / 2) / ((ox1 - ox0) / 2)) ** 2 + ((yy - (oy0 + oy1) / 2) / ((oy1 - oy0) / 2)) ** 2
@@ -519,7 +556,16 @@ def render():
             elif r3.random() < 0.15:
                 things.append(o.Korb(x_ + int(r3.integers(-10, 10)), y_ + 5))
     # the forest: today's edge firs (the wall that stood at x 0) planted all over the north-west
-    tannen = [sp for sp in w['sprites'] if sp['name'].startswith('tanne') and sp['x'] <= 2 and 1300 < sp['y'] < 2000]
+    # whole firs only (game 0.18.0): the edge firs at today's x 0 were cut off by the old world's edge, every copy
+    # showed that straight cut. Today's whole firs of the same wood, one template per picture.
+    seen, tannen = set(), []
+    for sp in w['sprites']:
+        if sp['name'].startswith('tanne') and sp['x'] > 2 and sp['name'] not in seen:
+            a_ = np.array(Image.open(os.path.join(ROOT, 'assets', 'world', 'sprites', sp['name'] + '.png')))[..., 3]
+            if not (a_[:, 0].any() or a_[:, sp['w'] - 1].any() or a_[0].any()):
+                seen.add(sp['name'])
+                tannen.append(sp)
+    tannen.sort(key=lambda sp: sp['name'])
     fx = np.array([p[0] for p in FOREST]) - X0
     fy = np.array([p[1] for p in FOREST]) - Y0
     edge_y = np.interp(np.arange(W), fx, fy) + 14 * fbm(1, W, 6, 74)[0]
@@ -565,8 +611,8 @@ def render():
         return ((xx - cx) / rx) ** 2 + ((yy - cy) / ry) ** 2 + 0.35 * fbm(H, W, 6, seed)
     gl = glade(MILL[0] - X0 - 26, MILL[1] - Y0 - 8, 56, 34, 109)
     ca = southw[0][0]
-    tc = ca[np.hypot(ca[:, 0] - (548 - X0), ca[:, 1] - (3342 - Y0)).argmin()]
-    things.append(ow.Bruecke(int(round(tc[0])), int(round(tc[1])), np.pi / 2 - 0.5, 15))
+    bx_, by_, ang, span = crossing(pathm, sb.mask, 548 - X0, 3342 - Y0, turn=0.35)
+    things.append(ow.Bruecke(bx_, by_, ang, span))
     things.append(ow.Quelle(SPRING[0] - X0, SPRING[1] - Y0))
     gl = np.minimum(gl, glade(SPRING[0] - X0 + 1, SPRING[1] - Y0 - 6, 20, 15, 110))
     blocked |= gl < 0.7

@@ -55,3 +55,17 @@ class WestWorld(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class ExportFilter(unittest.TestCase):
+    """0.18.0 on the phone: the greenhouse's json and walk grid were not exported (only .png get imported), so its
+    door did nothing. Every raw data file the game reads with FileAccess must match the include filter."""
+    def test_raw_world_data_is_exported(self):
+        import fnmatch
+        import glob
+        root = os.path.join(os.path.dirname(__file__), '..', '..')
+        line = [l for l in open(os.path.join(root, 'export_presets.cfg')) if l.startswith('include_filter=')][0]
+        pats = [p.strip() for p in line.split('=', 1)[1].strip().strip('"').split(',')]
+        for f in glob.glob(os.path.join(D, '**', '*.json'), recursive=True) + glob.glob(os.path.join(D, '*', '*.bin')):
+            rel = os.path.relpath(f, root)
+            self.assertTrue(any(fnmatch.fnmatch(rel, p) for p in pats), rel)

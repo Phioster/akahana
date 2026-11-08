@@ -8,8 +8,9 @@ uniform vec4 monk_rect = vec4(-1000.0, -1000.0, 1.0, 1.0);   // his frame in wor
 uniform vec4 monk_uv = vec4(0.0, 0.0, 1.0, 1.0);              // that frame in the sheet: uv origin, uv size
 uniform vec4 lamp_rect = vec4(-1000.0, -1000.0, 0.0, 0.0);   // the lantern on his staff (drawn apart from the sheet)
 uniform float open_share = 0.8;         // share of a crown's pixels left out right over him
-const vec2 HALF = vec2(7.0, 9.0);       // his body around (feet.x, feet.y - 8)
-const float RAMP = 5.0;                 // px over which the screen closes again around him
+const vec2 REACH = vec2(11.0, 14.0);   // the opening round his body (feet.x, feet.y - 8): an oval, not a box
+const float CORE = 0.5;                 // inside this share of it the screen stands fully open ...
+const float EDGE = 1.2;                 // ... and closes by here; the rim wavers slowly (Philip 0.18.0: "a rectangle")
 
 varying vec2 world;
 varying float foot;
@@ -36,8 +37,10 @@ void fragment() {
 		if (all(greaterThanEqual(l, vec2(0.0))) && all(lessThan(l, lamp_rect.zw))) {
 			discard;
 		}
-		vec2 d = max(abs(world - (wanderer - vec2(0.0, 8.0))) - HALF, vec2(0.0));
-		float share = open_share * (1.0 - smoothstep(0.0, RAMP, length(d)));
+		vec2 q = (world - (wanderer - vec2(0.0, 8.0))) / REACH;
+		float a = atan(q.y, q.x);
+		float wob = 0.13 * sin(3.0 * a + 0.6 * TIME) + 0.08 * sin(5.0 * a - 0.9 * TIME + 1.7);
+		float share = open_share * (1.0 - smoothstep(CORE, EDGE, length(q) - wob));
 		if (bayer4(ivec2(floor(world))) < share) {
 			discard;
 		}

@@ -41,7 +41,7 @@ KIND_OLD, KIND_BROOK, KIND_LAKE = 1, 2, 3
 MOOD_CELL = 20
 LOW_H = {'Steg': 3, 'Bruecke': 4, 'Brett': 2, 'Boot': 1, 'Trittsteine': 1, 'WasserStein': 1, 'Treibholz': 1,
          'Seerosen': 1}
-FOOT_ROWS = {'Minka': 8, 'Gewaechshaus': 10, 'Steinmetz': 8, 'Yashiro': 9, 'Teehaus': 6, 'MillHouse': 8,
+FOOT_ROWS = {'Minka': 8, 'Gewaechshaus': 15, 'Steinmetz': 8, 'Yashiro': 14, 'Teehaus': 6, 'MillHouse': 8,
              'Brunnen': 6, 'Verschneit': 8, 'Glockenhaus': 4, 'Steinlaterne': 5, 'Torii': 2}
 TRUNK = {'Laubbaum': (4, 3, 1), 'Kaki': (3, 3, 1), 'Obstbaum': (3, 3, 1), 'Shinboku': (5, 4, 2)}
 
@@ -190,6 +190,9 @@ def main():
     bend = grow(im['bend.png'], WEST_W)
     place(flowers, cn.sway, d_fl)
     place(bend, cn.sway_h, d_bd)
+    mend_seam([ground, flowers, bend], WEST_W + 540, 1860, 2360, 24, 411)   # the Ostwald's west edge (gen_east, old)
+    mend_seam([ground, flowers, bend], OWNW, 4400, H, 40, 412, True)        # the bottom shore: ours lies higher
+    fill_reeds([ground, flowers, bend], OWNW, 4600, H, 24)                  # and its reed belt had a gap there
 
     # ---- sprites: today's (moved), the drafts' new ones, the village forest's copies of today's firs
     sd = os.path.join(OUT, 'sprites')
@@ -433,6 +436,37 @@ def deisland(grade, hw):
     new = ndi.gaussian_filter(dark.astype(float), 5) * 0.85
     t = smooth((np.arange(n)[None, :] - (hw - 40)) / 80.0)
     grade[:, :n, 0] = np.round(np.clip(new * (1 - t) + r * t, 0, 1) * 255).astype(np.uint8)
+
+
+def mend_seam(arrs, xs, y0, y1, reach, seed, open_end=False):
+    """A hard vertical seam at column xs over rows y0..y1 (Philip 0.18.0 found two on the map) closed in clumps: near
+    it, pixels take their mirror image from the other side, more the closer they lie, fading out at both row ends.
+    The same pixels move in every layer (ground, flowers, bend), so a blade keeps its height map."""
+    rng = np.random.default_rng(seed)
+    h = y1 - y0
+    c = ndi.gaussian_filter(rng.normal(0, 1, (h, 2 * reach)), 3)
+    c = 0.5 + 0.5 * c / (np.abs(c).max() + 1e-6)
+    yy = np.arange(h)[:, None]
+    fy = smooth((yy if open_end else np.minimum(yy, h - 1 - yy)) / 40.0)   # open_end: full to the last row
+    dx = np.arange(2 * reach)[None, :] - reach + 0.5
+    p = 0.5 * (1 - np.abs(dx) / reach) * fy
+    jj, ii = np.nonzero(c < p)
+    x = xs - reach + ii
+    xm = 2 * xs - 1 - x
+    for a in arrs:
+        a[y0 + jj, x] = a[y0 + jj, xm].copy()
+
+
+def fill_reeds(arrs, xs, y0, y1, reach):
+    """Bare pixels in the reed belt round column xs (Philip 0.18.0: a gap in the reeds at the bottom) take the plant
+    standing `reach` px to the side, the old world's first, with the ground under it."""
+    fl = arrs[1]
+    for x in range(xs - reach // 2, xs + reach // 2):
+        for src in (x + reach, x - reach):
+            take = (fl[y0:y1, x, 3] == 0) & (fl[y0:y1, src, 3] > 0)
+            jj = np.nonzero(take)[0] + y0
+            for a in arrs:
+                a[jj, x] = a[jj, src]
 
 
 def foot_block(sp, m):

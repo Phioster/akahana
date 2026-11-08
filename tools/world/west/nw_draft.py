@@ -102,7 +102,8 @@ def render():
     wood *= 0.45 + 0.55 * smooth((WW - 30 - gx) / 220.0)                    # today's edge is open snow: thin out to it
     wood = np.minimum(wood, 0.72)
     hx_, hy_ = HERMIT
-    court = (((gx - hx_) / 88.0) ** 2 + ((gy - hy_ - 40) / 22.0) ** 2 + 0.2 * fbm(rng, 6, (H, W))) < 1   # trodden
+    ce = ((gx - hx_) / 88.0) ** 2 + ((gy - hy_ - 40) / 22.0) ** 2 + 0.2 * fbm(rng, 6, (H, W))
+    court = ce < 1                                                              # trodden
     qzone = (((gx - hx_) / 118.0) ** 2 + ((gy - hy_ + 6) / 62.0) ** 2) < 1                # the hermitage's ground
     from PIL import ImageDraw
     pim = Image.new('L', (W, H), 0)
@@ -132,7 +133,9 @@ def render():
     sub[tk] = oimg[tk]
 
     # ---- flat things into the ground: the hermitage's trodden court and its way, the gorge, the ridge, the mist
-    cy_, cx_ = np.nonzero(court)
+    fray = np.random.default_rng(808).random((H, W))                  # its rim frays out (game 0.18.0: a drawn oval)
+    cfz = court & (fray < smooth((1.0 - ce) / 0.45) * (0.75 + 0.25 * fbm(np.random.default_rng(809), 4, (H, W))))
+    cy_, cx_ = np.nonzero(cfz)
     for j_, i_ in zip(cy_, cx_):
         gg = G[j_, i_]
         img[j_, i_] = o.SNOWQ[1] if gg < 0.4 else o.SNOWQ[2]

@@ -529,6 +529,8 @@ class Gewaechshaus:
 
     def __init__(s, x, y, seed=21):
         s.x, s.y, s.seed = x, y, seed
+        s.order = y + 1                                        # the front wall, not the beds before it: at the door
+                                                               # he stands in front (game 0.18.0: he was behind it)
 
     def box(s):
         return (s.x - s.PW // 2 - s.WW - 4, s.y - s.PWALL - s.GH - s.RD - 16, s.x + s.PW // 2 + s.WW + 8, s.y + 22)
@@ -1053,6 +1055,7 @@ class Yashiro:
     but still whole. (x, y) the foot of the base's front, middle."""
     def __init__(s, x, y, w=36, seed=64, under=False):
         s.x, s.y, s.w, s.seed = x, y, w, seed
+        s.order = y + 1                                        # the base's front: on its steps he stands before it
         s.under = under                                        # the space under the raised floor drawn closed
 
     def box(s):
