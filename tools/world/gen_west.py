@@ -389,6 +389,22 @@ def main():
         lab, _ = ndi.label(walk, structure=np.ones((3, 3)))
         walk &= lab == lab[int(st['y']), int(st['x'])]
 
+    # ---- the Ostwald's west edge (Philip 0.18.2): its bare floor strip and the pale clearing get trees from next door,
+    # the clearing's ground darkens to the wood floor, the old lantern there loses the meadow it was cut with
+    cbox = (WEST_W + 500, 1920, WEST_W + 820, 2090)
+    cm = wood_clearing(ground, cbox)
+    grown = edge_wood(w['sprites'], w['lights'], ground, walk, mat, (WEST_W + 430, 1800, WEST_W + 570, 2300))
+    grown += edge_wood(w['sprites'] + grown, w['lights'], ground, walk, mat, cbox, seed=433, where=cm)
+    for t in grown:                                                     # their trunks block, as today's trees do
+        cx, f = t['x'] + t['w'] // 2, t['foot']
+        walk[max(0, f - 3):f + 1, max(0, cx - 3):cx + 4] = False
+    w['sprites'] += grown
+    lab, _ = ndi.label(walk, structure=np.ones((3, 3)))
+    walk &= lab == lab[int(st['y']), int(st['x'])]
+    mat[~walk.reshape(H // CELL, CELL, W // CELL, CELL).any(axis=(1, 3)) & (mat == EARTH)] = GRASS
+    strip_meadow(os.path.join(OUT, 'sprites', 'laterne_ost.png'))
+    print('Westen: Ostwald-Rand', len(grown), 'Bäume', flush=True)
+
     # ---- the mist field: west edge, the bottom's fade, the top's wall; the bands over the lakes
     mist = grow(im['mist_fields.png'], WEST_W // 2)
     hw = OWNW // 2
@@ -491,6 +507,94 @@ def deisland(grade, hw):
     new = ndi.gaussian_filter(dark.astype(float), 5) * 0.85
     t = smooth((np.arange(n)[None, :] - (hw - 40)) / 80.0)
     grade[:, :n, 0] = np.round(np.clip(new * (1 - t) + r * t, 0, 1) * 255).astype(np.uint8)
+
+
+def edge_wood(sprites, lights, ground, walk, mat, box, seed=421, where=None):
+    """Trees for a bare strip of wood floor (Philip 0.18.2: the Ostwald's floor ran west past its trees, between the
+    poppies and the wood only dark ground): copies of the trees standing right next to it, thinning out where the
+    floor turns to meadow. Paths, their lanes, lights and other feet keep their room. -> new sprite entries"""
+    x0, y0, x1, y1 = box
+    rng = np.random.default_rng(seed)
+    near = [s for s in sprites if s.get('frames', 1) == 1 and s['h'] > 40 and s['name'].startswith(('e', 'tanne'))
+            and x1 <= s['x'] + s['w'] // 2 < x1 + 260 and y0 <= s['foot'] < y1]
+    tpl = []
+    for s in near:
+        with Image.open(os.path.join(OUT, 'sprites', s['name'] + '.png')) as im:
+            a = np.array(im)[..., 3] > 0
+        if not (a[:, 0].any() or a[:, -1].any() or a[0].any() or a[-1].any()):
+            tpl.append(s)
+    if not tpl:
+        return []
+    g = ground[y0:y1, x0:x1].astype(float).mean(2)
+    floor = ndi.gaussian_filter((g < 80).astype(float), 6) > 0.5 if where is None else where   # the dark wood floor
+    fdist = ndi.distance_transform_edt(floor)                            # how deep into it
+    path = np.kron(mat[y0 // CELL:y1 // CELL, x0 // CELL:x1 // CELL] == EARTH, np.ones((CELL, CELL), bool))
+    path = ndi.binary_dilation(path, iterations=6)
+    keep = path.copy()
+    for d in range(2, 44, 2):                                            # a crown reaches ~45 px above its foot
+        keep[d:] |= path[:-d]
+    taken = np.zeros_like(keep)
+    for l in lights:                                                     # a lamp stays in its clearing
+        lx, ly = int(l['x']) - x0, int(l['y']) - y0
+        if -30 <= lx < x1 - x0 + 30 and -30 <= ly < y1 - y0 + 50:
+            yy_, xx_ = np.ogrid[:y1 - y0, :x1 - x0]
+            taken |= (xx_ - lx) ** 2 + ((yy_ - ly - 14) / 1.6) ** 2 < 26 ** 2
+            py, px = np.nonzero(path)                                    # and lanes on to the nearest path each side
+            for side in (px < lx, px > lx):
+                if not side.any():
+                    continue
+                cand = np.nonzero(side)[0]
+                k = cand[int(np.argmin((px[cand] - lx) ** 2 + (py[cand] - ly) ** 2))]
+                n_ = int(np.hypot(px[k] - lx, py[k] - ly)) + 1
+                for t_ in np.linspace(0, 1, n_):
+                    cx_, cy_ = int(lx + (px[k] - lx) * t_), int(ly + 14 + (py[k] - ly - 14) * t_)
+                    taken[max(0, cy_ - 8):max(0, cy_ + 44), max(0, cx_ - 9):max(0, cx_ + 10)] = True
+    for s in sprites:
+        fx, fy = s['x'] + s['w'] // 2 - x0, s['foot'] - y0
+        if 0 <= fx < x1 - x0 and 0 <= fy < y1 - y0:
+            taken[max(0, fy - 10):fy + 6, max(0, fx - 9):fx + 10] = True
+    out = []
+    for fy in range(8, y1 - y0 - 4, 11):
+        for fx in range(6, x1 - x0 - 6, 13):
+            x_, y_ = fx + int(rng.integers(-5, 6)), fy + int(rng.integers(-4, 5))
+            if not (0 <= x_ < x1 - x0 and 0 <= y_ < y1 - y0) or not floor[y_, x_] or keep[y_, x_] or taken[y_, x_]:
+                continue
+            if not walk[y_ + y0, x_ + x0] or rng.random() > 0.25 + 0.6 * smooth(fdist[y_, x_] / 30.0):
+                continue
+            t = tpl[int(rng.integers(0, len(tpl)))]
+            fo = t['foot'] - t['y']
+            out.append(dict(t, x=int(x_ + x0 - t['w'] // 2), y=int(y_ + y0 - fo), foot=int(y_ + y0)))
+            taken[max(0, y_ - 10):y_ + 6, max(0, x_ - 9):x_ + 10] = True
+    return out
+
+
+def wood_clearing(ground, box, seed=431):
+    """A pale bare clearing inside the dark wood (Philip 0.18.2: "too empty"): its light ground darkened towards the
+    wood floor round it, in clumps. -> the clearing's mask (box pixels), where edge_wood then plants."""
+    x0, y0, x1, y1 = box
+    g = ground[y0:y1, x0:x1].astype(float)
+    m = ndi.binary_opening(ndi.gaussian_filter(g.mean(2), 3) > 92, iterations=2)
+    m = ndi.binary_dilation(m, iterations=3)
+    dark = g[~ndi.binary_dilation(m, iterations=8)]
+    floor = np.median(dark.reshape(-1, 3), 0) if len(dark) else np.array([60.0, 66, 62])
+    rng = np.random.default_rng(seed)
+    c = ndi.gaussian_filter(rng.random(m.shape), 2)
+    k = (0.55 + 0.35 * (c - c.min()) / (np.ptp(c) + 1e-6)) * ndi.gaussian_filter(m.astype(float), 2)
+    g = g * (1 - k[..., None]) + (floor * (g.mean(2, keepdims=True) / max(1.0, g.mean())) ** 0.0 * 1.0) * k[..., None] \
+        + (g - g.mean(2, keepdims=True)) * 0.35 * k[..., None]               # keep a little of its grain
+    ground[y0:y1, x0:x1] = np.clip(g, 0, 255).astype(ground.dtype)
+    return m
+
+
+def strip_meadow(path_png):
+    """An old lantern sprite (gen_world's laterne_ost) carries a disc of meadow round its lamp and a stone pad: on the
+    Ostwald's dark floor it shows as a pale patch (Philip 0.18.2). Keep the post, the lamp and its flame only."""
+    a = np.array(Image.open(path_png).convert('RGBA'))
+    rgb = a[..., :3].astype(int)
+    sat = rgb.max(2) - rgb.min(2)
+    pale = (rgb.mean(2) > 110) & (sat < 60)
+    a[pale, 3] = 0
+    Image.fromarray(a).save(path_png)
 
 
 def mend_seam(arrs, xs, y0, y1, reach, seed, open_end=False):
