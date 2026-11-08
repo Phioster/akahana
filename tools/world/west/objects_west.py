@@ -1838,3 +1838,51 @@ class Steinbruch:
                 put(img, i + 1, wy - 14, hx('#3d3f46'))
                 put(img, i, wy - 13, hx('#3d3f46'))
                 put(img, i + 1, wy - 13, hx('#6a6e78'))
+
+
+def bedrock(img, G, region, fade=None, seed=145):
+    """Natural rock in beds round the quarry, of the same make as its face: thick uneven beds, each broken into
+    long blocks by its own joints, a lit ledge with snow on every bed's top, a dark seam here and there under its
+    overhang. region (H, W) bool: where it may lie; fade (H, W) 0..1: towards 1 whole blocks drop out, so the
+    beds break up into loose blocks before the open slope."""
+    H, W = img.shape[:2]
+    r = np.random.default_rng(seed)
+    ys, xs = np.nonzero(region)
+    if not len(ys):
+        return
+    y0 = int(ys.min())
+    bounds = [y0]
+    while bounds[-1] <= ys.max() + 16:
+        bounds.append(bounds[-1] + int(r.integers(7, 15)))
+    joints = {}
+    for k in range(len(bounds)):
+        cuts, x = [], int(xs.min()) - int(r.integers(0, 30))
+        while x <= xs.max() + 40:
+            cuts.append(x)
+            x += int(r.integers(14, 42))
+        n = len(cuts) + 1
+        joints[k] = (np.array(cuts), r.integers(-2, 3, n), r.uniform(-0.3, 0.3, n), r.random(n))
+    b = np.array(bounds)
+    for j, i in zip(ys, xs):
+        k0 = max(0, int(np.searchsorted(b, j, 'right')) - 1)
+        cuts, lift, tone, keep = joints[k0]
+        q = int(np.searchsorted(cuts, i, 'right'))
+        if fade is not None and keep[q] < fade[j, i]:
+            continue                                                   # this block has broken away
+        jj = j + lift[q]                                               # each block sits a little higher or lower
+        k = max(0, int(np.searchsorted(b, jj, 'right')) - 1)
+        row = jj - b[k]
+        L = (b[k + 1] if k + 1 < len(b) else b[k] + 10) - b[k]
+        g = g_at(G, i, j)
+        v = 2.25 + tone[q] + 0.8 * (g - 0.5) - 0.07 * row
+        if row == 0:
+            c = SNOWQ[2] if g < 0.5 else SNOWQ[1]                      # snow on the bed's top
+        elif row == 1:
+            c = pick(QSTONE, 3.2 + 0.5 * (g - 0.5))
+        elif row == L - 1 and g < 0.6:
+            c = pick(QSTONE, 1.1)                                      # the seam under the next bed's overhang
+        elif q > 0 and i == cuts[q - 1] and g < 0.8:
+            c = pick(QSTONE, v - 0.7)                                  # a joint
+        else:
+            c = pick(QSTONE, v)
+        img[j, i] = c

@@ -130,10 +130,15 @@ def render():
 
     # ---- flat things into the ground: the quarry and its way, the gorge, the ridge heaps, the top mist
     qb.draw(img, G)
+    qd = ndi.distance_transform_edt(~(qface | qfloor))                 # bedded rock round the cut, fraying outward
+    bed_reach = 30 + 14 * fbm(rng, 10, (H, W)) + 18 * smooth((QUARRY[1] - 60 - gy) / 40.0)   # reaching up the slope
+    bed = (qd < bed_reach) & ~qface & ~qfloor & (gy < QUARRY[1] + 4) & (qd > 0)
+    bed |= (qd < 0.6 * bed_reach) & ~qface & ~qfloor & (gy < QUARRY[1] + 16) & (np.abs(gx - QUARRY[0]) > 60)
+    o.bedrock(img, G, bed, fade=smooth((qd / np.maximum(bed_reach, 1) - 0.45) / 0.55))
     footpath(img, BRUCH, G, width=2.0, bank=1.8, rng_seed=7)
     G0.draw(img, G, CL)
     flat_rock = np.zeros((H, W), bool)
-    ry_, rx_ = np.nonzero(ridge & (gx < WW + 26) & ~ndi.binary_dilation(qfloor | qface, iterations=14) & (rng.random((H, W)) < 0.012))   # over the seam: today's edge had none
+    ry_, rx_ = np.nonzero(ridge & (gx < WW + 26) & (qd > 40) & (rng.random((H, W)) < 0.012))   # over the seam: today's edge had none
     for y, x in sorted(zip(ry_, rx_)):
         big = 1.0 + 0.8 * smooth((200 - (y + Y0)) / 200.0)
         ys, xs_ = facet_rock(img, int(x), int(y), rng.uniform(9, 17) * big, rng.uniform(7, 12) * big, False,
@@ -142,22 +147,14 @@ def render():
         flat_rock[ys[ok], xs_[ok]] = True
     # the knoll's own rocks: heaped over the face's top and flanks, so the cut sits in living rock
     rq = np.random.default_rng(143)
-    hold = ndi.binary_dilation(qfloor, iterations=3) | ndi.binary_erosion(qface, iterations=2)
-    oy, ox = np.nonzero(outcrop & ~hold & (rq.random((H, W)) < 0.010))
+    oy, ox = np.nonzero(outcrop & (qd > bed_reach + 4) & (rq.random((H, W)) < 0.010))   # beyond the beds only
     for y, x in sorted(zip(oy, ox)):
-        top_near = qface[min(H - 1, y + 6), x] or qface[min(H - 1, y + 3), x]
-        big = 1.3 if top_near else 1.0
-        ys, xs_ = facet_rock(img, int(x), int(y), rq.uniform(6, 13) * big, rq.uniform(5, 9) * big, False,
-                             int(x * 5 + y * 3), True)
+        r_ = rq.uniform(6, 13) * min(1.0, (qd[y, x] - bed_reach[y, x]) / 14.0 + 0.4)   # small where they begin
+        ys, xs_ = facet_rock(img, int(x), int(y), r_, r_ * 0.7, False, int(x * 5 + y * 3), True)
         ok = (ys >= 0) & (ys < H) & (xs_ >= 0) & (xs_ < W)
-        flat_rock[ys[ok], xs_[ok]] = True
-    for x in range(qx_ - 78, qx_ + 79):                               # the flanks: rock spilling over the face's ends
-        if abs(x - qx_) > 60 and rq.random() < 0.18:
-            yf = qb.foot.get(x, qy_ - 20)
-            ys, xs_ = facet_rock(img, x, int(yf - rq.uniform(4, 30)), rq.uniform(6, 11), rq.uniform(5, 8), False,
-                                 x * 7 + 1, True)
-            ok = (ys >= 0) & (ys < H) & (xs_ >= 0) & (xs_ < W)
-            flat_rock[ys[ok], xs_[ok]] = True
+        keep_ = ok.copy()
+        keep_[ok] = ~(qface | qfloor)[ys[ok], xs_[ok]]
+        flat_rock[ys[keep_], xs_[keep_]] = True
     BAY = (np.array([[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]) + 0.5) / 16.0
     mist = np.clip((70 - gy + 12 * fbm(rng, 20, (H, W))) / 70.0, 0, 1)
     mine = west | flat_rock                                            # also my rocks reaching over the seam
