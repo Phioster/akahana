@@ -775,9 +775,8 @@ class Gewaechshaus:
 
 class Block:
     """A hewn stone block, an upright box seen from above at an angle: lit top, mid front, dark side, chisel marks."""
-    def __init__(s, x, y, w=6, h=4, d=3, seed=31, worked=True, pal=None):
+    def __init__(s, x, y, w=6, h=4, d=3, seed=31, worked=True):
         s.x, s.y, s.w, s.h, s.d, s.seed, s.worked = x, y, w, h, d, seed, worked
-        s.pal = STONE if pal is None else pal
 
     def box(s):
         return (s.x - 1, s.y - s.h - s.d - 1, s.x + s.w + s.d + 2, s.y + 2)
@@ -790,22 +789,22 @@ class Block:
                 img[y + 1, i] = img[y + 1, i] * 0.65
         for j in range(h):                                             # front
             for i in range(w):
-                c = pick(s.pal, 2.6 - 0.6 * i / w + rng.normal(0, 0.15))
+                c = pick(STONE, 2.6 - 0.6 * i / w + rng.normal(0, 0.15))
                 if s.worked and (i + j * 2) % 4 == 0:
-                    c = pick(s.pal, 1.7)                               # chisel lines
+                    c = pick(STONE, 1.7)                               # chisel lines
                 put(img, x + i, y - j, c)
         for k in range(1, d + 1):                                      # the side (right), going back and up
             for j in range(h):
-                put(img, x + w - 1 + k, y - j - k, pick(s.pal, 1.4 + rng.normal(0, 0.15)))
+                put(img, x + w - 1 + k, y - j - k, pick(STONE, 1.4 + rng.normal(0, 0.15)))
         for k in range(1, d + 1):                                      # the top
             for i in range(w):
-                put(img, x + i + k, y - h + 1 - k, pick(s.pal, 3.8 - 0.5 * i / w + rng.normal(0, 0.12)))
+                put(img, x + i + k, y - h + 1 - k, pick(STONE, 3.8 - 0.5 * i / w + rng.normal(0, 0.12)))
         for i in range(w):                                             # crisp edges: a cut block, not a boulder
-            put(img, x + i, y, s.pal[0])
+            put(img, x + i, y, STONE[0])
         for j in range(h):
-            put(img, x + w + d, y - j - d, s.pal[0])
+            put(img, x + w + d, y - j - d, STONE[0])
         for i in range(w):
-            put(img, x + i + 1, y - h + 1, pick(s.pal, 4.4))
+            put(img, x + i + 1, y - h + 1, pick(STONE, 4.4))
 
 
 class Steinmetz:
@@ -1689,200 +1688,83 @@ class SanfteBank:
 
 
 SNOWQ = [hx(c) for c in ['#8e888a', '#c3bfba', '#e8e4dc']]                               # the north's snow tones
-QSTONE = [hx(c) for c in ['#2e2829', '#575052', '#736c6e', '#8e888a', '#aaa5a4']]       # the north's rock (facet_rock)
 
 
-class QBlock(Block):
-    """A block left in the quarry: as the stonemason's, of the north's rock, snow lying on its top."""
-    def __init__(s, *a, **k):
-        Block.__init__(s, *a, pal=QSTONE, **k)
-
-    def draw(s, img, G):
-        Block.draw(s, img, G)
-        x, y, w, h, d = s.x, s.y, s.w, s.h, s.d
-        for k in range(1, d + 1):
-            for i in range(w):
-                if g_at(G, x + i + k, y - h + 1 - k) < 0.8:
-                    put(img, x + i + k, y - h + 1 - k, SNOWQ[2] if g_at(G, x + i, y - k) < 0.6 else SNOWQ[1])
-
-
-class Schlitten:
-    """The stone sled (ishi-zori): two runners curling up at the front, a deck of planks, a block lashed on it.
-    (x, y) the back end of the left runner; it points west (the way down)."""
-    def __init__(s, x, y, L=20, seed=141):
-        s.x, s.y, s.L, s.seed = x, y, L, seed
+class Verschneit:
+    """Any thing as it stands up in the snow: drawn as usual, then snow settles on what faces up - its lit pixels
+    (the light comes from the upper left) - in rows from its box top down to `to` (None: all), thinning at the
+    lowest rows so eaves and edges still show. Delegates box and order to the thing."""
+    def __init__(s, t, p=0.75, to=None, seed=0):
+        s.t, s.p, s.to, s.seed = t, p, to, seed
+        if hasattr(t, 'order'):
+            s.order = t.order
 
     def box(s):
-        return (s.x - 3, s.y - 14, s.x + s.L + 3, s.y + 2)
+        return s.t.box()
+
+    def lights(s):
+        return s.t.lights()
 
     def draw(s, img, G):
-        x, y, L = s.x, s.y, s.L
-        for i in range(x - 1, x + L + 2):                              # its shadow on the snow
-            put(img, i, y + 1, img[y + 1, i] * 0.7 if 0 <= y + 1 < img.shape[0] and 0 <= i < img.shape[1] else 0)
-        for dy in (0, -4):                                             # two runners, the back one higher
-            for i in range(L):
-                put(img, x + i, y + dy, WOOD[1] if dy else WOOD[2])
-            put(img, x - 1, y + dy - 1, WOOD[3])                       # the curl at the front
-            put(img, x - 1, y + dy - 2, WOOD[2])
-        for i in range(1, L, 3):                                       # cross pieces, the deck
-            for j in range(-4, 1):
-                put(img, x + i, y + j - 1, WOOD[3] if j > -4 else WOOD[4])
-        bl = QBlock(x + 4, y - 3, w=9, h=5, d=3, seed=s.seed)
-        bl.draw(img, G)
-        for j in range(y - 8, y - 1):                                  # the rope over it
-            put(img, x + 9, j, hx('#6b5a44'))
-
-
-class Steinbruch:
-    """The old quarry (Ishikiri-ba) under the ridge, where the village's stone came from: a back face cut into the
-    slope in blocks - each column of blocks its own height, so the top edge steps like a broken skyline - with two
-    benches, straight joints, the halves of drill holes along the cuts and snow on the ledges and the lip; the side
-    walls stepping down; a flat floor of trodden snow and chips; a block half split off the face, a row of wedge
-    holes and two iron wedges still in. (x, y) the middle of the floor."""
-    def __init__(s, x, y, seed=140):
-        s.x, s.y, s.seed = x, y, seed
-        s.hw, s.top, s.bot = 72, y - 20, y + 24
-        r = np.random.default_rng(seed)
-        s.cols = []                                                    # (x0, x1, height, bench1, bench2, tone)
-        x0 = x - s.hw
-        while x0 < x + s.hw:
-            w = int(r.integers(13, 27))
-            x1 = min(x + s.hw, x0 + w)
-            u = ((x0 + x1) / 2 - x) / s.hw
-            side = min(1.0, (1 - abs(u)) / 0.22)                       # the side walls step down
-            h = int((r.integers(44, 54)) * side ** 0.8) + 2
-            b1, b2 = int(h * r.uniform(0.3, 0.4)), int(h * r.uniform(0.62, 0.72))
-            s.cols.append((x0, x1, h, b1, b2, r.uniform(-0.35, 0.35), int(r.integers(-1, 2))))
-            x0 = x1
-        s.foot = {}                                                    # the face's foot per column: a little ragged
-        for xx in range(x - s.hw, x + s.hw):
-            u = (xx - x) / s.hw
-            c = s.col(xx)
-            s.foot[xx] = int(round(s.top + 10 * max(0, abs(u) - 0.75) / 0.25 + (c[6] if c else 0)))
-
-    def col(s, x):
-        for c in s.cols:
-            if c[0] <= x < c[1]:
-                return c
-        return None
-
-    def masks(s, H, W):
-        yy, xx = np.mgrid[0:H, 0:W]
-        u = (xx - s.x) / float(s.hw)
-        top = np.full((H, W), 10 ** 6)
-        for x_, f in s.foot.items():
-            if 0 <= x_ < W:
-                top[:, x_] = f
-        cornerv = (np.abs(u) > 0.78) * ((np.abs(u) - 0.78) / 0.22) ** 2 * 18
-        wob = 3 * np.sin(xx / 7.0) + 2 * np.sin(xx / 3.1 + 1) + 2 * np.sin(yy / 5.0)
-        floor = (np.abs(u) < 1.0 + 0.05 * np.sin(yy / 4.0)) & (yy >= top) & (yy < s.bot - cornerv + wob)
-        face = np.zeros((H, W), bool)
-        for x0, x1, h, *_ in s.cols:
-            for x_ in range(max(0, x0), min(W, x1)):
-                face[max(0, s.foot[x_] - h):max(0, s.foot[x_]), x_] = True
-        return floor, face
-
-    def draw(s, img, G):
+        x0, y0, x1, y1 = [int(v) for v in s.t.box()]
         H, W = img.shape[:2]
-        floor, face = s.masks(H, W)
-        ys, xs = np.nonzero(floor)                                     # the floor: trodden snow, stone chips
-        for j, i in zip(ys, xs):
-            g = g_at(G, i, j)
-            img[j, i] = SNOWQ[1] if g < 0.5 else SNOWQ[2]
-            if g > 0.94:
-                img[j, i] = QSTONE[2 + int(g * 100) % 2]
-            elif g < 0.06:
-                img[j, i] = SNOWQ[0]
-        rng = np.random.default_rng(s.seed + 1)
-        for x0, x1, h, b1, b2, tone, _ in s.cols:
-            cracks = [(int(rng.integers(3, max(4, h - 3))), int(rng.integers(x0, x1)), int(rng.integers(3, 10)))
-                      for _ in range(int(rng.integers(2, 5)))]           # broken bedding joints: (height, x, length)
-            for x in range(max(0, x0), min(W, x1)):
-                f = s.foot[x]
-                top = f - h
-                u = (x - s.x) / s.hw
-                for j in range(max(0, top), f):
-                    up = f - j                                         # height above the foot
-                    lvl = 0 if up < b1 else 1 if up < b2 else 2
-                    v = 2.2 + tone + 0.8 * (g_at(G, x, j) - 0.5) - 0.5 * (up < 4) + 0.45 * u + 0.25 * lvl
-                    c = pick(QSTONE, v)
-                    if up in (b1, b1 + 1, b2, b2 + 1) and up < h - 2:   # a bench: its ledge, snow on it
-                        c = SNOWQ[2] if g_at(G, x, j) < 0.6 else SNOWQ[1] if up in (b1, b2) else QSTONE[1]
-                    elif x == x0:
-                        c = pick(QSTONE, v - 1.1)                       # the cut between two columns
-                    elif any(up == ch and xc <= x < xc + ln for ch, xc, ln in cracks):
-                        c = pick(QSTONE, v - 1.0)                       # bedding joints, broken off
-                    elif x == x0 + 1 and j % 3 == 0:
-                        c = QSTONE[1]                                   # half a drill hole beside the cut
-                    put(img, x, j, c)
-                for j in range(top - 7, top - 2):                      # above it the slope, broken and stony
-                    if g_at(G, x + 3, j) > 0.62:
-                        put(img, x, j, pick(QSTONE, 1.6 + 1.5 * g_at(G, x, j)))
-                for j in range(top - 2, top + 1):                      # the lip: snow over the edge
-                    if g_at(G, x, j) < 0.5 + 0.2 * (j - top + 2):
-                        put(img, x, j, SNOWQ[2] if j < top else SNOWQ[1])
-            for x in range(max(0, x0), min(W, x1)):                    # a little shadow at the foot, on the floor
-                f = s.foot[x]
-                for j in (f, f + 1):
-                    if 0 <= j < H and g_at(G, x, j) < (0.8 if j == f else 0.4):
-                        img[j, x] = img[j, x] * 0.78
-        c = s.col(s.x + 26)                                            # the half-split block at the face's foot
-        wx, wy = s.x + 26, s.foot[s.x + 26]
-        for j in range(wy - 12, wy):
-            put(img, wx, j, QSTONE[0])                                  # the crack it hangs by
-        for k, i in enumerate(range(wx - 13, wx, 4)):
-            put(img, i, wy - 12, QSTONE[0])                             # the row of wedge holes along its top
-            put(img, i + 1, wy - 12, QSTONE[0])
-            if k in (1, 2):                                            # two iron wedges still in
-                put(img, i, wy - 14, hx('#2a2b30'))
-                put(img, i + 1, wy - 14, hx('#3d3f46'))
-                put(img, i, wy - 13, hx('#3d3f46'))
-                put(img, i + 1, wy - 13, hx('#6a6e78'))
+        x0, y0, x1, y1 = max(0, x0), max(0, y0), min(W, x1), min(H, y1)
+        before = img[y0:y1, x0:x1].copy()
+        s.t.draw(img, G)
+        reg = img[y0:y1, x0:x1]
+        ch = np.abs(reg - before).sum(-1) > 1
+        lum = reg.mean(-1)
+        to = y1 if s.to is None else min(y1, int(s.to))
+        r = np.random.default_rng(s.seed)
+        for j in range(y0, to):
+            fall = 1.0 if s.to is None else np.clip((to - j) / 3.0, 0.35, 1)
+            for i in range(x0, x1):
+                lu = lum[j - y0, i - x0]
+                if not ch[j - y0, i - x0] or lu < 22:
+                    continue
+                g = g_at(G, i * 3 + s.seed, j)
+                q = s.p * fall * (0.6 + 0.4 * np.clip((lu - 30) / 80.0, 0, 1))   # less where it faces away
+                if g < q:
+                    reg[j - y0, i - x0] = SNOWQ[2] if g < q * 0.6 else SNOWQ[1]
 
 
-def bedrock(img, G, region, fade=None, seed=145):
-    """Natural rock in beds round the quarry, of the same make as its face: thick uneven beds, each broken into
-    long blocks by its own joints, a lit ledge with snow on every bed's top, a dark seam here and there under its
-    overhang. region (H, W) bool: where it may lie; fade (H, W) 0..1: towards 1 whole blocks drop out, so the
-    beds break up into loose blocks before the open slope."""
-    H, W = img.shape[:2]
-    r = np.random.default_rng(seed)
-    ys, xs = np.nonzero(region)
-    if not len(ys):
-        return
-    y0 = int(ys.min())
-    bounds = [y0]
-    while bounds[-1] <= ys.max() + 16:
-        bounds.append(bounds[-1] + int(r.integers(7, 15)))
-    joints = {}
-    for k in range(len(bounds)):
-        cuts, x = [], int(xs.min()) - int(r.integers(0, 30))
-        while x <= xs.max() + 40:
-            cuts.append(x)
-            x += int(r.integers(14, 42))
-        n = len(cuts) + 1
-        joints[k] = (np.array(cuts), r.integers(-2, 3, n), r.uniform(-0.3, 0.3, n), r.random(n))
-    b = np.array(bounds)
-    for j, i in zip(ys, xs):
-        k0 = max(0, int(np.searchsorted(b, j, 'right')) - 1)
-        cuts, lift, tone, keep = joints[k0]
-        q = int(np.searchsorted(cuts, i, 'right'))
-        if fade is not None and keep[q] < fade[j, i]:
-            continue                                                   # this block has broken away
-        jj = j + lift[q]                                               # each block sits a little higher or lower
-        k = max(0, int(np.searchsorted(b, jj, 'right')) - 1)
-        row = jj - b[k]
-        L = (b[k + 1] if k + 1 < len(b) else b[k] + 10) - b[k]
-        g = g_at(G, i, j)
-        v = 2.25 + tone[q] + 0.8 * (g - 0.5) - 0.07 * row
-        if row == 0:
-            c = SNOWQ[2] if g < 0.5 else SNOWQ[1]                      # snow on the bed's top
-        elif row == 1:
-            c = pick(QSTONE, 3.2 + 0.5 * (g - 0.5))
-        elif row == L - 1 and g < 0.6:
-            c = pick(QSTONE, 1.1)                                      # the seam under the next bed's overhang
-        elif q > 0 and i == cuts[q - 1] and g < 0.8:
-            c = pick(QSTONE, v - 0.7)                                  # a joint
-        else:
-            c = pick(QSTONE, v)
-        img[j, i] = c
+class Glockenhaus:
+    """The hermitage's little bell house (shoro): four posts on a stone footing, a small hipped roof, the bronze
+    bell hanging under it gone green, the wooden striker on its ropes beside it. (x, y) the footing's front middle."""
+    def __init__(s, x, y, seed=171):
+        s.x, s.y, s.seed = x, y, seed
+
+    def box(s):
+        return (s.x - 12, s.y - 30, s.x + 13, s.y + 2)
+
+    def draw(s, img, G):
+        x, y = s.x, s.y
+        shade_ground(img, G, x - 10, x + 12, y - 2, y + 3, 0.6)
+        for i in range(x - 9, x + 10):                                 # the footing
+            put(img, i, y, pick(STONE, 1.6))
+            put(img, i, y - 1, pick(STONE, 3.2 - 0.08 * (i - x)))
+        for px in (x - 8, x + 7):                                      # the posts
+            for j in range(y - 19, y - 1):
+                put(img, px, j, WOOD[3])
+                put(img, px + 1, j, WOOD[1])
+        for i in range(x - 8, x + 9):                                  # the beam the bell hangs from
+            put(img, i, y - 19, WOOD[2])
+        BR = [hx(c) for c in ['#1f2a24', '#2f4034', '#46604c', '#6a8a6c']]
+        for j in range(y - 17, y - 6):                                 # the bell: bronze gone green
+            t = (j - (y - 17)) / 11.0
+            hw = 2.5 + 2.5 * t ** 0.7
+            for i in range(int(x - hw), int(x + hw) + 1):
+                u = (i - (x - hw)) / (2 * hw)
+                put(img, i, j, pick(BR, 3.0 - 2.4 * u + (0.6 if j == y - 7 else 0)))
+        put(img, x, y - 18, BR[0])
+        for j in range(y - 13, y - 11):                                # the striker, a log on two ropes
+            for i in range(x + 5, x + 9):
+                put(img, i, j, WOOD[3] if j == y - 13 else WOOD[1])
+        for k in range(14):                                            # the hipped roof
+            j = y - 20 - k
+            hw = 13 - k * 0.75
+            if hw < 1:
+                break
+            for i in range(int(x - hw), int(x + hw) + 1):
+                u = (i - (x - hw)) / (2 * hw)
+                put(img, i, j, pick(TILE, 3.4 - 2.4 * u - 0.05 * k if k else 1.0))
