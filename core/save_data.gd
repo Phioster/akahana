@@ -7,6 +7,7 @@ const DEFAULT_PATH := "user://mohnweg.cfg"
 var has_position := false
 var position := Vector2.ZERO
 var world_h := 3600                  # the world's height when the position was saved (before 0.11: 3600)
+var world_w := 1800                  # ... and its width (before the west, 0.18: 1800)
 var music := 1.0
 var sounds := 1.0
 
@@ -20,6 +21,7 @@ static func load_from(path: String = DEFAULT_PATH) -> SaveData:
 	if s.has_position:
 		s.position = c.get_value("weg", "position", Vector2.ZERO)
 		s.world_h = int(c.get_value("weg", "welthoehe", 3600))
+		s.world_w = int(c.get_value("weg", "weltbreite", 1800))
 	s.music = float(c.get_value("ton", "musik", 1.0))
 	s.sounds = float(c.get_value("ton", "geraeusche", 1.0))
 	return s
@@ -30,6 +32,7 @@ func save_to(path: String = DEFAULT_PATH) -> void:
 	if has_position:
 		c.set_value("weg", "position", position)
 		c.set_value("weg", "welthoehe", world_h)
+		c.set_value("weg", "weltbreite", world_w)
 	c.set_value("ton", "musik", music)
 	c.set_value("ton", "geraeusche", sounds)
 	c.save(path)
@@ -44,8 +47,12 @@ func forget_position() -> void:
 	has_position = false
 
 
-## The world grew on top (the north): a position saved in a lower world moves down with everything else.
-func fit_to(height: int) -> void:
+## The world grew on top (the north) and to the left (the west): a position saved in a smaller world moves
+## down and right with everything else.
+func fit_to(height: int, width: int = 1800) -> void:
 	if has_position and world_h != height:
 		position.y += float(height - world_h)
 		world_h = height
+	if has_position and world_w != width:
+		position.x += float(width - world_w)
+		world_w = width

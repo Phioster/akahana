@@ -45,6 +45,8 @@ var weather := Weather.new()          # now and then a shower
 var rain: Rain
 var snow: SnowTrail                  # the furrow he leaves in fresh snow
 var cave: Cave                       # the cave in the north, its own screen beside the world
+var glashaus: Cave                   # the greenhouse in the west, three screens wide, beside the cave
+var room: Cave                       # the place he is in (or last was in)
 var inside := false
 var _going := false                  # the screen is fading in or out of the cave
 var _fade: ColorRect
@@ -67,6 +69,10 @@ func _ready() -> void:
 	cave = Cave.new()                                    # under the y-sorted layer: he walks over it
 	add_child(cave)
 	cave.setup(Vector2(world.width, world.height))
+	glashaus = Cave.new()
+	add_child(glashaus)
+	glashaus.setup(Vector2(world.width, world.height), "res://assets/world/glashaus/", "glashaus", cave.size.x + Cave.GAP)
+	room = cave
 	snow = SnowTrail.new()                               # over the ground, under everything standing
 	snow.mat_at = store.material_at
 	add_child(snow)
@@ -154,7 +160,7 @@ func _ready() -> void:
 	var steps := Footsteps.new()
 	steps.player = player
 	steps.store = store
-	steps.cave = cave
+	steps.rooms = [cave, glashaus]
 	add_child(steps)
 	var amb := Ambience.new()
 	amb.world = world
@@ -196,7 +202,7 @@ func _make_swarm(s: Dictionary) -> Node:
 
 
 func _start_position() -> Vector2:
-	save.fit_to(world.height)
+	save.fit_to(world.height, world.width)
 	if save.has_position:
 		store.load_now(world.grid.chunk_of(save.position))
 		if store.walkable(save.position):
@@ -264,11 +270,13 @@ func _on_camera_mode(on: bool) -> void:
 
 func _store() -> void:
 	if inside:                                         # saved inside: he starts again at the mouth
-		save.set_position(cave.out_to)
+		save.set_position(room.out_to)
 		save.world_h = world.height
+		save.world_w = world.width
 	elif world != null and store.walkable(player.position):
 		save.set_position(player.position)
 		save.world_h = world.height
+		save.world_w = world.width
 	save.save_to()
 
 
@@ -303,7 +311,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if _going:
 		return
 	var target: Vector2 = get_canvas_transform().affine_inverse() * event.position
-	var way := cave.find_path(player.position, target) if inside else pathing.find_path_in(store, player.position, target)
+	var way := room.find_path(player.position, target) if inside else pathing.find_path_in(store, player.position, target)
 	if way.size() > 0:
 		player.walk_to(way)
 		marker.show_at(way[way.size() - 1])
@@ -348,7 +356,7 @@ func _process(delta: float) -> void:
 
 	var view := get_viewport().get_visible_rect().size
 	var c := player.position + _cam_offset                # no rounding: the camera glides in screen pixels
-	var b := cave.rect() if inside else Rect2(0, 0, world.width, world.height)
+	var b := room.rect() if inside else Rect2(0, 0, world.width, world.height)
 	for k in 2:
 		c[k] = b.get_center()[k] if b.size[k] <= view[k] else clampf(c[k], b.position[k] + view[k] * 0.5, b.end[k] - view[k] * 0.5)
 	if _camera_mode:
@@ -397,15 +405,20 @@ func _process(delta: float) -> void:
 			_store()
 
 
-# ---------------------------------------------------------------- the cave
+# ---------------------------------------------------------------- the cave and the greenhouse
 
-## Walking up into the dark arch takes him in, walking down the end of its way out takes him out again.
+## Walking up into the dark arch or the greenhouse door takes him in, walking down the end of its way out takes
+## him out again.
 func _cave_doors(moved: Vector2) -> void:
-	if _going or not cave.ok or moved == Vector2.ZERO:
+	if _going or moved == Vector2.ZERO:
 		return
-	if not inside and cave.at_mouth(player.position, moved):
-		_go(true)
-	elif inside and cave.at_exit(player.position, moved):
+	if not inside:
+		for r in [cave, glashaus]:
+			if r.ok and r.at_mouth(player.position, moved):
+				room = r
+				_go(true)
+				return
+	elif room.at_exit(player.position, moved):
 		_go(false)
 
 
@@ -422,23 +435,24 @@ func _go(into: bool) -> void:
 func _set_inside(into: bool) -> void:
 	inside = into
 	post.set_shader_parameter("inside", 1.0 if into else 0.0)
+	post.set_shader_parameter("warm_inside", 1.0 if into and room.warm else 0.0)
 	snowfall.off = into                                  # the cave lies at the north's height: no snow in it
 	rain.off = into
 	player.lantern.always_dark = into                    # inside it hangs on his staff, outside it goes as the light says
-	var b := cave.rect() if into else Rect2(0, 0, world.width, world.height)
+	var b := room.rect() if into else Rect2(0, 0, world.width, world.height)
 	cam.limit_left = int(b.position.x)
 	cam.limit_top = int(b.position.y)
 	cam.limit_right = int(b.end.x)
 	cam.limit_bottom = int(b.end.y)
-	var at := cave.inside_at(cave.start) if into else cave.out
+	var at := room.inside_at(room.start) if into else room.out
 	if not into:
 		view_node.load_around(at)
 	player.position = at
 	_cam_at = Vector2.INF
 	_cam_offset = Vector2.ZERO
 	_last_pos = at
-	var to := cave.inside_at(cave.start_to) if into else cave.out_to
-	var way := cave.find_path(at, to) if into else pathing.find_path_in(store, at, to)
+	var to := room.inside_at(room.start_to) if into else room.out_to
+	var way := room.find_path(at, to) if into else pathing.find_path_in(store, at, to)
 	if way.size() > 0:
 		player.walk_to(way)
 	if not into:
@@ -452,7 +466,7 @@ func _feed_lights(view: Rect2) -> void:
 		if d["k"] > 0.01:
 			all.append(d)
 	if inside:
-		all.append(cave.light)
+		all.append(room.light)
 	else:
 		all.append_array(world.lights)
 	var pos: Array[Vector4] = []

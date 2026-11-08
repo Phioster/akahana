@@ -47,3 +47,16 @@ func test_old_position_moves_down_when_the_north_grew_on_top() -> void:
 	var again := SaveData.load_from(PATH)
 	again.fit_to(4800)
 	assert_eq(again.position, Vector2(243, 2270), "nur einmal verschieben")
+
+func test_old_position_moves_right_when_the_west_grew_on_the_left() -> void:
+	var c := ConfigFile.new()                  # a save from before 0.18: no world width stored
+	c.set_value("weg", "position", Vector2(243, 2270))
+	c.set_value("weg", "welthoehe", 4800)
+	c.save(PATH)
+	var r := SaveData.load_from(PATH)
+	r.fit_to(4800, 2700)
+	assert_eq(r.position, Vector2(1143, 2270))
+	r.save_to(PATH)
+	var again := SaveData.load_from(PATH)
+	again.fit_to(4800, 2700)
+	assert_eq(again.position, Vector2(1143, 2270), "nur einmal verschieben")

@@ -2,7 +2,7 @@ extends TestCase
 
 func _cave() -> Cave:
 	var c := Cave.new()
-	c.setup(Vector2(1800, 4800))
+	c.setup(Vector2(2700, 4800))
 	return c
 
 func test_the_cave_lies_beside_the_world() -> void:
@@ -44,3 +44,16 @@ func test_nothing_in_the_cave_swallows_a_tap() -> void:
 		if n is Control:
 			assert_eq((n as Control).mouse_filter, Control.MOUSE_FILTER_IGNORE, "%s fängt Tippen ab" % n.name)
 	c.free()
+
+func test_the_greenhouse_lies_beside_the_cave_and_is_warm() -> void:
+	var c := _cave()
+	var g := Cave.new()
+	g.setup(Vector2(2700, 4800), "res://assets/world/glashaus/", "glashaus", c.size.x + Cave.GAP)
+	assert_true(g.ok, "Gewächshaus geladen")
+	assert_true(g.warm, "eigenes warmes Licht")
+	assert_false(g.rect().intersects(c.rect().grow(100.0)), "liegt neben der Höhle, nicht darin")
+	assert_true(g.at_mouth(g.mouth.get_center(), Vector2.UP), "durch die Tür hinein")
+	var way := g.find_path(g.inside_at(g.start), g.inside_at(g.start_to))
+	assert_true(way.size() > 0, "drinnen geht er los")
+	c.free()
+	g.free()

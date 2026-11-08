@@ -82,10 +82,36 @@ class MillWater:
         s.m.draw_fall(img, t, FALL_SPEED)
 
 
-for cls in STAND + (MillHouse, MillWheel, MillWater):
+class NwThing:
+    """One standing thing of the north-west corner as north/common.draw_things draws it (pine, rock, log, stump):
+    the item (foot, kind, args) with the canvas's own noise."""
+    def __init__(s, item, G, CL):
+        s.item, s.G, s.CL = item, G, CL
+        s.order = int(round(item[0]))
+
+    def box(s):
+        _, kind, a = s.item
+        if kind == 'pine':
+            x, y, h = a[0], a[1], a[2]
+            return (x - 16, y - h - 8, x + 17, y + 6)
+        if kind == 'rock':
+            x, y, r = a
+            rr = max(2, int(r * 0.9))
+            return (x - rr - 4, y - 2 * rr - 4, x + rr + 6, y + 6)
+        if kind == 'log':
+            return (min(a[0], a[2]) - 8, min(a[1], a[3]) - 10, max(a[0], a[2]) + 8, max(a[1], a[3]) + 8)
+        x, y = a[0], a[1]                                              # stump
+        return (x - 10, y - 12, x + 12, y + 6)
+
+    def draw(s, img, G):
+        from common import draw_things
+        draw_things(img, [s.item], s.G, s.CL)
+
+
+for cls in STAND + (MillHouse, MillWheel, MillWater, NwThing, o.Verschneit):
     if not hasattr(cls.draw, '_orig'):
         layers._wrap(cls, 'stand')
-for cls in FLAT:
+for cls in FLAT + (o.VerschneitFlat,):
     if not hasattr(cls.draw, '_orig'):
         layers._wrap(cls, 'flat')
 for cls in SWAY:
@@ -107,7 +133,7 @@ def _muehle_draw(m, img, G):
 
 
 o.Muehle.draw = _muehle_draw
-FPS = {'MillWheel': WHEEL_FPS, 'MillWater': WATER_FPS}
+FPS = {'MillWheel': WHEEL_FPS, 'MillWater': WATER_FPS, 'Steinlaterne': 8}
 
 
 def collect_window(render, width):

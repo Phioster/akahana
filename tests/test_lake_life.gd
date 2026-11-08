@@ -42,8 +42,8 @@ func test_the_lake_map_knows_deep_water() -> void:
 	var l := LakeLife.new()
 	l.world = w
 	l.load_map()
-	assert_true(l.depth_at(Vector2(430, 4260)) > 80, "Mitte des Sees ist tief")
-	assert_eq(l.depth_at(Vector2(100, 2100)), 0, "das Mohnfeld ist kein See")
+	assert_true(l.depth_at(Vector2(1330, 4260)) > 80, "Mitte des Sees ist tief")
+	assert_eq(l.depth_at(Vector2(1000, 2100)), 0, "das Mohnfeld ist kein See")
 	var spot := l.random_spot(Rect2(300, 4150, 260, 200), 80)
 	assert_true(spot.x >= 0.0 and l.depth_at(spot) > 80, "ein Platz im tiefen Wasser")
 	l.free()
@@ -57,7 +57,7 @@ func test_lake_life_keeps_a_few_animals_near_the_view_only() -> void:
 	l.sorted = l
 	l.player = Node2D.new()
 	l.add_child(l.player)
-	l.player.position = Vector2(100, 2100)
+	l.player.position = Vector2(1000, 2100)
 	var most := 0
 	for i in 400:
 		l.step(0.05, Rect2(300, 4100, 180, 400))
@@ -80,7 +80,7 @@ func test_a_duck_at_the_shallows_turns_once_and_does_not_flicker() -> void:
 	# phone 0.7.0: a duck by a stone turned every frame and its face flickered left/right
 	var l := _lake()
 	var d := LakeLife.Duck.new()
-	d.setup(l, Vector2(519, 4423), Vector2(900, 4423))        # heading east, into the shallows
+	d.setup(l, Vector2(1419, 4423), Vector2(1800, 4423))        # heading east, into the shallows
 	d.heading = Vector2.RIGHT
 	var faces := []
 	for i in 120:
@@ -98,7 +98,7 @@ func test_a_duck_at_the_shallows_turns_once_and_does_not_flicker() -> void:
 func test_a_fish_at_the_shallows_turns_away_and_keeps_its_course() -> void:
 	var l := _lake()
 	var f := LakeLife.Fish.new()
-	f.setup(l, Vector2(593, 4425))
+	f.setup(l, Vector2(1493, 4425))
 	f.circling = false
 	f.heading = Vector2.RIGHT
 	f.brain = FishBrain.new(30.0)
@@ -133,7 +133,7 @@ func test_a_duck_taking_off_runs_over_the_water_first_then_climbs() -> void:
 	# approved flight (step 30): a run over the water (wings beating low, splash), then flat climb, with a shadow
 	var l := _lake()
 	var d := LakeLife.Duck.new()
-	d.setup(l, Vector2(430, 4260), Vector2(900, 4260))
+	d.setup(l, Vector2(1330, 4260), Vector2(1800, 4260))
 	d.heading = Vector2.RIGHT
 	d.brain.state = DuckBrain.FLY
 	var start := d.pos

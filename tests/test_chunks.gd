@@ -35,8 +35,8 @@ func test_store_answers_walkable_for_loaded_ground() -> void:
 
 func test_unloaded_ground_is_not_walkable() -> void:
 	var s := _store()
-	assert_false(s.walkable(Vector2(250, 1070)))
-	assert_eq(s.material_at(Vector2(250, 1070)), GroundMat.GRASS)
+	assert_false(s.walkable(Vector2(1150, 1070)))
+	assert_eq(s.material_at(Vector2(1150, 1070)), GroundMat.GRASS)
 
 func test_want_forgets_what_is_not_kept() -> void:
 	var s := _store()
@@ -172,9 +172,9 @@ func test_the_lake_mirrors_what_stands_on_its_shore() -> void:
 	v.queue_free()
 
 func test_the_jetty_lantern_throws_its_light_path_on_the_chunk_below_the_jetty() -> void:
-	# the jetty's end lies at y 4209, on chunk (3, 21): its water gets the lamp
-	var v := _view(Rect2(540, 4160, 120, 120))
-	var c := Vector2i(3, 21)
+	# the jetty's end lies at y 4209, on chunk (8, 21): its water gets the lamp
+	var v := _view(Rect2(1440, 4160, 120, 120))
+	var c := Vector2i(8, 21)
 	assert_true(v._chunks.has(c), "Kachel unter dem Steg geladen")
 	var m := (v._chunks[c][0] as Sprite2D).material as ShaderMaterial
 	var lamps: PackedVector2Array = m.get_shader_parameter("lamps")
@@ -183,8 +183,8 @@ func test_the_jetty_lantern_throws_its_light_path_on_the_chunk_below_the_jetty()
 
 func test_blades_bend_with_their_height_map() -> void:
 	# grass and reeds bend from the foot (bend map per chunk, with the flowers' apron); poppies move whole
-	var v := _view(Rect2(90, 2040, 180, 120))
-	var c := Vector2i(0, 10)
+	var v := _view(Rect2(990, 2040, 180, 120))
+	var c := Vector2i(5, 10)
 	assert_true(v._chunks.has(c), "Kachel im Grasland geladen")
 	var m := (v._chunks[c][1] as Sprite2D).material as ShaderMaterial
 	var bt: Texture2D = m.get_shader_parameter("bend_tex")
@@ -231,15 +231,15 @@ func test_ground_arriving_before_its_flowers_is_not_lost() -> void:
 func test_the_jetty_reaches_out_over_deep_water() -> void:
 	# phone 0.8.0: the planks ended at the shore, the shallows behind them were walkable - he stood on the water
 	var s := _store()
-	s.load_now(Vector2i(3, 20))
-	s.load_now(Vector2i(3, 21))                          # the jetty's end (y 4204) lies on the chunk below
-	assert_true(s.walkable(Vector2(578, 4165)), "Steg am Ufer")
-	assert_true(s.walkable(Vector2(578, 4190)), "auf den Planken über dem Wasser")
-	assert_true(s.walkable(Vector2(578, 4208)), "am Stegende")
-	assert_true(s.walkable(Vector2(580, 4209)), "bis zur letzten Plankenzeile (0.8.2: 3-4 Pixel fehlten)")
-	assert_false(s.walkable(Vector2(578, 4212)), "hinter dem Ende tiefes Wasser")
-	assert_false(s.walkable(Vector2(566, 4195)), "neben dem Steg kein Waten im Tiefen")
-	assert_false(s.walkable(Vector2(592, 4200)), "neben dem Steg kein Waten im Tiefen")
+	s.load_now(Vector2i(8, 20))
+	s.load_now(Vector2i(8, 21))                          # the jetty's end (y 4204) lies on the chunk below
+	assert_true(s.walkable(Vector2(1478, 4165)), "Steg am Ufer")
+	assert_true(s.walkable(Vector2(1478, 4190)), "auf den Planken über dem Wasser")
+	assert_true(s.walkable(Vector2(1478, 4208)), "am Stegende")
+	assert_true(s.walkable(Vector2(1480, 4209)), "bis zur letzten Plankenzeile (0.8.2: 3-4 Pixel fehlten)")
+	assert_false(s.walkable(Vector2(1478, 4212)), "hinter dem Ende tiefes Wasser")
+	assert_false(s.walkable(Vector2(1466, 4195)), "neben dem Steg kein Waten im Tiefen")
+	assert_false(s.walkable(Vector2(1492, 4200)), "neben dem Steg kein Waten im Tiefen")
 
 ## 0.10.2: the picture prefetch registers entries that make no node; they must be made once, not every frame.
 func test_an_entry_without_a_node_is_made_once_and_dropped_once() -> void:

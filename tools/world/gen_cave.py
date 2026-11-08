@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.join(HERE, 'north'))
 import cave_inside as C  # noqa: E402
 
 OUT = os.path.join(HERE, '..', '..', 'assets', 'world', 'cave')
-MOUTH = (150, 705)            # zone2_draft.CAVE: foot of the mouth, world coordinates
+MOUTH = (150 + 900, 705)      # zone2_draft.CAVE: foot of the mouth, world coordinates (+900: gen_west's WEST_W)
 
 
 def main():

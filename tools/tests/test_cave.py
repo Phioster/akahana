@@ -59,9 +59,10 @@ class Cave(unittest.TestCase):
         w = json.load(open(os.path.join(D, 'world.json')))
         free = _cells(w, 'cells').astype(bool)
         ox, oy = self.m['out_to']
-        got = reach(free[300:420, 40:120], [(oy // 2 - 300, ox // 2 - 40)], diagonal=True)
+        c0 = ox // 2 - 35                                       # the window round the mouth (moved with the west, 0.18)
+        got = reach(free[300:420, c0:c0 + 80], [(oy // 2 - 300, ox // 2 - c0)], diagonal=True)
         x, y, mw, mh = self.m['mouth']
-        mouth = got[y // 2 - 300:(y + mh) // 2 - 300, x // 2 - 40:(x + mw) // 2 - 40]
+        mouth = got[y // 2 - 300:(y + mh) // 2 - 300, x // 2 - c0:(x + mw) // 2 - c0]
         self.assertTrue(mouth.any(), 'vom Schnee bis in den Höhleneingang')
         self.assertTrue(free[self.m['out'][1] // 2, self.m['out'][0] // 2], 'beim Hinausgehen steht er frei')
         mx, my = self.m['out']

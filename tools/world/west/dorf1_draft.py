@@ -25,7 +25,9 @@ import zone2_draft as z2  # noqa: E402   (the south's: Blade, Wildflower, Bank, 
 from objects_south import Fackel, Kerzen  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(HERE, '..', '..', '..'))
-FULL = os.path.join(ROOT, 'build', 'world_full')
+FULL = os.path.join(ROOT, 'build', 'world_pre_west')                   # the world as it was before the west (gen_west
+if not os.path.exists(os.path.join(FULL, 'world.json')):              # keeps it); before its first run: today's
+    FULL = os.path.join(ROOT, 'build', 'world_full')
 WW = 900                                   # columns the world grows to the west
 X0, X1, Y1 = 0, 1180, 4800                 # the window drawn (west coordinates): zone 3 up to 1380, 4b to the world's end
 Y0 = int(os.environ.get('WEST_Y0', 1380))   # a later first row only to look at the south quickly (other noise)
@@ -103,7 +105,8 @@ def fbm(h, w, s, seed):
 def today():
     g = np.array(Image.open(os.path.join(FULL, 'ground.png')).convert('RGB')).astype(float)
     fl = np.array(Image.open(os.path.join(FULL, 'flowers.png')).convert('RGBA'))
-    w = json.load(open(os.path.join(ROOT, 'assets', 'world', 'world.json')))
+    wp = os.path.join(FULL, 'world.json') if FULL.endswith('world_pre_west') else ''   # world_full's copy is stale
+    w = json.load(open(wp if os.path.exists(wp) else os.path.join(ROOT, 'assets', 'world', 'world.json')))
     return g, fl, w
 
 
@@ -805,7 +808,7 @@ def render():
     if os.environ.get('WEST_DEBUG'):
         np.save(os.environ['WEST_DEBUG'] + '_post.npy', img.astype(np.float32))
     return dict(img=img, w=w, lights=lights, lk=lk, water=water, pathm=pathm, brook=brook.mask, brook_line=bc,
-                sb=sb.mask, south_lines=southw, oldw=oldw_full, gy=gy, heads=heads, is_reed=is_reed, sx=sx_,
+                sb=sb.mask, sbo=sb, south_lines=southw, oldw=oldw_full, gy=gy, heads=heads, is_reed=is_reed, sx=sx_,
                 refs=refs, forest=forest_things, today_sprites=sprites, seam_p=seam_p, blocked=blocked,
                 bridge_m=bridge_m, terr=terr, terr_dry=terr_dry, bamboo=eb < 1.0, plots=plots, seam=seam,
                 old_flowers=ofl)

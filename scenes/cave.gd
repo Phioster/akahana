@@ -1,6 +1,8 @@
-## The cave in the north as its own screen (tools/world/gen_cave.py): one picture of 180 x 400 art px,
-## set beside the world at ORIGIN so world, camera and post shader keep their coordinates. Its own walkable
-## grid; inside it is always dark (the lantern hangs), lit by its candle.
+## A place you go into, as its own screen beside the world, so world, camera and post shader keep their
+## coordinates: the cave in the north (tools/world/gen_cave.py, 180 x 400 art px, lit by its candle) and the
+## greenhouse in the west (gen_glashaus.py, 540 x 400, wider than a screen: the camera runs along it; its crowns
+## and lianas hang over him on their own layer, its light stays warm). Its own walkable grid; inside the
+## lantern hangs on his staff.
 class_name Cave
 extends Node2D
 
@@ -15,12 +17,15 @@ var start := Vector2.ZERO            # inside (cave px): where he stands on comi
 var start_to := Vector2.ZERO         # ... and walks on to
 var exit_y := 376.0                  # inside: walking down past this takes him out
 var light := {}
+var warm := false                    # its own warm grade (the greenhouse), not the evening's
 var pathing := Pathing.new()
 var ok := false
 
 
-func setup(world_size: Vector2) -> void:
-	var f := FileAccess.open(DIR + "cave.json", FileAccess.READ)
+## dir/name: where its files lie (name.json, name.png, name_walk.bin, name_canopy.png); slot: how far beyond
+## the first place it lies (one place beside the other, never overlapping).
+func setup(world_size: Vector2, dir: String = DIR, name_: String = "cave", slot: float = 0.0) -> void:
+	var f := FileAccess.open(dir + name_ + ".json", FileAccess.READ)
 	if f == null:
 		return
 	var m: Dictionary = JSON.parse_string(f.get_as_text())
@@ -31,13 +36,14 @@ func setup(world_size: Vector2) -> void:
 	start = Vector2(m["in"][0], m["in"][1])
 	start_to = Vector2(m["in_to"][0], m["in_to"][1])
 	exit_y = float(m["exit_y"])
-	position = Vector2(world_size.x + GAP, roundf(mouth.position.y - size.y * 0.5))   # beside the mouth's height: the same wind
+	position = Vector2(world_size.x + GAP + slot, roundf(mouth.position.y - size.y * 0.5))   # beside the mouth's height: the same wind
+	warm = bool(m.get("warm", false))
 	light = (m["light"] as Dictionary).duplicate()
 	light["x"] = float(light["x"]) + position.x
 	light["y"] = float(light["y"]) + position.y
 	# raw bytes like the world's walk.bin: nothing of the import between the generator and the grid
-	var bytes := FileAccess.get_file_as_bytes(DIR + "cave_walk.bin")
-	var pic := TextureLoader.load_texture(DIR + "cave.png")
+	var bytes := FileAccess.get_file_as_bytes(dir + name_ + "_walk.bin")
+	var pic := TextureLoader.load_texture(dir + name_ + ".png")
 	if bytes.size() != int(size.x * size.y) or pic == null:
 		return
 	pathing.build(bytes, int(size.x), int(size.y))
@@ -51,6 +57,12 @@ func setup(world_size: Vector2) -> void:
 	sp.texture = pic
 	sp.centered = false
 	add_child(sp)
+	if bool(m.get("canopy", false)):                    # what hangs over him: above the y-sorted layer
+		var top := Sprite2D.new()
+		top.texture = TextureLoader.load_texture(dir + name_ + "_canopy.png")
+		top.centered = false
+		top.z_index = 10
+		add_child(top)
 	ok = true
 
 

@@ -1749,6 +1749,10 @@ class Verschneit:
                         reg[j - y0, i - x0] = SNOWQ[2] if v < q * 0.55 else SNOWQ[1]
 
 
+class VerschneitFlat(Verschneit):
+    """Verschneit for flat things (steps): they stay in the ground when the game's layers are made."""
+
+
 class Glockenhaus:
     """The hermitage's little bell house (shoro): four posts on a stone footing, a small hipped roof, the bronze
     bell hanging under it gone green, the wooden striker on its ropes beside it. (x, y) the footing's front middle."""

@@ -45,9 +45,9 @@ class NorthWorld(unittest.TestCase):
     def test_the_mist_wall_stands_at_the_world_s_edges_only(self):
         # 0.11.0: today's top row's wall was carried up the whole north: a grey wall through the hut's wood
         b = np.array(Image.open(os.path.join(D, 'mist_fields.png')).convert('RGB'))[..., 2]
-        inner = b[40:self.n // 2 + 200, 20:860]                # half size: under the top, off the east edge (its wall reaches ~45 px in)
+        inner = b[40:self.n // 2 + 200, 40:1310]               # half size: under the top, off the west (its wall ~24 px in) and east edge (~45 px)
         self.assertEqual(int(inner.max()), 0)
-        self.assertGreater(int(b[0, 450]), 200, 'oben am Weltrand steht die Nebelwand')
+        self.assertGreater(int(b[0, 900]), 200, 'oben am Weltrand steht die Nebelwand')
 
 
 if __name__ == '__main__':

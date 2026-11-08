@@ -25,6 +25,22 @@ def north(w):
     return int(w.get('north_h', 0))
 
 
+def west(w):
+    """How many columns the west added on the left (0.18); tests written for the old frame add it."""
+    return int(w.get('west_w', 0))
+
+
+def pre_west(w):
+    """world.json as it was before the west grew on the left: every x moved back, the west's own things gone."""
+    k = west(w)
+    w = dict(w)
+    w['width'] -= k
+    w['start'] = dict(w['start'], x=w['start']['x'] - k)
+    w['sprites'] = [dict(s, x=s['x'] - k) for s in w['sprites'] if s['x'] >= k]
+    w['lights'] = [dict(l, x=l['x'] - k) for l in w['lights'] if l['x'] >= k]
+    return w
+
+
 def pre_north(w):
     """world.json as it was before the north grew on top: every y moved back up."""
     n = north(w)
@@ -82,9 +98,9 @@ class WorldAssets(unittest.TestCase):
                     kinds |= set(np.unique(np.array(wt)[..., 3]).tolist())
         self.assertTrue({1, 2, 3} <= kinds, 'alter Bach, neue Baeche, See')
 
-    def test_the_world_is_ten_chunks_wide_and_twenty_four_tall(self):
-        self.assertEqual((self.w['width'], self.w['height']), (1800, 4800))   # 0.11: the north on top
-        self.assertEqual(self.w['chunks'], [10, 24])
+    def test_the_world_is_fifteen_chunks_wide_and_twenty_four_tall(self):
+        self.assertEqual((self.w['width'], self.w['height']), (2700, 4800))   # 0.11: the north on top, 0.18: the west
+        self.assertEqual(self.w['chunks'], [15, 24])
 
     def _from_start(self):
         st = self.w['start']
@@ -124,7 +140,8 @@ class WorldAssets(unittest.TestCase):
     def test_the_ford_over_the_stepping_stones_can_be_walked(self):
         # drawn as a crossing, but each stone was an island: water between them shut the ford
         n = north(self.w) // 2
-        part = self.cells[310 + n:370 + n, 45:75].astype(bool)     # world y 620-740, x 90-150 round the stones
+        k = west(self.w) // 2
+        part = self.cells[310 + n:370 + n, 45 + k:75 + k].astype(bool)     # old world y 620-740, x 90-150 round the stones
         got = reach(part, [(0, x) for x in range(part.shape[1])], diagonal=True)
         self.assertTrue(got[-1].any(), 'Nord- und Suedufer verbunden')
 

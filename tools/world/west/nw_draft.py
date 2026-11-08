@@ -26,7 +26,9 @@ nz2 = importlib.util.module_from_spec(_sp)                        # the north's 
 _sp.loader.exec_module(nz2)                                        # the south has a zone2_draft too
 
 ROOT = os.path.abspath(os.path.join(HERE, '..', '..', '..'))
-FULL = os.path.join(ROOT, 'build', 'world_full')
+FULL = os.path.join(ROOT, 'build', 'world_pre_west')                   # as dorf1_draft: the world before the west
+if not os.path.exists(os.path.join(FULL, 'world.json')):
+    FULL = os.path.join(ROOT, 'build', 'world_full')
 WW = 900
 X0, X1, Y0, Y1 = 0, 1020, 0, 1520          # west coordinates; today's x 0 = WW
 W, H = X1 - X0, Y1 - Y0
@@ -56,7 +58,8 @@ def gorge_line():
 def today():
     g = np.array(Image.open(os.path.join(FULL, 'ground.png')).convert('RGB'))[Y0:Y1, :W - WW].astype(float)
     fl = np.array(Image.open(os.path.join(FULL, 'flowers.png')).convert('RGBA'))[Y0:Y1, :W - WW]
-    w = json.load(open(os.path.join(ROOT, 'assets', 'world', 'world.json')))
+    wp = os.path.join(FULL, 'world.json') if FULL.endswith('world_pre_west') else ''   # world_full's copy is stale
+    w = json.load(open(wp if os.path.exists(wp) else os.path.join(ROOT, 'assets', 'world', 'world.json')))
     return g, fl, w
 
 
@@ -80,6 +83,7 @@ def render():
     yy, xx = np.mgrid[0:H, 0:W]
     gx, gy = xx + X0, yy + Y0
     west = gx < WW
+    col = sys.modules['layers']._active if 'layers' in sys.modules else None   # gen_west collecting
 
     # ---- the shape of the land
     n1, n2 = fbm(rng, 30, (H, W)), fbm(rng, 9, (H, W))
@@ -114,7 +118,8 @@ def render():
     og, ofl, w = today()
     oimg = og.copy()
     m = ofl[..., 3] > 0
-    oimg[m] = ofl[m][..., :3]
+    if col is None:                                                   # collecting: the flowers are their own layer
+        oimg[m] = ofl[m][..., :3]
     clumps = 0.5 + 0.28 * fbm(rng, 14, (H, W)) + 0.12 * fbm(rng, 3, (H, W))
     tw = smooth((gx - WW) / float(MIX))
     take = (clumps < tw) & ~west
@@ -178,13 +183,15 @@ def render():
         things.append((y + 3, 'log', (x, y, int(x + L * np.cos(a)), int(y + L * np.sin(a)))))
         things.append((y + 6, 'stump', (x - 4, y + 6)))
         n_log += 1
-    _s2 = importlib.util.spec_from_file_location('south_zone2', os.path.join(HERE, '..', 'south', 'zone2_draft.py'))
-    sz2 = importlib.util.module_from_spec(_s2)                        # the south's zone 2: its stone lantern
-    sys.path.insert(0, os.path.join(HERE, '..', 'south'))
-    _s2.loader.exec_module(sz2)
+    sz2 = sys.modules.get('zone2_draft')                              # the south's zone 2: its stone lantern (the
+    if sz2 is None or not hasattr(sz2, 'Steinlaterne'):              # one gen_west's collector wraps, if loaded)
+        _s2 = importlib.util.spec_from_file_location('south_zone2', os.path.join(HERE, '..', 'south', 'zone2_draft.py'))
+        sz2 = importlib.util.module_from_spec(_s2)
+        sys.path.insert(0, os.path.join(HERE, '..', 'south'))
+        _s2.loader.exec_module(sz2)
     hx_, hy_ = HERMIT                                                 # the hermitage (Yamadera): the village's own makes
     lights = []
-    things.append((-1, 'obj', o.Verschneit(o.Treppe(hx_, hy_ + 32, n=8), [(None, None, 0.6)], seed=1, demoss=True)))
+    things.append((-1, 'obj', o.VerschneitFlat(o.Treppe(hx_, hy_ + 32, n=8), [(None, None, 0.6)], seed=1, demoss=True)))
     things.append((hy_, 'obj', o.Verschneit(o.Yashiro(hx_, hy_, w=40, seed=66, under=True), [(None, hy_ - 25, 0.38), (hy_ - 5, hy_ + 2, 0.7)], seed=2,
                                                demoss=(hy_ - 6, hy_ + 2))))
     things.append((hy_ + 28, 'obj', o.Verschneit(o.Minka(hx_ - 68, hy_ + 28, w=30, wall=10, roof=15, seed=33,
@@ -200,11 +207,17 @@ def render():
 
     def extra(kind, a):
         a.draw(img, G)
-    draw_things(img, [t for t in things if t[1] in ('pine', 'rock', 'log', 'stump', 'obj')], G, CL, extra)
+    stand = [t for t in things if t[1] in ('pine', 'rock', 'log', 'stump', 'obj')]
+    if col is None:
+        draw_things(img, stand, G, CL, extra)
+    else:                                                             # gen_west collecting: one recorded thing each
+        import collect_west as cw
+        for t in sorted(stand, key=lambda t: t[0]):
+            (t[2].draw(img, G) if t[1] == 'obj' else cw.NwThing(t, G, CL).draw(img, G))
 
-    # ---- today's standing things east of WW, as the game shows them (frame 0)
+    # ---- today's standing things east of WW, as the game shows them (frame 0; the game has them already)
     root = os.path.join(ROOT, 'assets', 'world', 'sprites')
-    for s in sorted(w['sprites'], key=lambda s: s['foot']):
+    for s in sorted(w['sprites'], key=lambda s: s['foot']) if col is None else ():
         if s['x'] < W - WW + X0 and s['y'] < Y1 and s['x'] > 2:
             paste(img, s, root)
     return img, dict(ground=ground, things=things, keep=keep, gorge=gm, ridge=ridge, flat_rock=flat_rock,
