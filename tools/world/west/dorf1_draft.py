@@ -72,6 +72,19 @@ GRASS_FROM, GRASS_FULL = 2900, 3200        # the south's tall grass, as it comes
 HOUSES = [((380, 2180), 1, 'kawara', 0.5), ((560, 2150), 2, 'kaya', 0.8), ((690, 2230), 3, 'kawara', 0.35),
           ((300, 2320), 4, 'kaya', 0.6), ((410, 2420), 5, 'kawara', 0.7), ((720, 2400), 6, 'kaya', 0.45),
           ((540, 2490), 7, 'kawara', 0.9), ((250, 2610), 8, 'kawara', 0.55), ((430, 2640), 9, 'kaya', 0.65)]
+# the village grown (Philip + his girlfriend, 2026-11-08: "bigger, a real little settlement, on to the south"):
+# six more houses in the village's gaps, seven farmsteads along the south road down to the mill
+HOUSES2 = [((230, 2085), 10, 'kaya', 0.6), ((185, 2455), 11, 'kawara', 0.5), ((800, 2215), 12, 'kaya', 0.55),
+           ((650, 2705), 13, 'kawara', 0.6), ((790, 2690), 14, 'kaya', 0.7), ((330, 2775), 15, 'kawara', 0.45)]
+FARMS = [((250, 2845), 16, 'kaya', 0.6), ((565, 2870), 17, 'kaya', 0.5), ((705, 2855), 18, 'kawara', 0.65),
+         ((840, 2885), 19, 'kaya', 0.55), ((585, 3010), 20, 'kaya', 0.7), ((745, 3030), 21, 'kawara', 0.5),
+         ((650, 3160), 22, 'kaya', 0.6)]
+PATHS2 = {                                   # their ways, drawn with their own dice (the old paths keep theirs):
+    'siedlung': [(436, 2880), (500, 2922), (565, 2926), (640, 2916), (705, 2911), (775, 2925), (840, 2941)],   # short,
+    'siedlung2': [(438, 3076), (510, 3070), (585, 3066), (665, 3074), (745, 3086)],     # nearly straight branches
+    'siedlung3': [(470, 3212), (540, 3218), (600, 3216), (650, 3214)],                  # off the south road
+    'hof': [(434, 2858), (390, 2874), (330, 2888), (250, 2897)],
+}
 PATHS = {
     'eingang': [(FIRE[0] - 14, FIRE[1] + 10), (1040, 2312), (930, 2300), (820, 2306), (700, 2322), (600, 2334),
                 (SQUARE[0] + 16, SQUARE[1] + 2)],
@@ -331,6 +344,12 @@ def path_masks(rng):
         m, core, d, width = extras.path_mask(H, W, local, rng)
         mask |= m
         yield name, m, core, d, width
+    r2 = np.random.default_rng(611)
+    for name, pts in PATHS2.items():
+        local = [(x - X0, y - Y0) for x, y in pts]
+        m, core, d, width = extras.path_mask(H, W, local, r2)
+        mask |= m
+        yield name, m, core, d, width
 
 
 def render():
@@ -452,14 +471,30 @@ def render():
     things, lights = [], []
     blocked = pathm | ndi.binary_dilation(water, iterations=2)      # no grass, no poppies here
     plots = np.zeros((H, W))                     # 1 inside a garden plot
-    for (cx, cy), seed, kind, ruin in HOUSES:
+    for (cx, cy), seed, kind, ruin in HOUSES + HOUSES2 + FARMS:
+        farm = ((cx, cy), seed, kind, ruin) in FARMS                    # the farmsteads: work, not flowers
         r = np.random.default_rng(seed * 11)
         hx_, hy_ = cx - X0 + int(r.integers(-6, 7)), cy - Y0 - 10
-        hw = int(r.integers(40, 50))
-        house = o.Minka(hx_, hy_, w=hw, seed=seed, kind=kind, ruin=ruin,
-                        roof=17 if kind == 'kawara' else 19, pal=seed // 2 + seed % 2)
+        rv = np.random.default_rng(seed * 13 + 5)                       # each house its own build (Philip: "all alike")
+        hw = int(rv.integers(32, 56))
+        house = o.Minka(hx_, hy_, w=hw, seed=seed, kind=kind, ruin=ruin, wall=int(rv.integers(9, 14)),
+                        roof=int(rv.integers(14, 22)) + (2 if kind == 'kaya' else 0), pal=int(rv.integers(0, 3)))
         things.append(house)
         blocked[hy_ - 34:hy_ + 4, hx_ - hw // 2 - 6:hx_ + hw // 2 + 8] = True
+        form = rv.random()
+        side = int(rv.choice([-1, 1]))
+        if form < (0.25 if farm else 0.4):                              # a wing at the side, lower, set back
+            aw = int(rv.integers(18, 28))
+            ax, ay = hx_ + side * (hw // 2 + aw // 2 + 3), hy_ - 5
+            things.append(o.Minka(ax, ay, w=aw, wall=int(rv.integers(7, 10)), roof=int(rv.integers(11, 15)),
+                                  seed=seed + 50, kind=str(rv.choice(['kawara', 'kaya'])), ruin=min(1.0, ruin + 0.15),
+                                  pal=int(rv.integers(0, 3))))
+            blocked[ay - 26:ay + 4, ax - aw // 2 - 6:ax + aw // 2 + 8] = True
+        elif form < (0.9 if farm else 0.7):                            # a little fallen-in shed
+            sx_, sy_ = hx_ + side * (hw // 2 + 16), hy_ + 6
+            things.append(o.Minka(sx_, sy_, w=int(rv.integers(16, 22)), wall=7, roof=11, seed=seed + 70, kind='kaya',
+                                  ruin=0.85, pal=1))
+            blocked[sy_ - 22:sy_ + 4, sx_ - 14:sx_ + 16] = True
         left, right, top, bot = cx - 55 - X0, cx + 55 - X0, cy - 48 - Y0, cy + 50 - Y0
         e = ((xx - (left + right) / 2) / 56.0) ** 2 + ((yy - (top + bot) / 2) / 50.0) ** 2 + 0.15 * fbm(H, W, 6, seed)
         plots = np.maximum(plots, smooth((1.05 - e) / 0.25))
@@ -478,10 +513,20 @@ def render():
         things.append(o.Platten((hx_ + int(r.integers(-4, 5)), hy_ + 5), (gate, bot + 4), seed=seed))
         blocked[hy_ + 3:bot + 6, gate - 4:gate + 5] = True
         # the garden: hydrangeas along the house, a bed, a fruit tree, things left behind
-        for k in range(int(r.integers(4, 7))):
+        for k in range(int(r.integers(1, 3) if farm else r.integers(4, 7))):
             things.append(o.Hortensie(hx_ + int(r.choice([-1, 1])) * int(r.integers(hw // 2 + 4, hw // 2 + 14)),
                                       hy_ + int(r.integers(2, 30)), int(r.integers(5, 8)),
                                       str(r.choice(['blau', 'lila', 'rosa'])), seed * 7 + k))
+        if farm:                                     # a drying rack in the plot, a woodpile by the house
+            fx_ = int(r.integers(left + 4, right - 36))
+            things.append(o.Hasagi(fx_, hy_ + int(r.integers(30, 40)), w=int(r.integers(24, 32)), seed=seed * 3))
+            blocked[hy_ + 8:hy_ + 44, fx_ - 2:fx_ + 36] = True
+            side = int(r.choice([-1, 1]))
+            things.append(o.Holzstapel(hx_ + side * (hw // 2 + 8), hy_ - 2, seed=seed))
+            if r.random() < 0.4:
+                things.append(o.Vogelscheuche(int(r.integers(left + 10, right - 10)), hy_ + int(r.integers(40, 48)),
+                                              seed=seed * 5))
+            continue
         bx = int(r.integers(left + 6, right - 30))
         things.append(o.Beet(bx, hy_ + int(r.integers(24, 40)), w=int(r.integers(14, 22)), rows=int(r.integers(3, 5)),
                              seed=seed))

@@ -1668,6 +1668,35 @@ class Hasagi:
                         put(img, i, s.y - 16 + j, pick(THATCH[:4] if k % 2 else ROOFS['kaya'][1], 3.2 - 0.5 * j - 0.4 * (i - bx)))
 
 
+class Holzstapel:
+    """A woodpile against a farmhouse wall: split logs stacked in a low wedge, their cut ends towards us (pale wood,
+    a dark ring, a crack), a few bark-sided pieces on top. (x, y) the foot, middle."""
+    def __init__(s, x, y, seed=180):
+        s.x, s.y, s.seed = x, y, seed
+
+    def box(s):
+        return (s.x - 9, s.y - 12, s.x + 10, s.y + 2)
+
+    def draw(s, img, G):
+        rng = np.random.default_rng(s.seed)
+        shade_ground(img, G, s.x - 9, s.x + 11, s.y - 1, s.y + 3, 0.65)
+        rows = [(-8, 8), (-7, 6), (-5, 4)]                            # each row: from, to (log centres, 3 px apart)
+        for k, (a, b) in enumerate(rows):
+            cy = s.y - 2 - 3 * k
+            for cx in range(s.x + a, s.x + b + 1, 3):
+                cx += int(rng.integers(0, 2)) * (k > 0)
+                for j in range(-1, 2):
+                    for i in range(-1, 2):
+                        if abs(i) + abs(j) == 2 and rng.random() < 0.6:
+                            continue
+                        lit = 3.6 - 0.35 * (i + j) - 0.3 * k
+                        c = pick(WOOD, 1.2) if abs(i) + abs(j) >= 2 else pick(THATCH, lit)
+                        put(img, cx + i, cy + j, c)
+                put(img, cx, cy, pick(WOOD, 3.4))                       # the heart
+        for i in range(s.x - 4, s.x + 5):                              # bark-sided pieces on top
+            put(img, i, s.y - 11 + (1 if i % 4 == 0 else 0), pick(WOOD, 2.2 + 0.1 * (i - s.x)))
+
+
 class SanfteBank:
     """The south's stone bench, its cast shadow soft: the ground under it only darkened, dithered out at the rim,
     instead of the flat dark patch (Philip, west 4b round 4)."""

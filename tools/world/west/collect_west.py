@@ -18,7 +18,7 @@ import objects_west as o  # noqa: E402
 
 STAND = (o.Minka, o.Brunnen, o.Hortensie, o.Bambuszaun, o.Steinmauer, o.Obstbaum, o.Waescheleine, o.Korb,
          o.Gewaechshaus, o.Block, o.Steinmetz, o.Torii, o.Komainu, o.Yashiro, o.Shinboku, o.Kaki, o.Leiter,
-         o.Bambus, o.Vogelscheuche, o.Teehaus, o.Netzgestell, o.Hasagi, o.SanfteBank)
+         o.Bambus, o.Vogelscheuche, o.Teehaus, o.Netzgestell, o.Hasagi, o.SanfteBank, o.Holzstapel)
 FLAT = (o.Beet, o.Platten, o.Treppe)
 SWAY = (o.Iris,)
 

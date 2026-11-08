@@ -25,6 +25,10 @@ for _k, (_p, _h) in AUTUMN.items():                              # muted for the
     AUTUMN[_k] = ([c * 0.82 + c.mean() * 0.1 for c in _p], _h * 0.8 + _h.mean() * 0.1)   # a step darker, greyer
 LEAVES = [None, 'orange', None, 'rost', None, 'gold', None, None]   # how the trees go: most green, some turned
 PAD = [hx(c) for c in ['#2c4226', '#426036', '#5c7f47', '#7c9e5e']]
+MOSS_L = [hx(c) for c in ['#26321f', '#364629', '#4c5f37', '#657a48', '#80945b']]   # moss and grass on old wood
+WOOD_GREY = [hx(c) for c in ['#2a2826', '#3e3a36', '#56514b', '#716a62', '#8f877c']]   # boat planks, sun-greyed
+LEAF_OLD = [hx(c) for c in ['#3a2a1c', '#55391f', '#734d26', '#8f6a35']]          # last year's leaves, brown
+REED_L = [hx(c) for c in ['#3a3b26', '#525335', '#6c6c44', '#8a8656']]
 LILY = [hx(c) for c in ['#c9a7b4', '#ead2da', '#f6ece6']]
 SAND = [hx(c) for c in ['#4a5552', '#5d6a64', '#74817a']]          # the lake floor showing through the shallows
 ROOF = [hx(c) for c in ['#2b231e', '#43362d', '#5e4c3e', '#7a6553']]
@@ -211,6 +215,191 @@ class Boot:
             put(img, s.x - 8 + k, s.y - 3 + k // 5, WOOD[3] if k > 10 else WOOD[2])
         for i in range(s.x - 9, s.x + 10, 2):                   # water lapping at the waterline
             put(img, i, s.y + 4, WATER[3])
+
+
+def _hull(i, j, x, y, ang, L, Wd):
+    """Where pixel (i, j) lies on a boat's hull centred at (x, y), its long axis at `ang`: (t along -1..1,
+    e across 0..1) or None outside. Pointed at both ends, like the old rowing boat."""
+    ca, sa = np.cos(ang), np.sin(ang)
+    dx, dy = i - x, j - y
+    t = (dx * ca + dy * sa) / (L / 2)
+    if abs(t) >= 1:
+        return None
+    half = Wd / 2 * (1 - abs(t) ** 1.6) ** 0.8
+    e = abs(-dx * sa + dy * ca) / max(half, 1e-3)
+    return (t, e) if e <= 1 else None
+
+
+class Floss:
+    """An old raft left on the lake (Philip's girlfriend, 2026-11-08): five logs side by side, lashed with two bands
+    of rope, greyed, moss in the gaps, one end sunk under the surface; a thin ring of ripples where it lies."""
+    def __init__(s, x, y, ang=0.3, n=5, L=26, seed=5):
+        s.x, s.y, s.ang, s.n, s.L, s.seed = x, y, ang, n, L, seed
+
+    def box(s):
+        r = s.L // 2 + 4
+        return (s.x - r, s.y - r, s.x + r + 1, s.y + r + 1)
+
+    def draw(s, img, G):
+        g = lambda i, j: G[j % G.shape[0], i % G.shape[1]]
+        rng = np.random.default_rng(s.seed)
+        ca, sa = np.cos(s.ang), np.sin(s.ang)
+        Wd = s.n * 3
+        sunk = rng.choice([-1, 1])                                    # this end lies under water
+        ends = [s.L / 2 - int(rng.integers(0, 3)) for _ in range(s.n)]
+        H_, W_ = img.shape[:2]
+        for j in range(s.y - s.L, s.y + s.L + 1):
+            for i in range(s.x - s.L, s.x + s.L + 1):
+                if not (0 <= j < H_ and 0 <= i < W_):
+                    continue
+                dx, dy = i - s.x, j - s.y
+                u, v = dx * ca + dy * sa, -dx * sa + dy * ca           # u along the logs, v across them
+                lk = int(np.floor((v + Wd / 2) / 3))
+                inside = 0 <= lk < s.n and abs(u) <= ends[lk]
+                if not inside:
+                    near = abs(v) <= Wd / 2 + 1.5 and abs(u) <= s.L / 2 + 1.5
+                    if near and (i + 2 * j) % 3 == 0:
+                        put(img, i, j, WATER[3])                       # the thin ring of ripples
+                    continue
+                r = ((v + Wd / 2) % 3) / 3.0                           # across one log: lit, then its shade
+                lit = 0.86 - 0.5 * r + 0.05 * np.sin(u * 1.3 + lk * 2)
+                c = q(WOOD_GREY, lit, g(i, j))
+                if r > 0.8 and g(i * 2, j) < 0.5:
+                    c = q(MOSS_L, 0.55, g(i, j))                       # moss in the gaps
+                if abs(abs(u) - s.L * 0.27) < 1.0:
+                    c = q(STRAW, 0.6 - 0.2 * r, g(i, j))               # the rope bands
+                if sunk * u > s.L * 0.3:                                # the sunk end: a shape under the surface
+                    c = img[j, i] * 0.55 + np.array(c, float) * 0.25 + np.array(WATER[2], float) * 0.2
+                put(img, i, j, c)
+
+
+def _floss_dry(s, H, W):
+    yy, xx = np.mgrid[s.y - s.L:s.y + s.L + 1, s.x - s.L:s.x + s.L + 1]
+    ca, sa = np.cos(s.ang), np.sin(s.ang)
+    u, v = (xx - s.x) * ca + (yy - s.y) * sa, -(xx - s.x) * sa + (yy - s.y) * ca
+    m = (np.abs(v) <= s.n * 1.5) & (np.abs(u) <= s.L / 2)
+    m &= ~(np.random.default_rng(s.seed).choice([-1, 1]) * u > s.L * 0.3)     # the sunk end stays water
+    out = np.zeros((H, W), bool)
+    ok = (yy >= 0) & (yy < H) & (xx >= 0) & (xx < W)
+    out[yy[ok & m], xx[ok & m]] = True
+    return out
+
+
+Floss.dry = _floss_dry
+
+
+class Wrack:
+    """An old boat that went down by the shore: its bow still stands out of the water, tilted up, the rest a dark
+    shape under the surface; water stands inside, a few reeds have grown up through it."""
+    def __init__(s, x, y, ang=-0.4, L=28, seed=6):
+        s.x, s.y, s.ang, s.L, s.seed = x, y, ang, L, seed
+
+    def box(s):
+        r = s.L // 2 + 4
+        return (s.x - r, s.y - r - 10, s.x + r + 1, s.y + r + 1)
+
+    def draw(s, img, G):
+        g = lambda i, j: G[j % G.shape[0], i % G.shape[1]]
+        rng = np.random.default_rng(s.seed)
+        H_, W_ = img.shape[:2]
+        for j in range(s.y - s.L, s.y + s.L + 1):
+            for i in range(s.x - s.L, s.x + s.L + 1):
+                h = _hull(i, j, s.x, s.y, s.ang, s.L, 11)
+                if h is None or not (0 <= j < H_ and 0 <= i < W_):
+                    continue
+                t, e = h
+                if t < -0.1:                                           # the stern under water: a dark shape
+                    img[j, i] = img[j, i] * (0.55 if e > 0.7 else 0.7)
+                    continue
+                lift = (t + 0.1) / 1.1                                  # the bow rises out of the water
+                if e > 0.68:
+                    c = q(WOOD_GREY, 0.45 + 0.4 * lift, g(i, j))       # the rim, lit as it rises
+                elif e > 0.5:
+                    c = q(WOOD_GREY, 0.3 + 0.2 * lift, g(i, j))        # the inner side of the planks
+                else:
+                    c = q(WATER, 0.45 + 0.2 * lift, g(i, j))           # water standing inside
+                put(img, i, j, c)
+                if -0.16 < t < -0.04 and e > 0.3:
+                    put(img, i, j, WATER[4])                            # where it goes under
+        for k in range(int(rng.integers(4, 7))):                       # reeds grown up through it
+            t = rng.uniform(-0.05, 0.5)
+            e = rng.uniform(-0.25, 0.25) * 11 / 2
+            bx = int(round(s.x + np.cos(s.ang) * t * s.L / 2 - np.sin(s.ang) * e))
+            by = int(round(s.y + np.sin(s.ang) * t * s.L / 2 + np.cos(s.ang) * e))
+            hgt = int(rng.integers(6, 11))
+            lean = rng.choice([-1, 1])
+            for d in range(hgt):
+                put(img, bx + (lean if d > hgt * 0.6 else 0), by - d, q(REED_L, 0.35 + 0.6 * d / hgt, g(bx, by - d)))
+
+
+def _wrack_dry(s, H, W):
+    out = np.zeros((H, W), bool)
+    for j in range(max(0, s.y - s.L), min(H, s.y + s.L + 1)):
+        for i in range(max(0, s.x - s.L), min(W, s.x + s.L + 1)):
+            h = _hull(i, j, s.x, s.y, s.ang, s.L, 11)
+            if h is not None and h[0] >= -0.04:
+                out[j, i] = True                                      # the bow out of the water; the stern stays water
+    return out
+
+
+Wrack.dry = _wrack_dry
+
+
+class UferBoot:
+    """An old boat left on the bank long ago: its grey rim and planks still whole and catching the light, a seat across,
+    old leaves in the bottom, a few tufts grown up inside and over its edge, its oar lying in the grass beside it.
+    The tall grass round it lies flat (gen_west clears it): so it reads at a glance. Stands (a sprite)."""
+    def __init__(s, x, y, ang=0.12, L=28, seed=7):
+        s.x, s.y, s.ang, s.L, s.seed = x, y, ang, L, seed
+
+    def box(s):
+        r = s.L // 2 + 4
+        return (s.x - r, s.y - 12, s.x + r + 1, s.y + 6)
+
+    def footprint(s, H, W):
+        """Where the tall grass lies flat round it."""
+        yy, xx = np.ogrid[:H, :W]
+        return ((xx - s.x) / (s.L / 2 + 6)) ** 2 + ((yy - s.y + 3) / 10.0) ** 2 < 1
+
+    def draw(s, img, G):
+        g = lambda i, j: G[j % G.shape[0], i % G.shape[1]]
+        rng = np.random.default_rng(s.seed)
+        shade(img, G, s.x - s.L // 2 + 4, s.y + 1, s.L - 8, 2, 0.7)
+        H_, W_ = img.shape[:2]
+        cy = s.y - 4
+        ca, sa = np.cos(s.ang), np.sin(s.ang)
+        for j in range(s.y - 14, s.y + 3):
+            for i in range(s.x - s.L, s.x + s.L + 1):
+                h = _hull(i, j, s.x, cy, s.ang, s.L, 12)
+                if h is None or not (0 <= j < H_ and 0 <= i < W_):
+                    continue
+                t, e = h
+                below = (j - cy) > 0
+                if e > 0.74:
+                    c = q(WOOD, (0.3 if below else 0.6) - 0.08 * abs(t), g(i, j))         # the dark rim, like the rowing boat's
+                elif abs(t * s.L / 2) < 1.2:
+                    c = q(WOOD, 0.92, g(i, j))                                             # the seat across
+                elif abs(t) < 0.35 and e < 0.4 and g(i * 2 + 3, j * 3) < 0.55:
+                    c = q(LEAF_OLD, 0.4 + 0.5 * g(i * 5, j * 7), g(i, j))                   # old leaves in the bottom
+                else:
+                    plank = int(e * 3) != int((e + 0.12) * 3)
+                    c = q(WOOD, (0.84 if below else 0.74) - (0.14 if plank else 0), g(i, j))       # the light inside planks
+                    if g(i * 3 + 1, j * 5) < 0.2:
+                        c = q(MOSS_L, 0.55, g(i, j))
+                put(img, i, j, c)
+        for k in range(18):                                            # its oar in the grass beside it
+            ox = int(round(s.x + s.L / 2 - 4 + k * 0.9))
+            oy = s.y + 3 + k // 6
+            put(img, ox, oy, q(WOOD, 0.8 if k < 14 else 0.65, g(ox, oy)))
+            if k >= 14:
+                put(img, ox, oy + 1, q(WOOD, 0.5, g(ox, oy)))
+        for k in range(int(rng.integers(4, 7))):                       # a few tufts inside and over the edge
+            t = rng.uniform(-0.7, 0.7)
+            bx = int(round(s.x + ca * t * s.L / 2))
+            by = int(round(cy + sa * t * s.L / 2)) + int(rng.choice([-3, 2, 3]))
+            lean = 1 if k % 2 else -1
+            for d in range(int(rng.integers(3, 6))):
+                put(img, bx + (lean if d >= 3 else 0), by - d, q(MOSS_L, 0.5 + 0.1 * d, g(bx, by - d)))
 
 
 class Huette:

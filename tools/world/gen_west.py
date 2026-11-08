@@ -198,8 +198,9 @@ def main():
 
     # ---- sprites: today's (moved), the drafts' new ones, the village forest's copies of today's firs
     sd = os.path.join(OUT, 'sprites')
+    sd_dir = sd
     os.makedirs(sd, exist_ok=True)
-    for f in glob.glob(os.path.join(sd, 'w[0-9]*.png')):
+    for f in glob.glob(os.path.join(sd, 'w[0-9]*.png')) + glob.glob(os.path.join(sd, 'wb[0-9]*.png')):
         os.remove(f)
     w = shift_world(w0, WEST_W)
     w['sprites'] = [s for s in w['sprites'] if s['x'] > WEST_W + 2]  # the fir wall that stood at today's x 0
@@ -404,6 +405,52 @@ def main():
     mat[~walk.reshape(H // CELL, CELL, W // CELL, CELL).any(axis=(1, 3)) & (mat == EARTH)] = GRASS
     strip_meadow(os.path.join(OUT, 'sprites', 'laterne_ost.png'))
     print('Westen: Ostwald-Rand', len(grown), 'Bäume', flush=True)
+
+    # ---- old boats in both lakes (Philip's girlfriend 2026-11-08, approved): rafts and wrecks lie flat in the water
+    # (their dry part stops the water's motion), boats on the bank stand as sprites with the grass laid down round them
+    import lake_boats as LB
+    import objects_lake as ol
+    boxes = [(s['x'], s['y'], s['x'] + s['w'], s['foot']) for s in w['sprites']]
+    boats = LB.place(water[..., 3], walk, mat, boxes, flowers[..., 3] > 0)
+    Gb = np.random.default_rng(3).random((H, W))
+    gf = ground.astype(float)
+    nb = 0
+    for kind, bx, by, ang, bs in boats:
+        if kind in ('floss', 'wrack'):
+            t = ol.Floss(bx, by, ang=ang, L=28, seed=bs) if kind == 'floss' else ol.Wrack(bx, by, ang=ang, L=30, seed=bs)
+            t.draw(gf, Gb)
+            dry = t.dry(H, W)
+            water[dry] = 0
+            open_w[dry] = 0
+            refl[dry] = 0
+            low[dry] = np.maximum(low[dry], 1)
+            continue
+        t = ol.UferBoot(bx, by, ang=ang * 0.4, seed=bs)
+        LB.flatten(flowers, bend, water[..., 3], bx, by, t.L, bs)
+        b0 = t.box()
+        w['sprites'] = [q for q in w['sprites'] if not (q['h'] < 24 and q['x'] < b0[2] + 4 and q['x'] + q['w'] > b0[0] - 4
+                                                        and b0[1] - 6 < q['foot'] < b0[3] + 6)]   # small reeds at it
+        x0b, y0b, x1b, y1b = b0[0] - 2, b0[1] - 8, b0[2] + 22, b0[3] + 4
+        tl = ol.UferBoot(bx - x0b, by - y0b, ang=ang * 0.4, seed=bs)     # drawn on a small canvas
+        gl = Gb[y0b:y1b, x0b:x1b]
+        canv = []
+        for bg in (0.0, 255.0):                                         # alike on black and on white = the boat itself
+            c = np.full((y1b - y0b, x1b - x0b, 3), bg)
+            tl.draw(c, gl)
+            canv.append(c)
+        alpha = np.all(np.abs(canv[0] - canv[1]) < 1, axis=2)
+        t.draw(gf, Gb)                                                  # its shade stays on the ground
+        rgba = np.zeros((y1b - y0b, x1b - x0b, 4), np.uint8)
+        rgba[alpha, :3] = np.clip(canv[0][alpha], 0, 255).astype(np.uint8)
+        rgba[alpha, 3] = 255
+        name = 'wb%03d' % nb
+        nb += 1
+        Image.fromarray(rgba).save(os.path.join(sd_dir, name + '.png'))
+        w['sprites'].append(dict(name=name, x=int(x0b), y=int(y0b), w=int(x1b - x0b), h=int(y1b - y0b),
+                                 foot=int(by + 1), frames=1, fps=8))
+        walk[by - 8:by + 2, bx - t.L // 2 + 2:bx + t.L // 2 - 1] = False
+    ground[:] = np.clip(np.round(gf), 0, 255).astype(np.uint8)
+    print('Westen: Boote', len(boats), flush=True)
 
     # ---- the mist field: west edge, the bottom's fade, the top's wall; the bands over the lakes
     mist = grow(im['mist_fields.png'], WEST_W // 2)
