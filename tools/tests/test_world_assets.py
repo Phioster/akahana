@@ -66,7 +66,8 @@ class WorldAssets(unittest.TestCase):
             self.assertGreaterEqual(s['x'], 0, s['name'])
             self.assertLessEqual(s['x'] + s['w'], self.w['width'], s['name'])
             with Image.open(os.path.join(D, 'sprites', s['name'] + '.png')) as img:
-                self.assertEqual(img.size, (s['w'] * s['frames'], s['h']), s['name'])
+                cols = s.get('cols', s['frames'])                # long sheets in rows (0.18.2)
+                self.assertEqual(img.size, (s['w'] * cols, s['h'] * -(-s['frames'] // cols)), s['name'])
 
     def test_start_is_walkable(self):
         st = self.w['start']

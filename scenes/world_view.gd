@@ -229,7 +229,10 @@ func _make_object(s: Dictionary) -> Node:
 	var sp := Sprite2D.new()
 	sp.texture = _texture(_path(s))
 	sp.centered = false
-	sp.hframes = int(s["frames"])
+	var fr := int(s["frames"])
+	var cols := int(s.get("cols", fr))                  # long sheets come in rows (the mill wheel: 288 frames, 0.18.2)
+	sp.hframes = cols
+	sp.vframes = ceili(float(fr) / float(cols))
 	sp.material = _canopy
 	# half a pixel below its foot row: standing on that very row he is behind it, for the y-sort and the
 	# canopy alike (a tie drew the tree over him without opening it, 0.11.8)

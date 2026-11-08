@@ -22,7 +22,10 @@ func test_every_sprite_file_exists_and_fits_its_frames() -> void:
 		var tex := TextureLoader.load_texture(path)
 		assert_true(tex != null, path)
 		if tex != null:
-			assert_eq(tex.get_width(), int(s["w"]) * int(s["frames"]), "Breite " + path)
+			var cols := int(s.get("cols", s["frames"]))      # long sheets in rows (0.18.2)
+			assert_eq(tex.get_width(), int(s["w"]) * cols, "Breite " + path)
+			assert_eq(tex.get_height(), int(s["h"]) * ceili(float(s["frames"]) / cols), "Höhe " + path)
+			assert_true(tex.get_width() <= 8192, "passt in eine Textur " + path)
 
 func test_fireflies_load_from_world() -> void:
 	var w := WorldData.load_default()

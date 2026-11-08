@@ -69,3 +69,44 @@ class ExportFilter(unittest.TestCase):
         for f in glob.glob(os.path.join(D, '**', '*.json'), recursive=True) + glob.glob(os.path.join(D, '*', '*.bin')):
             rel = os.path.relpath(f, root)
             self.assertTrue(any(fnmatch.fnmatch(rel, p) for p in pats), rel)
+
+
+class SheetsAndEdges(unittest.TestCase):
+    """Fable's review, 2026-11-08: what the game cannot draw or shows wrong, as tests."""
+    @classmethod
+    def setUpClass(cls):
+        with open(os.path.join(D, 'world.json')) as f:
+            cls.w = json.load(f)
+
+    def test_every_sheet_fits_a_texture_and_matches_its_frames(self):
+        from PIL import Image
+        for s in self.w['sprites']:
+            cols = s.get('cols', s['frames'])
+            rows = -(-s['frames'] // cols)
+            with Image.open(os.path.join(D, 'sprites', s['name'] + '.png')) as img:
+                self.assertEqual(img.size, (s['w'] * cols, s['h'] * rows), s['name'])
+                self.assertLessEqual(img.size[0], 8192, s['name'])
+                self.assertLessEqual(img.size[1], 8192, s['name'])
+
+    def test_every_foot_lies_on_its_picture(self):
+        for s in self.w['sprites']:
+            self.assertTrue(s['y'] <= s['foot'] <= s['y'] + s['h'], s)
+
+    def test_the_mist_wall_closes_the_top_and_the_bottom_everywhere(self):
+        from PIL import Image
+        b = np.array(Image.open(os.path.join(D, 'mist_fields.png')).convert('RGB'))[..., 2].astype(int)
+        self.assertGreaterEqual(int(b[0].min()), 200, 'oben')
+        self.assertGreaterEqual(int(b[-1].min()), 200, 'unten')
+        self.assertLessEqual(int(np.abs(np.diff(b[-1])).max()), 20, 'keine Stufe unten')
+
+    def test_no_one_walks_on_moving_water_but_on_wet_ground_wood_or_stone(self):
+        cells = _cells(self.w, 'cells').astype(bool)
+        mat = _cells(self.w, 'mat')
+        cw, ch = self.w['chunk']
+        cols, rows = self.w['chunks']
+        from PIL import Image
+        kind = np.concatenate([np.concatenate([np.array(Image.open(os.path.join(D, 'chunks', f'c_{cx}_{cy}_water.png')))[..., 3]
+                                               for cx in range(cols)], 1) for cy in range(rows)], 0)
+        k = kind.reshape(kind.shape[0] // 2, 2, kind.shape[1] // 2, 2)
+        moving = ((k == 1) | (k == 2)).all(axis=(1, 3))
+        self.assertEqual(int((moving & cells & (mat == 0)).sum()), 0)

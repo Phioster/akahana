@@ -39,6 +39,8 @@ CELL = 2
 GRASS, EARTH, STONE, WOOD, SNOW, WET = range(6)
 KIND_OLD, KIND_BROOK, KIND_LAKE = 1, 2, 3
 MOOD_CELL = 20
+SHEET_MAX = 8192                      # widest sprite sheet (GPU textures: 16384 on this phone, 8192/4096 on older ones;
+                                      # Fable 2026-11-08: the mill wheel's 288 frames were 25632 px, never drawn)
 LOW_H = {'Steg': 3, 'Bruecke': 4, 'Brett': 2, 'Boot': 1, 'Trittsteine': 1, 'WasserStein': 1, 'Treibholz': 1,
          'Seerosen': 1}
 FOOT_ROWS = {'Minka': 8, 'Gewaechshaus': 15, 'Steinmetz': 8, 'Yashiro': 14, 'Teehaus': 6, 'MillHouse': 8,
@@ -201,6 +203,9 @@ def main():
         os.remove(f)
     w = shift_world(w0, WEST_W)
     w['sprites'] = [s for s in w['sprites'] if s['x'] > WEST_W + 2]  # the fir wall that stood at today's x 0
+    for s in w['sprites']:                                             # Fable: Ostwald trees cut at gen_east's window
+        if s['foot'] > s['y'] + s['h'] and s.get('frames', 1) == 1:    # edges kept the whole tree's foot below their
+            s['foot'] = s['y'] + s['h'] - 1                            # picture: he stood in the gap, the crown over him
     new, blocked = [], np.zeros((H, W), bool)
 
     def owned(x, foot, which):
@@ -224,9 +229,23 @@ def main():
     for n_, sp in enumerate(new):
         name = 'w%05d' % n_
         a = sp['rgba']
-        Image.fromarray(a).save(os.path.join(sd, name + '.png'))
-        w['sprites'].append(dict(name=name, x=int(sp['x']), y=int(sp['y']), w=int(sp['w']), h=int(a.shape[0]),
-                                 foot=int(sp['foot']), frames=int(sp['frames']), fps=int(sp.get('fps', 8))))
+        if sp['foot'] >= sp['y'] + a.shape[0]:                         # foot below the picture (the mill's water sorts
+            a = np.concatenate([a, np.zeros((sp['foot'] - sp['y'] - a.shape[0] + 1,) + a.shape[1:], a.dtype)], 0)   # with the house): pad
+        fr, sw = int(sp['frames']), int(sp['w'])
+        cols = min(fr, SHEET_MAX // sw)
+        if cols < fr:                                                   # several rows, row-major (Sprite2D vframes)
+            rows = -(-fr // cols)
+            sheet = np.zeros((rows * a.shape[0], cols * sw, 4), a.dtype)
+            for k in range(fr):
+                sheet[(k // cols) * a.shape[0]:(k // cols + 1) * a.shape[0], (k % cols) * sw:(k % cols + 1) * sw] = a[:, k * sw:(k + 1) * sw]
+            Image.fromarray(sheet).save(os.path.join(sd, name + '.png'))
+        else:
+            Image.fromarray(a).save(os.path.join(sd, name + '.png'))
+        ent = dict(name=name, x=int(sp['x']), y=int(sp['y']), w=sw, h=int(a.shape[0]),
+                   foot=int(sp['foot']), frames=fr, fps=int(sp.get('fps', 8)))
+        if cols < fr:
+            ent['cols'] = int(cols)
+        w['sprites'].append(ent)
         foot_block(sp, blocked)
         if type(sp['thing']).__name__ == 'Gewaechshaus':               # its door stays open: the way in (gen_glashaus)
             dx_, dy_ = sp['thing'].door()
@@ -258,8 +277,25 @@ def main():
     d, i = cKDTree(bc).query(np.stack([xx, yy], 1))
     ang = np.arctan2(tang[i, 1], tang[i, 0])
     dep = np.clip(ndi.distance_transform_edt(ndi.binary_dilation(bm, iterations=2))[yy, xx] / 5.0, 0, 1)
+    oc = water[:, OWNW]                                                 # today's brook where it leaves the seam
+    orow = np.nonzero(oc[:, 3] == KIND_OLD)[0]
+    along = arc[i]
+    if len(orow):
+        r0 = int(np.median(orow))
+        k0 = int(np.hypot(bc[:, 0] - OWNW, bc[:, 1] - (r0 - DY)).argmin())
+        d_old = (int(water[r0, OWNW + 4, 2]) - int(water[r0, OWNW, 2]) + 128) % 256 - 128
+        d_new = 1 if k0 > len(bc) // 2 else -1                          # does our arc grow towards the seam?
+        if (d_old > 0) != (d_new > 0):
+            along = -along
+            a_seam = -arc[k0]
+        else:
+            a_seam = arc[k0]
+        along = along + (float(np.mean(oc[orow, 2])) - a_seam)          # the streaks go on without a jump
+        g_old = float(np.mean(oc[orow, 1])) / 255.0
+        tg = smooth((xx - (OWNW - 16)) / 16.0)
+        dep = dep * (1 - tg) + g_old * tg
     wv[DY + yy, xx] = np.stack([(ang / (2 * np.pi) % 1 * 256).astype(np.uint8), (dep * 255).astype(np.uint8),
-                                (arc[i] % 256).astype(np.uint8), np.full(len(yy), KIND_OLD, np.uint8)], 1)
+                                (np.round(along) % 256).astype(np.uint8), np.full(len(yy), KIND_OLD, np.uint8)], 1)
     sb = rd['sbo']
     sm = sb.mask[:, :OWNW]
     yy, xx = np.nonzero(sm)
@@ -344,6 +380,14 @@ def main():
     mw[deck[:, :OWNW]] = WOOD
     mat[:, :OWNW // CELL] = mw[::CELL, ::CELL]
     mat[:, :OWNW // CELL][~walk[::CELL, :OWNW:CELL]] = GRASS
+    kind = water[..., 3].reshape(H // CELL, CELL, W // CELL, CELL)
+    moving = ((kind == KIND_OLD) | (kind == KIND_BROOK)).all(axis=(1, 3))
+    wet_walk = moving & (mat == GRASS) & walk.reshape(H // CELL, CELL, W // CELL, CELL).any(axis=(1, 3))
+    if wet_walk.any():                                                  # Fable: he walked in that brook
+        print('Westen: Bachzellen gesperrt', int(wet_walk.sum()), flush=True)
+        walk &= ~np.kron(wet_walk, np.ones((CELL, CELL), bool))
+        lab, _ = ndi.label(walk, structure=np.ones((3, 3)))
+        walk &= lab == lab[int(st['y']), int(st['x'])]
 
     # ---- the mist field: west edge, the bottom's fade, the top's wall; the bands over the lakes
     mist = grow(im['mist_fields.png'], WEST_W // 2)
@@ -356,14 +400,25 @@ def main():
     top[:30] = im['mist_fields.png'][:30, 20:21, 2] / 255.0
     lakes = np.zeros((H, OWNW))
     lakes[DY:] = (rd['lk']['water'] | ((rd['oldw'][..., 3] > 0) & (rd['gy'] > 3950)))[:, :OWNW]
-    band = np.clip(ndi.gaussian_filter(lakes, 4) * 1.3, 0, 1)[::2, ::2]
+    brk = np.zeros((H, OWNW))                                           # the brooks get their band too (today's old brook
+    brk[DY:] = (rd['brook'] | rd['sbo'].mask)[:, :OWNW]                 # had one; Fable: it broke off at the seam)
+    band = np.clip(ndi.gaussian_filter(np.maximum(lakes, brk), 4) * 1.3, 0, 1)[::2, ::2]
+    oldr = mist[:, hw:hw + 1, 0] / 255.0                                # into today's band over the last 12 half px
+    t4 = smooth((np.arange(hw)[None, :] - (hw - 12)) / 12.0)
+    band = band * (1 - t4) + np.maximum(band, oldr) * t4
     calm = ndi.gaussian_filter(lakes, 6)[::2, ::2]
     mist[:, :hw, 0] = np.round(band * 255).astype(np.uint8)
     mist[:, :hw, 1] = np.round(calm * 255).astype(np.uint8)
     mist[:, :hw, 2] = np.round(np.maximum(np.maximum(edge, bottom), top) * 255).astype(np.uint8)
     old_edge = mist[:, hw:hw + 30, 2].astype(float)                     # today's west edge had no wall: its columns
     mist[:, hw:hw + 30, 2] = np.round(np.maximum(old_edge * smooth(np.arange(30) / 30.0)[None, :],   # keep only
-                                                 np.maximum(bottom, top))).astype(np.uint8)          # bottom and top
+                                                 np.maximum(bottom, top) * 255)).astype(np.uint8)    # bottom and top
+
+    a0, a1 = (WEST_W + 824) // 2 - 16, (WEST_W + 824) // 2 + 16          # Fable: the south's 0.88 against the east's 1.0
+    t5 = smooth(np.arange(a1 - a0) / float(a1 - a0 - 1))[None, :]
+    low5 = mist[H // 2 - 40:, a0, 2:3].astype(float)
+    high5 = mist[H // 2 - 40:, a1, 2:3].astype(float)
+    mist[H // 2 - 40:, a0:a1, 2] = np.round(low5 * (1 - t5) + high5 * t5).astype(np.uint8)
 
     # ---- the darkness field: the north-west wood and the village forest dark, the rest open
     grade = grow(im['grade_field.png'], WEST_W // 2)
