@@ -1691,11 +1691,12 @@ SNOWQ = [hx(c) for c in ['#8e888a', '#c3bfba', '#e8e4dc']]                      
 
 
 class Verschneit:
-    """Any thing as it stands up in the snow: drawn as usual, then snow settles on what faces up - its lit pixels
-    (the light comes from the upper left) - in rows from its box top down to `to` (None: all), thinning at the
-    lowest rows so eaves and edges still show. Delegates box and order to the thing."""
-    def __init__(s, t, p=0.75, to=None, seed=0):
-        s.t, s.p, s.to, s.seed = t, p, to, seed
+    """Any thing as it stands up in the snow: drawn as usual, then snow settles in soft patches (not single specks)
+    on what faces up - its lit pixels; the light comes from the upper left. bands: [(row0, row1, share)] where
+    and how much (row0/row1 None: the box's top/bottom); the lowest two rows of each band stay clear, so eaves and
+    edges still show. demoss: the moss on stone goes grey under the cold. Delegates box and order to the thing."""
+    def __init__(s, t, bands, seed=0, demoss=False):
+        s.t, s.bands, s.seed, s.demoss = t, bands, seed, demoss
         if hasattr(t, 'order'):
             s.order = t.order
 
@@ -1706,6 +1707,7 @@ class Verschneit:
         return s.t.lights()
 
     def draw(s, img, G):
+        from scipy import ndimage as ndi
         x0, y0, x1, y1 = [int(v) for v in s.t.box()]
         H, W = img.shape[:2]
         x0, y0, x1, y1 = max(0, x0), max(0, y0), min(W, x1), min(H, y1)
@@ -1713,19 +1715,29 @@ class Verschneit:
         s.t.draw(img, G)
         reg = img[y0:y1, x0:x1]
         ch = np.abs(reg - before).sum(-1) > 1
+        if s.demoss:                                                   # True, or the rows (a, b) it applies to
+            rows = np.arange(y0, y1)[:, None]
+            a_, b_ = (y0, y1) if s.demoss is True else s.demoss
+            green = ch & (reg[..., 1] > reg[..., 0] + 4) & (reg[..., 1] > reg[..., 2]) & (rows >= a_) & (rows < b_)
+            reg[green] = reg[green].mean(-1, keepdims=True) * np.array([1.0, 0.98, 0.97])
         lum = reg.mean(-1)
-        to = y1 if s.to is None else min(y1, int(s.to))
         r = np.random.default_rng(s.seed)
-        for j in range(y0, to):
-            fall = 1.0 if s.to is None else np.clip((to - j) / 3.0, 0.35, 1)
-            for i in range(x0, x1):
-                lu = lum[j - y0, i - x0]
-                if not ch[j - y0, i - x0] or lu < 22:
-                    continue
-                g = g_at(G, i * 3 + s.seed, j)
-                q = s.p * fall * (0.6 + 0.4 * np.clip((lu - 30) / 80.0, 0, 1))   # less where it faces away
-                if g < q:
-                    reg[j - y0, i - x0] = SNOWQ[2] if g < q * 0.6 else SNOWQ[1]
+        n = ndi.gaussian_filter(r.normal(0, 1, reg.shape[:2]), 1.1)       # patches a few pixels across
+        u = np.empty(n.size)
+        u[np.argsort(n, axis=None)] = np.linspace(0, 1, n.size)
+        u = u.reshape(n.shape)
+        for a, b, share in s.bands:
+            a = y0 if a is None else max(y0, int(a))
+            b = y1 if b is None else min(y1, int(b))
+            for j in range(a, b - 2):
+                for i in range(x0, x1):
+                    lu = lum[j - y0, i - x0]
+                    if not ch[j - y0, i - x0] or lu < 22:
+                        continue
+                    q = share * (0.55 + 0.45 * np.clip((lu - 30) / 80.0, 0, 1))   # less where it faces away
+                    v = u[j - y0, i - x0]
+                    if v < q:
+                        reg[j - y0, i - x0] = SNOWQ[2] if v < q * 0.55 else SNOWQ[1]
 
 
 class Glockenhaus:
@@ -1735,7 +1747,7 @@ class Glockenhaus:
         s.x, s.y, s.seed = x, y, seed
 
     def box(s):
-        return (s.x - 12, s.y - 30, s.x + 13, s.y + 2)
+        return (s.x - 14, s.y - 36, s.x + 15, s.y + 3)
 
     def draw(s, img, G):
         x, y = s.x, s.y
