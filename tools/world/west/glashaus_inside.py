@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""The inside of the greenhouse (Garasu-muro) as its own screen, like the cave: exactly one view (180 x 400 art
-px), the door at the bottom. Glass walls of rusted iron and green glass all round on a low stone parapet, the night
+"""The inside of the greenhouse (Garasu-muro) as its own place, like the cave, but three screens wide (540 x 400
+art px; Philip: as wide as it is outside): the tall pavilion in the middle with the door at the bottom, a long lower
+wing to each side, a cross aisle through all three. Glass walls of rusted iron and green glass all round on a low stone parapet, the night
 and the leaves outside behind them; an aisle of old Victorian floor tiles from the door up to a round stone basin
 with water lilies and a dry little fountain; raised beds left and right gone wild (ferns, hydrangeas, big-leaved
 plants, creepers spilling onto the floor), two palms in clay pots, a potting bench with pots and a watering can,
@@ -17,21 +18,34 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path[:0] = [HERE, os.path.join(HERE, '..', 'south'), os.path.join(HERE, '..', 'lib'), os.path.join(HERE, '..'),
                 os.path.join(HERE, '..', 'north')]
 import objects_west as o  # noqa: E402
-from objects_west import hx, pick, put, RUST, TEAL, INSIDE, WOOD, STONE, MOSS, SOIL, LEAF  # noqa: E402
+from objects_west import hx, pick, put, g_at, RUST, TEAL, INSIDE, WOOD, STONE, MOSS, SOIL, LEAF  # noqa: E402
 import objects_lake as ol  # noqa: E402
 import objects_water as ow  # noqa: E402
 from field6 import L1, MG, DG, K  # noqa: E402
 
-W, H = 180, 400
-WALL_L, WALL_R, BACK = 20, 160, 66          # the floor between the side walls, below the back wall's parapet
-DOOR = (76, 104)                            # the door opening in the bottom wall
-BASIN = (90, 150, 20)
-LANTERN = (101, 352)                        # its glass (the light)
+W, H = 540, 400                             # three screens wide: the pavilion and its two wings, as outside
+P0, P1 = 190, 350                           # the pavilion's floor (x); it reaches up to its back wall
+BACK, WB = 66, 176                          # the pavilion's floor starts below BACK, the wings' below WB
+SIDE = 20                                   # the wings' end walls
+DOOR = (256, 284)                           # the door opening in the bottom wall
+BASIN = (270, 140, 20)
+LANTERN = (281, 352)                        # its glass (the light)
+AISLE_Y = (270, 298)                        # the cross aisle through all three
 TERRA = [hx(c) for c in ['#3a1d14', '#5e2f1e', '#86452a', '#a85f3a', '#c27c52']]
 CREAM = [hx(c) for c in ['#5e5646', '#857a64', '#a89b80', '#c4b89c']]
-BEDS = [(22, 72, 68, 130), (22, 176, 68, 300), (22, 316, 68, 370),
-        (112, 72, 158, 130), (112, 176, 158, 236), (112, 316, 158, 370)]
-BENCH = (116, 250, 156, 266)
+BEDS = [(196, 72, 246, 120), (294, 72, 344, 120), (196, 170, 246, 256), (294, 170, 344, 256),
+        (196, 312, 246, 372), (294, 312, 344, 372),
+        (26, WB + 6, 96, WB + 60), (110, WB + 6, 180, WB + 60), (26, 312, 96, 372),
+        (360, WB + 6, 430, WB + 60), (444, WB + 6, 514, WB + 60), (360, 312, 430, 372)]
+BENCH = (114, 318, 156, 334)
+GONE = (468, 482)                           # the pane gone from the right wing's back wall (x)
+WALL_H = 26                                 # the back walls: low, glass on a parapet, the dark beyond
+VOID = hx('#0d1110')
+
+
+def floor_mask():
+    yy, xx = np.mgrid[0:H, 0:W]
+    return (((xx >= P0) & (xx < P1) & (yy >= BACK + 2)) | ((xx >= SIDE) & (xx < W - SIDE) & (yy >= WB + 2))) & (yy < H - 12)
 
 
 def fbm(rng, s, shape=(H, W)):
@@ -49,30 +63,32 @@ def floor_stone(rng):
     return img
 
 
-def aisle(img, G, rng):
-    """Encaustic tiles, terracotta and cream in a checker with a dark border, some gone, some cracked, moss in the joints."""
-    x0, x1 = DOOR[0] - 2, DOOR[1] + 2
-    bx, by, br = BASIN
-    for y in range(BACK + 4, H):
+def tiles(img, G, x0, y0, x1, y1, border=True):
+    """Encaustic tiles, terracotta and cream in a checker, a dark border, some gone, some cracked, moss in the joints."""
+    for y in range(y0, y1):
         for x in range(x0, x1):
-            ring = abs(np.hypot(x - bx, (y - by) * 1.0) - (br + 9)) < 9
-            if not (ring or (x0 <= x < x1 and (y > by + br + 6 or y < by - br - 6))):
+            if border and (x in (x0, x1 - 1) or y in (y0, y1 - 1)):
+                img[y, x] = pick(STONE, 1.2)
                 continue
-            if x in (x0, x1 - 1) and not ring:
-                c = pick(STONE, 1.2)                                   # the border
-            else:
-                tx, ty = (x - x0) // 4, (y - BACK) // 4
-                cell = tx * 31 + ty * 17
-                c = pick(TERRA, 2.6 + 0.6 * G[y, x]) if (tx + ty) % 2 else pick(CREAM, 2.2 + 0.7 * G[y, x])
-                if (x - x0) % 4 == 0 or (y - BACK) % 4 == 0:
-                    c = c * 0.62                                       # the joints
-                    if G[y, x] < 0.12:
-                        c = pick(MOSS, 1.6)
-                if (cell * 7919) % 97 < 4:
-                    c = pick(SOIL, 1.0 + G[y, x])                      # a tile gone: soil
-                elif (cell * 104729) % 89 < 3 and (x + y) % 3 == 0:
-                    c = c * 0.55                                       # a crack across it
+            tx, ty = (x - x0) // 4, (y - y0) // 4
+            cell = tx * 31 + ty * 17 + x0
+            c = pick(TERRA, 2.6 + 0.6 * G[y, x]) if (tx + ty) % 2 else pick(CREAM, 2.2 + 0.7 * G[y, x])
+            if (x - x0) % 4 == 0 or (y - y0) % 4 == 0:
+                c = c * 0.62
+                if G[y, x] < 0.12:
+                    c = pick(MOSS, 1.6)
+            if (cell * 7919) % 97 < 4:
+                c = pick(SOIL, 1.0 + G[y, x])
+            elif (cell * 104729) % 89 < 3 and (x + y) % 3 == 0:
+                c = c * 0.55
             img[y, x] = c
+
+
+def aisle(img, G, rng):
+    bx, by, br = BASIN
+    tiles(img, G, DOOR[0] - 2, by + br + 4, DOOR[1] + 2, H - 12)
+    tiles(img, G, SIDE + 4, AISLE_Y[0], W - SIDE - 4, AISLE_Y[1])
+    tiles(img, G, DOOR[0] - 2, BACK + 4, DOOR[1] + 2, by - br - 4)
 
 
 def basin(img, G, rng):
@@ -105,6 +121,7 @@ def basin(img, G, rng):
 def bed(img, G, rng, x0, y0, x1, y1, things):
     """A raised bed: dark soil, a stone kerb on the aisle side and the front (lit top, darker face), all grown over."""
     aisle_right = x0 < W // 2
+    pav = P0 <= x0 < P1                                                 # only the pavilion's beds face a side aisle
     for y in range(y0, y1):
         for x in range(x0, x1):
             img[y, x] = pick(SOIL, 0.6 + 1.6 * G[y, x])
@@ -113,8 +130,9 @@ def bed(img, G, rng, x0, y0, x1, y1, things):
         img[y1 - 2, x] = pick(STONE, 2.0)
         img[y1 - 1, x] = pick(STONE, 1.4)
         img[min(H - 1, y1), x] = img[min(H - 1, y1), x] * 0.7
+    aisle_right = x1 <= BASIN[0]
     ex = x1 - 1 if aisle_right else x0
-    for y in range(y0, y1 - 1):                                        # the kerb along the aisle
+    for y in range(y0, y1 - 1) if pav else ():                         # the kerb along the aisle
         img[y, ex] = pick(STONE, 2.9 if aisle_right else 2.4)
         img[y, ex + (-1 if aisle_right else 1)] = pick(STONE, 3.4)
     r = np.random.default_rng(x0 * 7 + y0)
@@ -128,9 +146,14 @@ def bed(img, G, rng, x0, y0, x1, y1, things):
                                       int(r.integers(0, 999))))
         else:
             things.append(Blattpflanze(x, y, int(r.integers(0, 9999)), r.uniform(0.7, 1.2)))
-    for _ in range(int((y1 - y0) / 9)):                                # creepers spilling over the kerb
-        y = int(r.integers(y0 + 4, y1 - 4))
-        things.append(Ranke(ex, y, -1 if not aisle_right else 1, int(r.integers(0, 999))))
+    if pav:
+        for _ in range(int((y1 - y0) / 9)):                            # creepers spilling over the kerb
+            y = int(r.integers(y0 + 4, y1 - 4))
+            things.append(Ranke(ex, y, -1 if not aisle_right else 1, int(r.integers(0, 999))))
+    else:
+        for _ in range(int((x1 - x0) / 10)):                           # over the front kerb onto the floor
+            x = int(r.integers(x0 + 4, x1 - 4))
+            things.append(Ranke(x, y1 + 1, int(r.choice([-1, 1])), int(r.integers(0, 999))))
 
 
 class Blattpflanze:
@@ -155,6 +178,72 @@ class Blattpflanze:
                     qx, qy = px - np.sin(a) * d, py + np.cos(a) * d * 0.8
                     lit = 2.6 - 1.2 * (d / max(wdt, 0.5)) - 0.8 * (np.cos(a) > 0.3) + (0.8 if abs(d) < 0.3 else 0)
                     put(img, int(round(qx)), int(round(qy)), pick(LEAF + [hx('#6e8a48')], lit))
+
+
+class Zitrone:
+    """A little lemon tree in a wooden tub: a round dark crown, a few yellow fruits, some fallen."""
+    def __init__(s, x, y, seed):
+        s.x, s.y, s.seed = x, y, seed
+
+    def box(s):
+        return (s.x - 12, s.y - 30, s.x + 13, s.y + 3)
+
+    def draw(s, img, G):
+        x, y = s.x, s.y
+        r = np.random.default_rng(s.seed)
+        for j in range(y - 7, y + 1):                                  # the tub: staves and two iron hoops
+            for i in range(x - 6, x + 7):
+                c = pick(WOOD, 3.4 - 2.2 * (i - x + 6) / 12)
+                if j in (y - 6, y - 2) or (i - x) % 3 == 0:
+                    c = pick(RUST, 2.0) if j in (y - 6, y - 2) else c * 0.8
+                put(img, i, j, c)
+        for i in range(x - 6, x + 8):
+            put(img, i, y + 1, img[min(img.shape[0] - 1, y + 1), i] * 0.6)
+        for j in range(y - 12, y - 7):
+            put(img, x, j, WOOD[2])                                    # the stem
+        cx, cy = x, y - 19
+        for j in range(cy - 10, cy + 8):
+            for i in range(cx - 10, cx + 11):
+                d = ((i - cx) / 10.0) ** 2 + ((j - cy) / 8.5) ** 2
+                if d < 1 - 0.25 * g_at(G, i * 3, j * 5):
+                    lit = 3.0 - 1.4 * (i - cx + 10) / 20 - 1.0 * (j - cy + 8) / 16 + 0.6 * (g_at(G, i, j) - 0.5)
+                    put(img, i, j, pick(LEAF + [hx('#6e8a48')], lit))
+        for _ in range(7):
+            a_, rr = r.uniform(0, 2 * np.pi), r.uniform(0.3, 0.9)
+            fx, fy = int(cx + np.cos(a_) * 9 * rr), int(cy + np.sin(a_) * 7 * rr)
+            put(img, fx, fy, hx('#e0c040'))
+            put(img, fx + 1, fy, hx('#a88a20'))
+        for k in range(2):
+            put(img, x + 8 + 3 * k, y + 1 - k, hx('#c8a830'))          # fallen ones
+
+
+class Regal:
+    """A slatted shelf against the glass, stacked with clay pots, some broken."""
+    def __init__(s, x0, y0, x1, seed=3):
+        s.x0, s.y0, s.x1, s.seed = x0, y0, x1, seed
+
+    def box(s):
+        return (s.x0 - 1, s.y0 - 22, s.x1 + 2, s.y0 + 2)
+
+    def draw(s, img, G):
+        r = np.random.default_rng(s.seed)
+        x0, y0, x1 = s.x0, s.y0, s.x1
+        for k, yb in enumerate((y0, y0 - 10, y0 - 20)):                # three boards
+            for i in range(x0, x1):
+                put(img, i, yb, WOOD[4] if k else WOOD[3])
+                put(img, i, yb + 1, WOOD[1])
+            x = x0 + 2
+            while x < x1 - 4:
+                sz = int(r.integers(2, 4))
+                if r.random() < 0.8:
+                    for j in range(-sz * 2 + 1, 1):
+                        for i in range(-sz + 1, sz):
+                            put(img, x + i + sz, yb - 1 + j, pick(TERRA, 3.2 - 1.4 * (i + sz) / (2 * sz)
+                                                                     - (1.4 if j == -sz * 2 + 1 else 0)))
+                x += 2 * sz + int(r.integers(1, 4))
+        for yb in range(y0 - 21, y0 + 2):
+            put(img, x0, yb, WOOD[2])
+            put(img, x1 - 1, yb, WOOD[0])
 
 
 class Ranke:
@@ -247,11 +336,14 @@ IRON_ = hx('#55585e')
 
 
 class Giesskanne:
+    def __init__(s, x, y):
+        s.x, s.y = x, y
+
     def box(s):
-        return (104, 270, 116, 282)
+        return (s.x - 4, s.y - 10, s.x + 9, s.y + 2)
 
     def draw(s, img, G):
-        x, y = 108, 280
+        x, y = s.x, s.y
         for j in range(y - 6, y + 1):
             for i in range(x - 3, x + 4):
                 put(img, i, j, pick([hx('#2f3a3c'), hx('#4e5f60'), hx('#7a8c8a')], 2.4 - 0.5 * (i - x + 3)))
@@ -265,11 +357,14 @@ class Giesskanne:
 
 class Stuhl:
     """A wooden chair turned to the basin."""
+    def __init__(s, x, y):
+        s.x, s.y = x, y
+
     def box(s):
-        return (124, 150, 138, 168)
+        return (s.x - 4, s.y - 14, s.x + 10, s.y + 4)
 
     def draw(s, img, G):
-        x, y = 128, 164
+        x, y = s.x, s.y
         for j in range(y - 13, y - 4):                                  # the back
             for i in (x, x + 7):
                 put(img, i, j, WOOD[3] if i == x else WOOD[2])
@@ -287,50 +382,59 @@ class Stuhl:
 
 
 def glass_walls(img, G, rng):
-    """Back wall face on, side walls at the angle, the bottom wall with the door: iron, green glass, the dark garden
-    behind, a stone parapet under it all. One pane gone in the right wall, its shards on the floor."""
+    """The pavilion's tall back wall face on, the wings' back walls lower down with their curved roofs above them,
+    side walls at the angle, the bottom wall with the door: rusted iron, green glass, the dark garden behind, a stone
+    parapet under it all. One pane gone in the right wing, its shards on the floor."""
     leaves = fbm(rng, 2.2)
-    yy, xx = np.mgrid[0:H, 0:W]
+    floor = floor_mask()
 
     def pane(y, x, roof=0.0):
         leaf = leaves[y, x] > 0.1 + roof
         base = pick(INSIDE, 1.6 + 1.2 * leaves[y, x]) if leaf else pick(TEAL, 0.6 + roof)
-        glint = (x - y) % 13 in (0, 1)
-        glass = pick(TEAL, 1.8 + roof + (1.1 if glint else 0))
+        glass = pick(TEAL, 1.8 + roof + (1.1 if (x - y) % 13 in (0, 1) else 0))
         return base * 0.6 + glass * 0.4
 
-    for y in range(0, BACK):                                           # the back wall
+    def face(y, x, top, foot):                                         # a back wall seen face on, parapet at its foot
+        if y >= foot - 6:
+            return pick(STONE, 3.4 if y == foot - 6 else 2.4 - 0.15 * (y - foot + 6) + 0.3 * G[y, x])
+        if GONE[0] <= x < GONE[1] and foot == WB + 2 and y < foot - 7:
+            return INSIDE[1] if leaves[y, x] > -0.2 else hx('#0f1412')   # no glass: the leaves come in
+        bar = x % 14 in (0, 1) or y - top in (0, 1, 10)
+        return pick(RUST, 2.6 - 1.2 * x / W) if bar else pane(y, x)
+
+    for y in range(H):
         for x in range(W):
-            bar = x % 14 in (0, 1) or y in (20, 21, 42, 43) or y < 3
-            img[y, x] = pick(RUST, 2.6 - 1.2 * x / W) if bar else pane(y, x, 0.3 * (y < 20))
-    for y in range(BACK - 6, BACK + 2):                                # its parapet
-        for x in range(W):
-            img[y, x] = pick(STONE, 3.4 if y == BACK - 6 else 2.4 - 0.15 * (y - BACK + 6) + 0.3 * G[y, x])
-    gone = range(196, 218)
-    for y in range(BACK, H):                                           # the side walls
-        for x in list(range(0, WALL_L)) + list(range(WALL_R, W)):
-            left = x < WALL_L
-            inner = (WALL_L - 1 - x) if left else (x - WALL_R)
-            if inner < 4:                                              # the parapet's top, along the floor
-                img[y, x] = pick(STONE, (3.3 if inner == 0 else 2.6 - 0.3 * inner) + 0.3 * G[y, x])
-            elif (y - BACK) % 26 in (0, 1) or inner in (4, 5):
-                img[y, x] = pick(RUST, 2.4 if left else 1.6)            # iron
-            elif not left and y in gone:
-                img[y, x] = INSIDE[1] if leaves[y, x] > -0.2 else hx('#0f1412')   # no glass: the leaves come in
-            else:
-                img[y, x] = pane(y, x)
-    for y in range(H - 12, H):                                         # the bottom wall either side of the door
-        for x in range(WALL_L, W - WALL_L):
-            if DOOR[0] <= x < DOOR[1]:
+            if floor[y, x]:
                 continue
-            top = y == H - 12
-            img[y, x] = pick(STONE, 3.4 if top else 2.0 + 0.4 * G[y, x]) if y < H - 8 else \
-                (pick(RUST, 2.2) if (x % 14 in (0, 1)) else pick(TEAL, 1.4 + (x - y) % 13 // 12))
+            pav = P0 - SIDE <= x < P1 + SIDE
+            if y >= H - 12:                                            # the bottom wall either side of the door
+                if DOOR[0] <= x < DOOR[1]:
+                    continue
+                img[y, x] = pick(STONE, 3.4 if y == H - 12 else 2.0 + 0.4 * G[y, x]) if y < H - 8 else \
+                    (pick(RUST, 2.2) if x % 14 in (0, 1) else pick(TEAL, 1.4))
+            elif pav and BACK + 2 - WALL_H <= y < BACK + 2:
+                img[y, x] = face(y, x, BACK + 2 - WALL_H, BACK + 2)
+            elif not pav and WB + 2 - WALL_H <= y < WB + 2 and SIDE <= x < W - SIDE:
+                img[y, x] = face(y, x, WB + 2 - WALL_H, WB + 2)
+            elif y < (BACK if pav else WB) + 2 - WALL_H:               # beyond the low back walls: the dark
+                img[y, x] = VOID * (0.85 + 0.15 * G[y, x])
+            elif y < WB + 2 - WALL_H and not (P0 - SIDE <= x < P0 or P1 <= x < P1 + SIDE):
+                img[y, x] = VOID * (0.85 + 0.15 * G[y, x])
+            else:                                                      # side walls (wing ends, pavilion sides)
+                left = x < W // 2
+                inner = abs((SIDE - 1 - x) if x < SIDE else (x - (W - SIDE)) if x >= W - SIDE else
+                            ((P0 - 1 - x) if x < P0 else (x - P1)))
+                if inner < 4:
+                    img[y, x] = pick(STONE, (3.3 if inner == 0 else 2.6 - 0.3 * inner) + 0.3 * G[y, x])
+                elif y % 26 in (0, 1) or inner in (4, 5):
+                    img[y, x] = pick(RUST, 2.4 if left else 1.6)
+                else:
+                    img[y, x] = pane(y, x)
     for y in range(H - 14, H):                                         # the door's iron posts
         for x in (DOOR[0] - 2, DOOR[0] - 1, DOOR[1], DOOR[1] + 1):
             img[y, x] = pick(RUST, 3.0 if x in (DOOR[0] - 2, DOOR[1]) else 1.4)
-    for k in range(9):                                                 # shards of the gone pane
-        x, y = int(rng.integers(WALL_R - 14, WALL_R - 2)), int(rng.integers(200, 226))
+    for k in range(11):                                                # shards of the gone pane
+        x, y = int(rng.integers(GONE[0], GONE[1])), int(rng.integers(WB + 4, WB + 16))
         img[y, x] = TEAL[5] if k % 2 else TEAL[3]
 
 
@@ -365,31 +469,33 @@ def render(with_monk=False):
     """-> (picture before the mood, walkable mask, the lantern's light)."""
     rng = np.random.default_rng(91)
     G = rng.random((H, W))
-    yy, xx = np.mgrid[0:H, 0:W]
     img = floor_stone(rng)
-    floor = (xx >= WALL_L) & (xx < WALL_R) & (yy >= BACK + 2)
+    floor = floor_mask()
     aisle(img, G, rng)
     things = []
     for b in BEDS:
         bed(img, G, rng, *b, things)
     basin(img, G, rng)
-    moon(img, floor & ~np.zeros_like(floor))
-    for _ in range(90):                                                # fallen leaves
-        x, y = int(rng.integers(WALL_L, WALL_R)), int(rng.integers(BACK + 4, H - 14))
-        img[y, x] = pick([hx('#5a3a1c'), hx('#8a5a26'), hx('#b08a3a')], 1 + 2 * G[y, x])
+    moon(img, floor)
+    for _ in range(260):                                               # fallen leaves
+        x, y = int(rng.integers(SIDE, W - SIDE)), int(rng.integers(BACK + 4, H - 14))
+        if floor[y, x]:
+            img[y, x] = pick([hx('#5a3a1c'), hx('#8a5a26'), hx('#b08a3a')], 1 + 2 * G[y, x])
     for k in range(18):                                                # a pot knocked over, its soil spilled
-        put(img, 82 + k // 3, 300 + (k % 3), pick(SOIL, 1.4 + G[300, 82 + k // 3]))
-    things += [Palme(46, 168, 5), Palme(136, 304, 6), Bank(), Giesskanne(), Stuhl()]
+        put(img, 262 + k // 3, 300 + (k % 3), pick(SOIL, 1.4 + G[300, 262 + k // 3]))
+    things += [Palme(222, 154, 5), Palme(318, 154, 6), Bank(), Giesskanne(160, 306), Stuhl(296, 150),
+               Zitrone(62, 266, 11), Zitrone(146, 266, 12), Zitrone(396, 266, 13),
+               Regal(452, 338, 512, 21), Giesskanne(440, 366)]
     for t in sorted(things, key=lambda t: t.box()[3]):
         t.draw(img, G)
     glass_walls(img, G, rng)
     for k in range(8):                                                 # the fallen pot itself
-        put(img, 79 + k, 297 + (k > 3), pick(TERRA, 3.0 - 0.3 * k))
+        put(img, 259 + k, 297 + (k > 3), pick(TERRA, 3.0 - 0.3 * k))
     lantern(img)
     if with_monk:
         sheet = np.array(Image.open(os.path.join(HERE, '..', '..', '..', 'assets', 'char', 'wanderer.png')).convert('RGBA'))
         f = sheet[16:32, 0:12].astype(float)
-        x0, y0 = 84, 360
+        x0, y0 = 264, 360
         a = f[..., 3:] / 255.0
         img[y0:y0 + 16, x0:x0 + 12] = img[y0:y0 + 16, x0:x0 + 12] * (1 - a) + f[..., :3] * a
     img *= 0.8                                                         # the inside is darker than the night outside
@@ -399,14 +505,15 @@ def render(with_monk=False):
 
 def walk_mask():
     yy, xx = np.mgrid[0:H, 0:W]
-    m = (xx >= WALL_L + 1) & (xx < WALL_R - 1) & (yy >= BACK + 4) & (yy < H - 12)
+    m = ndi.binary_erosion(floor_mask(), iterations=1)
     m |= (xx >= DOOR[0]) & (xx < DOOR[1]) & (yy >= H - 14)
     for x0, y0, x1, y1 in BEDS:
         m[y0 - 2:y1 + 1, x0 - 1:x1 + 1] = False
     bx, by, r = BASIN
     m &= np.hypot(xx - bx, (yy - by) * 1.05) > r + 2
-    for x0, y0, x1, y1 in (BENCH, (38, 158, 55, 170), (128, 294, 145, 306), (104, 272, 117, 282), (124, 152, 138, 166),
-                           (LANTERN[0] - 3, LANTERN[1] - 2, LANTERN[0] + 9, LANTERN[1] + 20)):
+    for x0, y0, x1, y1 in (BENCH, (214, 144, 231, 156), (310, 144, 327, 156), (155, 296, 170, 308), (292, 136, 306, 154),
+                           (55, 258, 70, 268), (139, 258, 154, 268), (389, 258, 404, 268), (451, 316, 513, 340),
+                           (435, 356, 450, 368), (LANTERN[0] - 3, LANTERN[1] - 2, LANTERN[0] + 9, LANTERN[1] + 20)):
         m[y0:y1, x0:x1] = False
     c = m.reshape(H // 2, 2, W // 2, 2).all(axis=(1, 3))
     lab, _ = ndi.label(c)
