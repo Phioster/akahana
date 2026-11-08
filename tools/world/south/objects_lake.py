@@ -92,8 +92,9 @@ class Seerosen:
 class Laubbaum:
     """A broadleaf tree, greener than the rest: a short trunk, a round crown of leaf clumps lit at the upper
     left with bright rims (as the willow's clumps, without the hanging twigs), gaps letting the limbs show."""
-    def __init__(s, x, y, seed=5, size=1.0, leaf=None):
+    def __init__(s, x, y, seed=5, size=1.0, leaf=None, dense=False):
         s.x, s.y, s.seed, s.size, s.leaf = x, y, seed, size, leaf
+        s.dense = dense                                          # clumps by the crown's area, evenly: no holes
 
     def box(s):
         r = int(20 * s.size)
@@ -114,10 +115,10 @@ class Laubbaum:
         strokes = [(p[0], p[1], 2.2 * sz * (1 - 0.3 * k / 30))
                    for k, p in enumerate(T.bezier(np.array([s.x, s.y], float), np.array([s.x + 2, s.y - 8 * sz]), top, 30))]
         clumps = []
-        while len(clumps) < int(44 * sz):
+        while len(clumps) < int(44 * sz * (sz * 1.25 if s.dense else 1)):
             u, v = rng.uniform(-1.05, 1.05), rng.uniform(-1.05, 1.0)
             r2 = u * u + v * v
-            if r2 > 1 + 0.12 * rng.random() or rng.random() > 0.55 + 0.45 * min(r2, 1):
+            if r2 > 1 + 0.12 * rng.random() or (not s.dense and rng.random() > 0.55 + 0.45 * min(r2, 1)):
                 continue
             clumps.append((ex + u * a, ey + v * b))
         for cx, cy in clumps[:int(6 * sz)]:                      # limbs out to some clumps

@@ -200,7 +200,8 @@ def main():
     sd = os.path.join(OUT, 'sprites')
     sd_dir = sd
     os.makedirs(sd, exist_ok=True)
-    for f in glob.glob(os.path.join(sd, 'w[0-9]*.png')) + glob.glob(os.path.join(sd, 'wb[0-9]*.png')):
+    for f in glob.glob(os.path.join(sd, 'w[0-9]*.png')) + glob.glob(os.path.join(sd, 'wb[0-9]*.png')) \
+            + glob.glob(os.path.join(sd, 'wt[0-9]*.png')):
         os.remove(f)
     w = shift_world(w0, WEST_W)
     w['sprites'] = [s for s in w['sprites'] if s['x'] > WEST_W + 2]  # the fir wall that stood at today's x 0
@@ -449,8 +450,46 @@ def main():
         w['sprites'].append(dict(name=name, x=int(x0b), y=int(y0b), w=int(x1b - x0b), h=int(y1b - y0b),
                                  foot=int(by + 1), frames=1, fps=8))
         walk[by - 8:by + 2, bx - t.L // 2 + 2:bx + t.L // 2 - 1] = False
-    ground[:] = np.clip(np.round(gf), 0, 255).astype(np.uint8)
     print('Westen: Boote', len(boats), flush=True)
+
+    # ---- more broadleaf and cherry trees in the open meadows (Philip and his girlfriend 2026-11-08, approved):
+    # sprites like the rest; only their shade and fallen petals go into the ground (the canopy cutout shows it)
+    import more_trees as MT
+    import objects_south as osu
+    boxes = [(q['x'], q['y'], q['x'] + q['w'], q['foot'], q['name']) for q in w['sprites']]
+    trees = MT.place(water[..., 3], walk, mat, boxes, start=(w['start']['x'], w['start']['y']))
+    for nt, (kind, tx, ty, ts, form) in enumerate(trees):
+        mk = (lambda X, Y: osu.Kirschbaum(X, Y, seed=ts, **form)) if kind == 'kirsch' else \
+             (lambda X, Y: ol.Laubbaum(X, Y, seed=ts, **form))
+        b0 = mk(tx, ty).box()
+        x0b, y0b = max(0, b0[0] - 8), max(0, b0[1] - 8)
+        x1b, y1b = min(W, b0[2] + 8), min(H, b0[3] + 6)
+        tl = mk(tx - x0b, ty - y0b)
+        gl = Gb[y0b:y1b, x0b:x1b]
+        canv = []
+        for bg in (0.0, 255.0):                                         # alike on black and on white = the tree
+            c = np.full((y1b - y0b, x1b - x0b, 3), bg)
+            tl.draw(c, gl)
+            canv.append(c)
+        alpha = np.all(np.abs(canv[0] - canv[1]) < 1, axis=2)
+        alpha[ty - y0b + 2:] = False                                    # petals and roots below the foot: ground
+        onground = gf[y0b:y1b, x0b:x1b].copy()
+        tl.draw(onground, gl)
+        sub = gf[y0b:y1b, x0b:x1b]
+        sub[~alpha] = onground[~alpha]                                  # shade and petals, not the tree itself
+        rgba = np.zeros((y1b - y0b, x1b - x0b, 4), np.uint8)
+        rgba[alpha, :3] = np.clip(canv[0][alpha], 0, 255).astype(np.uint8)
+        rgba[alpha, 3] = 255
+        ys = np.nonzero(alpha.any(1))[0]
+        xs = np.nonzero(alpha.any(0))[0]
+        rgba = rgba[ys[0]:ys[-1] + 1, xs[0]:xs[-1] + 1]
+        name = 'wt%03d' % nt
+        Image.fromarray(rgba).save(os.path.join(sd_dir, name + '.png'))
+        w['sprites'].append(dict(name=name, x=int(x0b + xs[0]), y=int(y0b + ys[0]), w=int(rgba.shape[1]),
+                                 h=int(rgba.shape[0]), foot=int(ty + 1), frames=1, fps=8))
+        walk[ty - 3:ty + 2, tx - 3:tx + 4] = False                       # the trunk
+    ground[:] = np.clip(np.round(gf), 0, 255).astype(np.uint8)
+    print('Westen: neue Baeume', len(trees), flush=True)
 
     # ---- the mist field: west edge, the bottom's fade, the top's wall; the bands over the lakes
     mist = grow(im['mist_fields.png'], WEST_W // 2)

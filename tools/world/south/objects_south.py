@@ -479,8 +479,9 @@ class Voegel:
 class Kirschbaum:
     """A young cherry tree grown the same way as the big one (tree.py), only smaller: shorter trunk,
     fewer forks, smaller blossom clouds. Drawn small, never scaled."""
-    def __init__(s, x, y, seed=17, trunk=11.5, width=4.4, depth=5):
+    def __init__(s, x, y, seed=17, trunk=11.5, width=4.4, depth=5, fill=0.0):
         s.x, s.y, s.seed, s.trunk, s.width, s.depth = x, y, seed, trunk, width, depth
+        s.fill = fill                                        # > 0: blossom also along the limbs, before the trunk
         s.S = 90                                             # local canvas, foot at its bottom middle
 
     def box(s):
@@ -511,6 +512,12 @@ class Kirschbaum:
                 wood[m] = 1
                 shade[m] = np.maximum(shade[m], 0.35)
         inner = [(x, y) for x, y, w, d in out['strokes'] if d <= 3 and rng.random() < 0.06]
+        if s.fill > 0:                                       # the new meadow trees (Philip: bare round the trunk)
+            rf = np.random.default_rng(s.seed + 77)
+            top = by - s.trunk * 0.9
+            inner += [(x, y) for x, y, w, d in out['strokes']
+                      if d < s.depth and y < top and rf.random() < s.fill]
+            inner += [(cx + rf.uniform(-5, 5), top - rf.uniform(0, 5)) for _ in range(3)]
         tips = np.array(out['tips'] + inner)
         noise = ndi.gaussian_filter(rng.normal(0, 1, (S, S)), 1.8)
         noise /= noise.std()
