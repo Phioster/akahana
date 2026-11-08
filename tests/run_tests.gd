@@ -8,6 +8,7 @@ const SUITES := [
 	"res://tests/test_scenes_compile.gd",
 	"res://tests/test_pixel_font.gd",
 	"res://tests/test_save_data.gd",
+	"res://tests/test_pencil_slider.gd",
 	"res://tests/test_life.gd",
 	"res://tests/test_lake_life.gd",
 	"res://tests/test_chunks.gd",

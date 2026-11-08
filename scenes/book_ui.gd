@@ -235,8 +235,8 @@ func _slider(text: String, value: float, y: float, on_change: Callable) -> float
 	l.position = Vector2(0, y)
 	_content.add_child(l)
 	var s := PencilSlider.new()
-	s.position = Vector2(2, y + 20)
-	s.size = Vector2(110, 10)
+	s.position = Vector2(2, y + 20) - PencilSlider.PAD             # the line where it always was, the touch room round it
+	s.size = Vector2(110, 10) + 2.0 * PencilSlider.PAD
 	s.value = value
 	s.knob = _tex("mohn_knopf")
 	s.changed.connect(on_change)
