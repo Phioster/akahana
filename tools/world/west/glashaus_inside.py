@@ -45,6 +45,7 @@ WAYS = [                                    # the trodden ways (points), from th
     [(272, 296), (330, 316), (380, 300), (430, 312), (470, 290), (488, 246)],                  # right
     [(430, 312), (412, 260), (430, 200), (468, 160), (484, 110)],
 ]
+MONK = (264, 360)                           # the preview's monk (top left of his frame)
 BRIDGE = ((302, 214), (222, 130))           # its two ends, each on a stone footing on the bank
 _c = ndi.gaussian_filter(np.random.default_rng(13).normal(0, 1, (H, W)), 1.6)
 CLUMP = np.clip(_c / _c.std() - np.roll(_c / _c.std(), 2, axis=0), -1.5, 1.5) / 1.5   # lit tops of leaf clumps
@@ -558,7 +559,7 @@ def render(with_monk=False):
     if with_monk:
         sheet = np.array(Image.open(os.path.join(HERE, '..', '..', '..', 'assets', 'char', 'wanderer.png')).convert('RGBA'))
         f = sheet[16:32, 0:12].astype(float)
-        x0, y0 = 264, 360
+        x0, y0 = MONK
         a = f[..., 3:] / 255.0
         img[y0:y0 + 16, x0:x0 + 12] = img[y0:y0 + 16, x0:x0 + 12] * (1 - a) + f[..., :3] * a
     lt = {'x': LANTERN[0] + 0.5, 'y': LANTERN[1] + 3.5, 'r': 120.0, 'k': 1.0}
@@ -583,11 +584,42 @@ def grade_inside(img):
     return (img * 0.88 + img.mean(-1, keepdims=True) * 0.12) * np.array([0.96, 1.0, 0.8])
 
 
-def main(out, with_monk=False):
+def lit(img, lights):
+    """The lamps as the game's post shader lights them (cave_inside.mood_inside): a warm pool falling off with
+    distance, a soft bloom round the flame, the Bayer raster where the light runs out - on the warm interior grade."""
+    sys.path.insert(0, os.path.join(HERE, '..'))
+    import mood_map
+    yy, xx = np.mgrid[0:H, 0:W]
+    a = grade_inside(img)
+    Ls = np.zeros((H, W))
+    bloom = np.zeros((H, W, 3))
+    for l in lights:
+        dx, dy = xx + 0.5 - l['x'], yy + 0.5 - l['y']
+        d = np.hypot(dx, dy * 1.35) / l['r']
+        f = mood_map.flick(mood_map.KIND['lantern'], 2 * np.pi / 8.0, (l['x'], l['y']))
+        Ls += l['k'] * f / (1 + 4 * d * d) * np.sqrt(np.clip(1 - d, 0, 1))
+        r2 = dx * dx + dy * dy
+        g = 0.0875 * np.exp(-r2 / 8) + 0.0221 * np.exp(-r2 / 72) + 0.00568 * np.exp(-r2 / 392)
+        bloom += np.array([250.0, 190.0, 90.0]) * mood_map.GLOW['lantern'] * f * g[..., None] * np.array([1.0, 0.8, 0.55])
+    a = a * (1 + Ls[..., None] * mood_map.LCOL * 1.4) + bloom
+    eff = np.clip(Ls * 2.5 + bloom.sum(-1) / 90, 0, 1)
+    bay = mood_map.BAYER[yy % 4, xx % 4]
+    on = eff > bay * 0.8 + 0.1
+    l2 = a.mean(-1) + 0.001
+    q = np.floor(l2 / 22 + bay) * 22
+    a[on] = a[on] * (q / l2)[on][:, None]
+    return np.clip(a, 0, 255)
+
+
+def main(out, with_monk=False, held=None):
+    """held: (x, y) where he holds up his own lantern, lit as well."""
     img, canopy, walk, lt = render(with_monk)
     m = canopy[..., 3] > 0
     img[m] = canopy[m, :3]
-    Image.fromarray(np.clip(grade_inside(img), 0, 255).astype(np.uint8)).save(out)
+    lights = [dict(lt, r=140.0, k=1.1)]
+    if held is not None:
+        lights.append({'x': held[0], 'y': held[1], 'r': 100.0, 'k': 0.9})
+    Image.fromarray(lit(img, lights).astype(np.uint8)).save(out)
 
 
 if __name__ == '__main__':
