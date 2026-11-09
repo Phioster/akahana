@@ -26,6 +26,8 @@ var view_node: WorldView
 var marker: TapMarker
 var birds: Birds
 var lake: LakeLife
+var squirrels: Squirrels
+var butterflies: Butterflies
 var _life := Activator.new()         # wisps: made near the view, dropped far from it
 var book: BookUI
 var save := SaveData.new()
@@ -111,6 +113,18 @@ func _ready() -> void:
 	lake.sorted = sorted
 	lake.store = store
 	add_child(lake)
+	squirrels = Squirrels.new()                            # at the broadleaf trees, out of sight at first
+	squirrels.player = player
+	squirrels.sorted = sorted
+	squirrels.store = store
+	add_child(squirrels)
+	butterflies = Butterflies.new()                        # over the open meadow, not in the rain
+	butterflies.world = world
+	butterflies.player = player
+	butterflies.sorted = sorted
+	butterflies.store = store
+	butterflies.weather = weather
+	add_child(butterflies)
 
 	cam = Camera2D.new()
 	cam.limit_left = 0
@@ -395,6 +409,9 @@ func _process(delta: float) -> void:
 	view_node.update(Rect2(top_left, view))
 	birds.update_area(Rect2(top_left, view))
 	lake.step(delta, Rect2(top_left, view))
+	if not inside:                                     # no squirrels or butterflies in the cave or greenhouse
+		squirrels.step(delta, Rect2(top_left, view))
+		butterflies.step(delta, Rect2(top_left, view))
 	_life.update(Rect2(top_left, view))
 	_feed_lights(Rect2(top_left, view))
 

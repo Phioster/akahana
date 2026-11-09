@@ -11,6 +11,7 @@ const MAX_DUCKS := 3
 const FISH_DEPTH := 80                       # fish keep to the open water, not the shallow rim
 const DUCK_DEPTH := 40
 const DROP := 200.0                          # beyond this from the view an animal is let go
+const LEAP_EVERY := Vector2(50.0, 110.0)     # now and then a fish leaps out, somewhere in the view
 
 var world: WorldData
 var player: Node2D
@@ -22,6 +23,8 @@ var _fish: Array = []
 var _ducks: Array = []
 var _fish_in := 1.0
 var _ducks_in := 6.0
+var _leap: FishLeap = null
+var _leap_in := randf_range(20.0, 50.0)
 var _wings: AudioStreamPlayer2D
 
 
@@ -86,6 +89,24 @@ func random_spot(r: Rect2, min_depth: int, avoid := Rect2()) -> Vector2:
 	return Vector2(-1, -1)
 
 
+## A leap needs open water where it comes up, along the way under water and where it goes back in.
+func _start_leap(view: Rect2) -> void:
+	var p := random_spot(view.grow(-24.0), FISH_DEPTH)
+	if p.x < 0.0:
+		return
+	var d := 1 if randf() < 0.5 else -1
+	for q in [p + Vector2(d * FishLeap.SPAN, 0), p - Vector2(d * FishLeap.COME, 0)]:
+		if swim_depth(q) < FISH_DEPTH:
+			return
+	_leap = FishLeap.new()
+	_leap.setup(p, d)
+	add_child(_leap)
+
+
+func leaping() -> bool:
+	return _leap != null
+
+
 func fish_count() -> int:
 	return _fish.size()
 
@@ -100,6 +121,14 @@ func _wading() -> bool:
 
 func step(delta: float, view: Rect2) -> void:
 	var near := view.grow(30.0)
+	_leap_in -= delta
+	if _leap_in <= 0.0:
+		_leap_in = randf_range(LEAP_EVERY.x, LEAP_EVERY.y)
+		if _leap == null:
+			_start_leap(view)
+	if _leap != null and _leap.done():
+		_leap.queue_free()
+		_leap = null
 	_fish_in -= delta
 	if _fish_in <= 0.0:
 		_fish_in = randf_range(1.5, 4.5)
@@ -335,3 +364,87 @@ class Duck:
 			_sheet = TextureLoader.load_texture("res://assets/life/ente.png")
 		var cell := Rect2(Vector2((-14.0 if d > 0 else -13.0), -7.0), Vector2(28.0 * d, 20.0))
 		draw_texture_rect_region(_sheet, cell, Rect2(float(int(_t * 5.0) % 4) * 28.0, 0.0, 28.0, 20.0))
+
+
+## A fish leaping out (approved 0.19, tools/world/life/fishjump_video.py): a dark shape swims up under the
+## surface, breaks out with a few drops, arcs through the air silvery, dives back in with a bigger splash
+## and two rings spread and fade. Pictures in assets/life/sprung.png (tools/world/life/gen_life_art.py).
+class FishLeap:
+	extends Node2D
+	const COME := 14.0                           # px it swims up under the water first
+	const UNDER := 1.2                           # s of that
+	const AIR := 0.6
+	const SPAN := 12                             # px it travels in the air
+	const HIGH := 9.0
+	const C := 11                                # cell size in the sheet
+	const SPLASH := Color8(150, 176, 182)
+	const WAKE_NEAR := Color8(127, 152, 156)
+	const WAKE_FAR := Color8(85, 112, 121)
+	const RING_LIFE := 1.6
+	static var _sheet: Texture2D
+	var dir := 1
+	var u := -UNDER                              # time from leaving the water
+
+	func setup(at: Vector2, d: int) -> void:
+		position = at.round()
+		dir = d
+
+	func done() -> bool:
+		return u > AIR + 0.55 + RING_LIFE
+
+	## Where the fish is (relative to the node) and how high, while it is in the air; else (INF, 0).
+	func air_at() -> Vector2:
+		if u < 0.0 or u >= AIR:
+			return Vector2.INF
+		var k := u / AIR
+		return Vector2(dir * SPAN * k, -HIGH * sin(k * PI)).round()
+
+	func _process(delta: float) -> void:
+		u += delta
+		queue_redraw()
+
+	func _px(x: float, y: float, col: Color) -> void:
+		draw_rect(Rect2(Vector2(x, y).round(), Vector2.ONE), col)
+
+	func _cell(row: int, col: int, at: Vector2) -> void:
+		if _sheet == null:
+			_sheet = TextureLoader.load_texture("res://assets/life/sprung.png")
+		draw_texture_rect_region(_sheet, Rect2(at.round() - Vector2(5, 5), Vector2(C, C)),
+				Rect2(col * C, row * C, C, C))
+
+	func _splash(x: float, w: float, big: bool) -> void:
+		if w < 0.0 or w > 0.3:
+			return
+		var k := w / 0.3
+		var drops := [Vector2(-1.0, 1.0), Vector2(1.0, 1.1), Vector2(-0.4, 1.6), Vector2(0.5, 1.5)]
+		if big:
+			drops += [Vector2(-1.6, 0.8), Vector2(1.7, 0.7)]
+		for dr in drops:
+			_px(x + dr.x * (3.5 if big else 2.5) * k, -dr.y * (3.0 if big else 2.0) * sin(k * PI), SPLASH)
+
+	func _ring(x: float, w: float) -> void:
+		if w < 0.0 or w > RING_LIFE:
+			return
+		var r := 3.0 + w * 5.0
+		var col := WAKE_NEAR if w < 0.7 else WAKE_FAR
+		var n := int(8.0 + r * 6.0)
+		for i in n:
+			var a := TAU * i / n
+			if w > 1.1 and int(a * 5.0) % 2 == 1:     # breaking up as it fades
+				continue
+			_px(x + cos(a) * r, sin(a) * r * 0.5, col)
+
+	func _draw() -> void:
+		var end := float(dir * SPAN)
+		if u < 0.0:                                  # the shape under the water, coming up
+			var k := (u + UNDER) / UNDER
+			var row := 2 + (0 if k < 0.5 else 1) + (0 if dir > 0 else 2)
+			_cell(row, int(u * 8.0 + 16.0) % 4, Vector2(-dir * (1.0 - k) * COME, 0))
+		var a := air_at()
+		if a != Vector2.INF:
+			_cell(0 if dir > 0 else 1, clampi(roundi(u / AIR * 6.0), 0, 6), a)
+		_splash(0.0, u, false)
+		_splash(end, u - AIR, true)
+		_ring(0.0, u - 0.2)                          # after the drops, never under them
+		_ring(end, u - AIR - 0.2)
+		_ring(end, u - AIR - 0.55)

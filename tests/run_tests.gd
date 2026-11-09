@@ -16,6 +16,7 @@ const SUITES := [
 	"res://tests/test_snow_trail.gd",
 	"res://tests/test_snowfall.gd",
 	"res://tests/test_rain.gd",
+	"res://tests/test_animals.gd",
 ]
 
 func _init() -> void:
