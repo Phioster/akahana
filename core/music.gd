@@ -10,7 +10,7 @@ const REGIONS := ["mohnfeld", "wald", "berge", "see", "dorf", "regen"]
 const DIR := "res://assets/audio/thema_%s.ogg"
 const PAUSE_MIN := 45.0
 const PAUSE_MAX := 90.0
-const LEVEL_DB := -9.0               # under the meadow, not on top of it
+const LEVEL_DB := -7.0               # under the meadow, not on top of it (Philip 0.20: "minimal lauter")
 const OFF_DB := -60.0
 const TURN := 0.15                   # how fast the mix follows the wanderer (per second): a slow turn, over seconds
 
