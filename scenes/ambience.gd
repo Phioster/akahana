@@ -15,7 +15,7 @@ const CANDLE_DB := -4.0              # recording -32 -> -36: you hear it when yo
 # the last sounds (0.22): north waterfall, the mill in the west, the firs' wind, the woodcutter's hut creaking
 const WATERFALL := Vector2(2152, 562)      # the fall under the Bergsee (north FALL_X 1252 + the west's 900)
 const WATERFALL_DB := -7.0                 # recording -20 -> about -27 close by
-const MILL_DB := -10.0                     # recording -20 -> about -30 at the wheel
+const MILL_DB := -4.0                      # recording -20 -> about -24 at the wheel (0.22.1: Philip "zu leise")
 const HUT := Vector2(1230, 860)            # the woodcutter's clearing (north HUT + 900)
 const CREAK_DB := -12.0                    # recording -22 -> about -34
 const FIR_DB := -14.0                      # 'tannenwind' -22 -> about -36, under the mountain wind
@@ -54,7 +54,7 @@ func _ready() -> void:
 	if world != null:
 		if world.places.has("mill"):
 			var ml: Array = world.places["mill"]
-			_spot("muehle", Vector2(float(ml[0]), float(ml[1])), MILL_DB, 150.0)
+			_spot("muehle", Vector2(float(ml[0]), float(ml[1])), MILL_DB, 200.0)
 		var sizes := ["bach_klein", "bach_mittel", "bach_gross"]
 		for i in range(0, world.brook.size(), 2):
 			var b: Dictionary = world.brook[i]
