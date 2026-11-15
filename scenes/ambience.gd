@@ -15,8 +15,8 @@ const CANDLE_DB := -4.0              # recording -32 -> -36: you hear it when yo
 # the last sounds (0.22): north waterfall, the mill in the west, the firs' wind, the woodcutter's hut creaking
 const WATERFALL := Vector2(2152, 562)      # the fall under the Bergsee (north FALL_X 1252 + the west's 900)
 const WATERFALL_DB := -7.0                 # recording -20 -> about -27 close by
-const MILL_DB := -1.0                      # recording -20 -> about -21 at the wheel (0.22.2: Philip hörte sie nicht)
-const MILL_HUSH := 140.0                   # px round the mill without brook spots: there the wheel is the water
+const MILL_DB := 0.0                       # creaking wheel -26 -> about -26 at the wheel (0.22.3)
+const MILL_HUSH := 80.0                    # px round the mill without brook spots, so its creak is not drowned
 const HUT := Vector2(1230, 860)            # the woodcutter's clearing (north HUT + 900)
 const CREAK_DB := -12.0                    # recording -22 -> about -34
 const FIR_DB := -14.0                      # 'tannenwind' -22 -> about -36, under the mountain wind

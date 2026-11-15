@@ -179,15 +179,15 @@ def shots(src, prefix, n, length, rms=0.1, lo=90.0):
 def last():
     """The last missing sounds (Philip's picks, 2026-11-15): north waterfall Nox 'Cascata do Limbo', wind in the
     firs Nox 'Wind Forest' turning into the snow storm #792516 higher up, creaking wood #414092 at the
-    woodcutter's hut, the old mill Nox Sao Miguel 02, red squirrel #111393 philberts, fish splash #507091
+    woodcutter's hut, the slowly turning wheel #715478 KVV_Audio, red squirrel #111393 philberts, fish splash #507091
     paulprit / #425140 gis_sweden, a duck #188376 calodas, ducks together #716942 ghosttropic (all CC0)."""
     sm = [d for d in os.listdir(NOX) if d.endswith('Miguel_Flows_NOX_SOUND')][0]
     N, T = os.path.join(FS, 'norden'), os.path.join(FS, 'tiere')
     loop(f'{NOX}/{sm}/Ambiance_Waterfall_Moihnos_Cascata_do_Limbo_Loop_Stereo.wav', 'wasserfall', 0, 30, 0.1)
     loop(first('Nature_Essentials_NOX_SOUND/Ambiance_Wind_Forest_Loop_Stereo.wav'), 'tannenwind', 0, 28, 0.08)
     loop(f'{N}/792516.ogg', 'schneesturm', 20, 40, 0.08)
-    mill = sorted(glob.glob(f'{NOX}/{sm}/Ambiance_Old_Mill_*_02.wav'))[0]
-    loop(mill, 'muehle', 2, 30, 0.1)
+    # the wheel only turns slowly now: a creaking wooden wheel, not the rushing mill race (0.22.3, Philip)
+    loop(os.path.join(FS, 'muehle', '715478.ogg'), 'muehle', 8, 40, 0.1, highpass=80.0, soft=False)
     for k, (ss, t) in enumerate([(43.2, 3), (68.7, 3), (90.2, 3), (154.7, 3)]):
         c = load(f'{N}/414092.ogg', ss, t)
         f = int(0.3 * SR)

@@ -44,7 +44,8 @@ Alles hier ist frei nutzbar. Die Namen stehen trotzdem hier, aus Dank.
 - Grundlage der Laufanimation: PixelLab (eigenes Konto), danach in den Farben der Welt umgemalt (tools/prep_char.py)
 
 ## Norden, Mühle, Tiere (0.22)
-- Wasserfall „Cascata do Limbo“, Waldwind „Wind Forest“, alte Mühle (São Miguel 02): Nox Sound „Essentials“, CC0
+- Wasserfall „Cascata do Limbo“, Waldwind „Wind Forest“: Nox Sound „Essentials“, CC0
+- Wasserrad: Freesound #715478 KVV_Audio „Turning A Wooden Wheel 01“, CC0 1.0
 - Schneesturm im Wald Freesound #792516; knarzendes Holz Freesound #414092 (CC0)
 - Eichhörnchen #111393 philberts; Fischsprung #507091 paulprit und #425140 gis_sweden; Ente #188376 calodas; Enten am Teich #716942 ghosttropic (alle Freesound, CC0 1.0)
 
