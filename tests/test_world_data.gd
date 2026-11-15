@@ -99,11 +99,44 @@ func test_the_wood_depth_and_the_ostwald_places_are_known() -> void:
 	assert_true(w.wood_at(Vector2(2100, 2200)) > 0.9, "tiefer Wald dunkel")
 	assert_true(w.wood_at(Vector2(1300, 3700)) < 0.05, "der Sueden hell")
 
-func test_the_song_crossfades_between_meadow_and_dark_version() -> void:
-	var a := Music.mix_db(0.0)
-	var b := Music.mix_db(1.0)
-	assert_true(a.x > -9.5 and a.y < -50.0, "Wiese: nur die helle Fassung")
-	assert_true(b.y > -9.5 and b.x < -50.0, "tiefer Wald: nur die dunkle")
-	var m := Music.mix_db(0.5)
-	var power := db_to_linear(m.x - Music.LEVEL_DB) * db_to_linear(m.x - Music.LEVEL_DB) + db_to_linear(m.y - Music.LEVEL_DB) * db_to_linear(m.y - Music.LEVEL_DB)
+func test_the_theme_follows_the_land_and_the_rain() -> void:
+	var w := WorldData.load_default()
+	var meadow := Music.weights(w, Vector2(1000, 2020), 0.0)
+	assert_true(meadow["mohnfeld"] > 0.95, "Mohnwiese: das Mohnfeld-Thema, %s" % meadow)
+	var wood := Music.weights(w, Vector2(2100, 2200), 0.0)
+	assert_true(wood["wald"] > 0.9, "tiefer Wald: die Wald-Fassung, %s" % wood)
+	var village := Music.weights(w, Vector2(536, 2344), 0.0)
+	assert_true(village["dorf"] > 0.9, "Dorfplatz: die Dorf-Fassung, %s" % village)
+	var lake := Music.weights(w, Vector2(1474, 4145), 0.0)
+	assert_true(lake["see"] > 0.9, "Seesteg: die See-Fassung, %s" % lake)
+	var pass_ := Music.weights(w, Vector2(1380, 135), 0.0)
+	assert_true(pass_["berge"] > 0.9, "Pass: die Berg-Fassung, %s" % pass_)
+	var wet := Music.weights(w, Vector2(1000, 2020), 1.0)
+	assert_almost_eq(wet["regen"], 1.0, 0.001, "voller Regen: nur die Regen-Fassung")
+	for at in [Vector2(1000, 2020), Vector2(1700, 2500), Vector2(800, 3900), Vector2(1700, 1000)]:
+		for r in [0.0, 0.4, 1.0]:
+			var sum := 0.0
+			for k in Music.REGIONS:
+				var x: float = Music.weights(w, at, r)[k]
+				assert_true(x >= 0.0, "kein negativer Anteil")
+				sum += x
+			assert_almost_eq(sum, 1.0, 0.001, "Anteile ergeben zusammen eins bei %s, Regen %s" % [at, r])
+
+func test_the_versions_turn_with_equal_power() -> void:
+	assert_almost_eq(Music.level_db(1.0), Music.LEVEL_DB, 0.01, "allein: volle Lautstaerke")
+	assert_true(Music.level_db(0.0) <= -59.9, "ohne Anteil: stumm")
+	var power := 0.0
+	for x in [0.5, 0.3, 0.2]:
+		power += db_to_linear(Music.level_db(x) - Music.LEVEL_DB) ** 2
 	assert_almost_eq(power, 1.0, 0.02, "gleiche Leistung beim Ueberblenden")
+
+func test_every_version_of_the_theme_is_there_and_equally_long() -> void:
+	var length := -1.0
+	for k in Music.REGIONS:
+		var s := Music._stream(Music.DIR % k)
+		assert_true(s != null, "%s fehlt" % k)
+		if s == null:
+			continue
+		if length < 0.0:
+			length = s.get_length()
+		assert_almost_eq(s.get_length(), length, 0.05, "%s gleich lang wie die anderen" % k)

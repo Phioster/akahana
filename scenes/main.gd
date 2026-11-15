@@ -184,6 +184,7 @@ func _ready() -> void:
 	var music := Music.new()
 	music.world = world
 	music.player = player
+	music.weather = weather
 	add_child(music)
 
 	book = BookUI.new()

@@ -49,13 +49,15 @@ class Sounds(unittest.TestCase):
         self.assertLess(abs(b[-1]), 0.01, 'the little bell fades out')
 
     @unittest.skipUnless(shutil.which('ffmpeg'), 'ffmpeg needed to read the .ogg files')
-    def test_the_dark_song_is_as_long_as_the_meadow_song(self):
-        # both play together and are crossfaded: they must stay in step
-        n = [len(decode(x)) / SR for x in ('musik', 'musik_dunkel')]
-        self.assertAlmostEqual(n[0], n[1], delta=0.15)
-        a, b = decode('musik'), decode('musik_dunkel')
-        self.assertLess(share_below(b, 300.0) * 0.5, share_below(a, 300.0) + 0.3)   # sanity
-        self.assertGreater(share_below(b, 200.0), share_below(a, 200.0), 'the dark one has more low end (drone)')
+    def test_the_theme_is_there_in_every_region_and_in_step(self):
+        # all six play together and are crossfaded (core/music.gd): they must stay in step to the sample
+        teile = {g: decode('thema_' + g) for g in ('mohnfeld', 'wald', 'berge', 'see', 'dorf', 'regen')}
+        n = {g: len(x) / SR for g, x in teile.items()}
+        for g in n:
+            self.assertAlmostEqual(n[g], n['mohnfeld'], delta=0.02, msg=g)
+        rms = {g: float(np.sqrt(np.mean(x ** 2))) for g, x in teile.items()}
+        self.assertLess(rms['regen'], rms['mohnfeld'] * 0.7, 'the rain version is softer')
+        self.assertLess(np.abs(teile['mohnfeld']).max(), 0.55, 'peaks stay near -6 dB: room for the headphones')
 
 
 if __name__ == '__main__':

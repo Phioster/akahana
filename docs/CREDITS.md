@@ -44,6 +44,6 @@ Alles hier ist frei nutzbar. Die Namen stehen trotzdem hier, aus Dank.
 - Grundlage der Laufanimation: PixelLab (eigenes Konto), danach in den Farben der Welt umgemalt (tools/prep_char.py)
 
 ## Musik
-- Komposition und Zusammenbau selbst (tools/gen_music.py)
-- Gayageum-Töne: Freesound #24551–#24573 „kayageum1_…“ von spt3125, CC0 1.0
-- Klavier: FreePats „Upright Piano KW“ (Kawai), Roberto / freepats.zenvoid.org, CC0 1.0
+- Das Akahana-Thema: Komposition, Satz und alle Gegenden-Fassungen selbst (tools/gen_thema_midi.py)
+- Flügel: „Splendid Grand Piano“ (Steinway), Aufnahmen von AKAI, gemeinfrei (Public Domain); SFZ-Fassung von kinwie / sfzinstruments.github.io
+- Abgespielt mit sfizz (BSD-2-Clause) beim Erzeugen der Dateien
