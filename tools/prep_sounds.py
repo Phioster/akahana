@@ -41,7 +41,7 @@ def save(name, x, rms=0.1, soft=False):
                    input=x.astype(np.float32).tobytes(), check=True)
 
 
-def loop(src, name, ss, length, rms, fade=2.0, highpass=0.0, lowpass=0.0):
+def loop(src, name, ss, length, rms, fade=2.0, highpass=0.0, lowpass=0.0, soft=None):
     x = load(src, ss, length + fade)
     if highpass:                                         # drop rumble phones and earbuds cannot play, so the
         from scipy import signal                         # level is set by what is actually heard
@@ -55,7 +55,7 @@ def loop(src, name, ss, length, rms, fade=2.0, highpass=0.0, lowpass=0.0):
     out = x[:n].copy()
     ramp = np.linspace(0, 1, f)
     out[:f] = x[:f] * ramp + x[n:n + f] * (1 - ramp)     # the end flows into the start
-    save(name, out, rms, soft=bool(highpass))
+    save(name, out, rms, soft=bool(highpass) if soft is None else soft)
 
 
 def step(src, name, rms):
@@ -129,6 +129,32 @@ def east():
     b = b[:n] * np.minimum(1, np.linspace(3.6, 0, n)[:len(b)] / 1.2)
     save('glockchen', b, 0.1)
 
+
+def rain():
+    """The rain (Philip's picks, 2026-11-15, all CC0, previews in ~/mohnweg-sounds/freesound/regen):
+    meadow light #584268 SamsterBirdies -> full #160699 klangfabrik, wood light #523391 Anya_Media -> full
+    #612960 sandralaughs, water #399281 Mjeno, greenhouse inside (tin roof) #521772 MrFossy, outside (house roof)
+    #833924 bassimat, far thunder #616607 TRP and #574386 TRP. Each slice is the recording's calmest 40 s (fewest
+    single loud drops); levels are evened out in scenes/rain_sounds.gd from the measured means."""
+    R = os.path.join(FS, 'regen')
+    loop(f'{R}/584268.ogg', 'regen_wiese_leicht', 69, 40, 0.08, highpass=90.0, soft=False)
+    loop(f'{R}/160699.ogg', 'regen_wiese_voll', 15, 40, 0.1, highpass=90.0, soft=False)
+    loop(f'{R}/523391.ogg', 'regen_wald_leicht', 9, 40, 0.06, highpass=150.0, lowpass=9000.0, soft=False)   # very quiet recording: no hiss boost
+    loop(f'{R}/612960.ogg', 'regen_wald_voll', 18, 40, 0.1, highpass=90.0, soft=False)
+    loop(f'{R}/399281.ogg', 'regen_wasser', 0, 30, 0.1, highpass=90.0, soft=False)
+    loop(f'{R}/521772.ogg', 'regen_dach_innen', 28, 40, 0.1, highpass=90.0, soft=False)
+    loop(f'{R}/833924.ogg', 'regen_dach_aussen', 690, 40, 0.1, highpass=90.0, soft=False)
+    for src, name, ss, t in ((f'{R}/616607.ogg', 'donner_0', 140.0, 22.0), (f'{R}/574386.ogg', 'donner_1', 0.5, 26.0)):
+        x = load(src, ss, t)
+        n = len(x)
+        x = x * np.minimum(1, np.minimum(np.arange(n) / (0.8 * SR), (n - np.arange(n)) / (4.0 * SR)))   # soft in, long fade out
+        save(name, x, 0.1)
+
+
+if __name__ == '__main__' and sys.argv[1:] == ['rain']:
+    os.makedirs(OUT, exist_ok=True)
+    rain()
+    sys.exit(0)
 
 if __name__ == '__main__' and sys.argv[1:] == ['east']:
     os.makedirs(OUT, exist_ok=True)

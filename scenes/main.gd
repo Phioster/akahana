@@ -48,6 +48,7 @@ var rain: Rain
 var snow: SnowTrail                  # the furrow he leaves in fresh snow
 var cave: Cave                       # the cave in the north, its own screen beside the world
 var glashaus: Cave                   # the greenhouse in the west, three screens wide, beside the cave
+var rain_sounds: RainSounds
 var room: Cave                       # the place he is in (or last was in)
 var inside := false
 var _going := false                  # the screen is fading in or out of the cave
@@ -186,6 +187,12 @@ func _ready() -> void:
 	music.player = player
 	music.weather = weather
 	add_child(music)
+	rain_sounds = RainSounds.new()                       # the rain's sounds by place and strength, far thunder
+	rain_sounds.world = world
+	rain_sounds.player = player
+	rain_sounds.weather = weather
+	rain_sounds.glashaus = glashaus
+	add_child(rain_sounds)
 
 	book = BookUI.new()
 	book.music = save.music
@@ -456,6 +463,8 @@ func _set_inside(into: bool) -> void:
 	post.set_shader_parameter("warm_inside", 1.0 if into and room.warm else 0.0)
 	snowfall.off = into                                  # the cave lies at the north's height: no snow in it
 	rain.off = into
+	if rain_sounds != null:
+		rain_sounds.room = room if into else null   # inside the greenhouse its roof drums, in the cave it is quiet
 	player.lantern.always_dark = into                    # inside it hangs on his staff, outside it goes as the light says
 	var b := room.rect() if into else Rect2(0, 0, world.width, world.height)
 	cam.limit_left = int(b.position.x)

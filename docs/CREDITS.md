@@ -43,6 +43,13 @@ Alles hier ist frei nutzbar. Die Namen stehen trotzdem hier, aus Dank.
 ## Figur
 - Grundlage der Laufanimation: PixelLab (eigenes Konto), danach in den Farben der Welt umgemalt (tools/prep_char.py)
 
+## Regen (alle Freesound, CC0 1.0)
+- Wiese leicht #584268 SamsterBirdies „Rain on grass and leaves“; Wiese voll #160699 klangfabrik „mediumrain“
+- Wald leicht #523391 Anya_Media „Forest, light rain“; Wald voll #612960 sandralaughs „Light rain in the forest“
+- Wasser #399281 Mjeno „Rain on pond“
+- Gewächshaus innen #521772 MrFossy „Indoors_Shed_RainOnTinRoof_02“; außen #833924 bassimat „Rain on the House Roof Window #001“
+- Ferner Donner #616607 und #574386 TRP
+
 ## Musik
 - Das Akahana-Thema: Komposition, Satz und alle Gegenden-Fassungen selbst (tools/gen_thema_midi.py)
 - Flügel: „Splendid Grand Piano“ (Steinway), Aufnahmen von AKAI, gemeinfrei (Public Domain); SFZ-Fassung von kinwie / sfzinstruments.github.io

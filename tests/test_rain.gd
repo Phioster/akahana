@@ -90,3 +90,32 @@ func test_the_ground_stays_wet_a_while_and_dries() -> void:
 	for i in 40:
 		w.step(Weather.WET_DRY / 20.0)
 	assert_eq(w.wetness(), 0.0, "und trocknet ab")
+
+func test_the_rain_is_heard_by_place_and_strength() -> void:
+	var dry := RainSounds.mix(0.0, 0.0, 0.0, 0.0, "")
+	for k in dry:
+		assert_almost_eq(dry[k], 0.0, 0.0001, "trocken: %s still" % k)
+	var start := RainSounds.mix(0.2, 0.0, 0.0, 0.0, "")
+	assert_true(start["regen_wiese_leicht"] > 0.15 and start["regen_wiese_voll"] < 0.01, "Schaueranfang: nur der leichte Regen, %s" % start)
+	var full := RainSounds.mix(1.0, 0.0, 0.0, 0.0, "")
+	assert_true(full["regen_wiese_voll"] > 0.95 and full["regen_wiese_leicht"] < 0.01, "voller Schauer: der volle Regen, %s" % full)
+	var wood := RainSounds.mix(1.0, 1.0, 0.0, 0.0, "")
+	assert_true(wood["regen_wald_voll"] > 0.95 and wood["regen_wiese_voll"] < 0.01, "tiefer Wald: Regen auf Blaettern")
+	var lake := RainSounds.mix(0.6, 0.0, 1.0, 0.0, "")
+	assert_almost_eq(lake["regen_wasser"], 0.6, 0.001, "am See: Regen auf dem Wasser")
+	var inside := RainSounds.mix(1.0, 0.0, 0.0, 1.0, "glashaus")
+	assert_almost_eq(inside["regen_dach_innen"], 1.0, 0.001, "im Gewaechshaus: das Blechdach")
+	assert_true(inside["regen_wiese_voll"] < 0.2 and inside["regen_dach_aussen"] == 0.0, "draussen nur gedaempft durchs Glas")
+	var outside := RainSounds.mix(1.0, 0.0, 0.0, 1.0, "")
+	assert_true(outside["regen_dach_aussen"] > 0.95 and outside["regen_dach_innen"] == 0.0, "vor der Tuer: das Dach von aussen")
+	var cave := RainSounds.mix(1.0, 0.5, 0.5, 0.5, "cave")
+	for k in cave:
+		assert_almost_eq(cave[k], 0.0, 0.0001, "in der Hoehle: %s still" % k)
+
+func test_every_rain_recording_is_there() -> void:
+	for k in RainSounds.MEAN_DB:
+		assert_true(SoundBank.get_stream(k) != null, "%s fehlt" % k)
+		assert_true(RainSounds.ARRIVE_DB.has(k), "%s hat einen Pegel" % k)
+	for k in RainSounds.THUNDER:
+		assert_true(SoundBank.get_stream(k) != null, "%s fehlt" % k)
+	assert_eq(Rain.reach(0.0), 0.0, "ueber der Schneegrenze regnet es nicht: auch kein Klang")
