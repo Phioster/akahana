@@ -16,11 +16,18 @@ var store: ChunkStore                        # to keep their spots off water and
 var trees: Array[Vector3i] = []              # trunk middle x, trunk foot y, crown's lower edge y
 var _list: Array = []
 var _spawn_in := 3.0
+var _chatter_in := randf_range(12.0, 30.0)
+var _voice: AudioStreamPlayer2D              # now and then one chatters (0.22: red squirrel #111393, CC0)
+const CHATTER_DB := -16.0                    # recording -20 -> about -36: small, a little way off
 
 
 func _ready() -> void:
 	if trees.is_empty():
 		load_trees()
+	_voice = AudioStreamPlayer2D.new()
+	_voice.bus = AudioSetup.SOUNDS
+	_voice.max_distance = 130.0
+	add_child(_voice)
 
 
 func load_trees() -> void:
@@ -43,6 +50,17 @@ func step(delta: float, view: Rect2) -> void:
 		_spawn_in = randf_range(3.0, 7.0)
 		if _list.size() < MAX:
 			_spawn(view)
+	_chatter_in -= delta
+	if _chatter_in <= 0.0:
+		_chatter_in = randf_range(18.0, 45.0)
+		var seen := _list.filter(func(x): return view.grow(20.0).has_point(x.position))
+		if not seen.is_empty():
+			var who: Node2D = seen[randi() % seen.size()]
+			_voice.stream = SoundBank.get_stream("eichhorn_%02d" % (randi() % 4))
+			_voice.volume_db = CHATTER_DB + randf_range(-3.0, 0.0)
+			_voice.pitch_scale = randf_range(0.95, 1.08)
+			_voice.global_position = who.global_position
+			_voice.play()
 	var at := player.position if player != null else Vector2(-9999, -9999)
 	for s in _list.duplicate():
 		s.live(delta, at)

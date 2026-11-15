@@ -123,3 +123,10 @@ func test_fish_leap_arcs_and_ends() -> void:
 	assert_true(l.done())
 	assert_eq(top, -LakeLife.FishLeap.HIGH)
 	l.free()
+
+func test_the_last_sounds_are_there() -> void:
+	for n in ["wasserfall", "tannenwind", "schneesturm", "muehle", "enten", "platsch_a_00", "platsch_b_00"]:
+		assert_true(SoundBank.get_stream(n) != null, "%s fehlt" % n)
+	for k in 4:
+		for p in ["knarzen", "eichhorn", "ente"]:
+			assert_true(SoundBank.get_stream("%s_%02d" % [p, k]) != null, "%s_%02d fehlt" % [p, k])

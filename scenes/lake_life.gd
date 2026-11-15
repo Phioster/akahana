@@ -26,6 +26,13 @@ var _ducks_in := 6.0
 var _leap: FishLeap = null
 var _leap_in := randf_range(20.0, 50.0)
 var _wings: AudioStreamPlayer2D
+var _splash: AudioStreamPlayer2D            # the fish diving back in (0.22: one of two recordings at random)
+var _voice: AudioStreamPlayer2D             # a duck now and then, or the group together
+var _leap_splashed := false
+var _quack_in := randf_range(6.0, 14.0)
+const SPLASH_DB := {"platsch_a_00": -10.0, "platsch_b_00": -2.0}   # recordings -21.6 / -29.8 -> about -32
+const DUCK_DB := -14.0                      # 'ente' -20.5 -> about -34
+const DUCKS_DB := -10.0                     # 'enten' -24 -> about -34
 
 
 func _ready() -> void:
@@ -35,6 +42,14 @@ func _ready() -> void:
 	_wings.bus = AudioSetup.SOUNDS
 	_wings.max_distance = 140.0
 	add_child(_wings)
+	_splash = AudioStreamPlayer2D.new()
+	_splash.bus = AudioSetup.SOUNDS
+	_splash.max_distance = 150.0
+	add_child(_splash)
+	_voice = AudioStreamPlayer2D.new()
+	_voice.bus = AudioSetup.SOUNDS
+	_voice.max_distance = 170.0
+	add_child(_voice)
 
 
 func load_map() -> void:
@@ -99,6 +114,7 @@ func _start_leap(view: Rect2) -> void:
 		if swim_depth(q) < FISH_DEPTH:
 			return
 	_leap = FishLeap.new()
+	_leap_splashed = false
 	_leap.setup(p, d)
 	add_child(_leap)
 
@@ -126,6 +142,14 @@ func step(delta: float, view: Rect2) -> void:
 		_leap_in = randf_range(LEAP_EVERY.x, LEAP_EVERY.y)
 		if _leap == null:
 			_start_leap(view)
+	if _leap != null and not _leap_splashed and _leap.u >= FishLeap.AIR:
+		_leap_splashed = true                      # back into the water: the splash
+		var name: String = SPLASH_DB.keys()[randi() % SPLASH_DB.size()]
+		_splash.stream = SoundBank.get_stream(name)
+		_splash.volume_db = SPLASH_DB[name] + randf_range(-3.0, 0.0)
+		_splash.pitch_scale = randf_range(0.92, 1.08)
+		_splash.position = _leap.position + Vector2(_leap.dir * FishLeap.SPAN, 0)
+		_splash.play()
 	if _leap != null and _leap.done():
 		_leap.queue_free()
 		_leap = null
@@ -157,6 +181,24 @@ func step(delta: float, view: Rect2) -> void:
 		if f.brain.state == FishBrain.GONE or not view.grow(DROP).has_point(f.position):
 			_fish.erase(f)
 			f.queue_free()
+	_quack_in -= delta
+	if _quack_in <= 0.0:
+		_quack_in = randf_range(9.0, 24.0)
+		var swimming := _ducks.filter(func(x): return x.brain.state != DuckBrain.FLY and view.grow(20.0).has_point(x.position))
+		if not swimming.is_empty():
+			if swimming.size() >= 2 and randf() < 0.35:   # the group together now and then
+				_voice.stream = SoundBank.get_stream("enten")
+				_voice.volume_db = DUCKS_DB + randf_range(-3.0, 0.0)
+				var mid := Vector2.ZERO
+				for x in swimming:
+					mid += x.position
+				_voice.position = mid / swimming.size()
+			else:
+				_voice.stream = SoundBank.get_stream("ente_%02d" % (randi() % 4))
+				_voice.volume_db = DUCK_DB + randf_range(-3.0, 0.0)
+				_voice.position = swimming[randi() % swimming.size()].position
+			_voice.pitch_scale = randf_range(0.94, 1.06)
+			_voice.play()
 	for d in _ducks.duplicate():
 		var was: int = d.brain.state
 		d.live(delta, at, view)

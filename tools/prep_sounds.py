@@ -151,6 +151,69 @@ def rain():
         save(name, x, 0.1)
 
 
+def shots(src, prefix, n, length, rms=0.1, lo=90.0):
+    """The n loudest separate moments of a take as single one-shots (a creak, a chatter, a quack)."""
+    from scipy import signal
+    x = load(src)
+    x = signal.sosfiltfilt(signal.butter(4, lo, 'high', fs=SR, output='sos'), x)
+    e = np.convolve(x ** 2, np.ones(int(0.05 * SR)) / int(0.05 * SR), 'same')
+    picks, taken = [], np.zeros(len(x), bool)
+    for i in np.argsort(e)[::-1]:
+        if len(picks) == n:
+            break
+        if taken[i]:
+            continue
+        a = max(0, i - int(0.25 * length * SR))
+        b = min(len(x), a + int(length * SR))
+        picks.append((a, b))
+        taken[max(0, a - int(length * SR)):b + int(length * SR)] = True
+    for k, (a, b) in enumerate(sorted(picks)):
+        c = x[a:b].copy()
+        f = int(0.01 * SR)
+        c[:f] *= np.linspace(0, 1, f)
+        g = int(0.25 * len(c))
+        c[-g:] *= np.linspace(1, 0, g) ** 2
+        save(f'{prefix}_{k:02d}', c, rms)
+
+
+def last():
+    """The last missing sounds (Philip's picks, 2026-11-15): north waterfall Nox 'Cascata do Limbo', wind in the
+    firs Nox 'Wind Forest' turning into the snow storm #792516 higher up, creaking wood #414092 at the
+    woodcutter's hut, the old mill Nox Sao Miguel 02, red squirrel #111393 philberts, fish splash #507091
+    paulprit / #425140 gis_sweden, a duck #188376 calodas, ducks together #716942 ghosttropic (all CC0)."""
+    sm = [d for d in os.listdir(NOX) if d.endswith('Miguel_Flows_NOX_SOUND')][0]
+    N, T = os.path.join(FS, 'norden'), os.path.join(FS, 'tiere')
+    loop(f'{NOX}/{sm}/Ambiance_Waterfall_Moihnos_Cascata_do_Limbo_Loop_Stereo.wav', 'wasserfall', 0, 30, 0.1)
+    loop(first('Nature_Essentials_NOX_SOUND/Ambiance_Wind_Forest_Loop_Stereo.wav'), 'tannenwind', 0, 28, 0.08)
+    loop(f'{N}/792516.ogg', 'schneesturm', 20, 40, 0.08)
+    mill = sorted(glob.glob(f'{NOX}/{sm}/Ambiance_Old_Mill_*_02.wav'))[0]
+    loop(mill, 'muehle', 2, 30, 0.1)
+    for k, (ss, t) in enumerate([(43.2, 3), (68.7, 3), (90.2, 3), (154.7, 3)]):
+        c = load(f'{N}/414092.ogg', ss, t)
+        f = int(0.3 * SR)
+        c[-f:] *= np.linspace(1, 0, f)
+        save(f'knarzen_{k:02d}', c, 0.1)
+    shots(f'{T}/111393.ogg', 'eichhorn', 4, 2.4, lo=300.0)
+    shots(f'{T}/507091.ogg', 'platsch_a', 1, 1.6)
+    shots(f'{T}/425140.ogg', 'platsch_b', 1, 1.6)
+    shots(f'{T}/188376.ogg', 'ente', 4, 1.2, lo=200.0)
+    x = load(f'{T}/716942.ogg')
+    cs = np.concatenate([[0], np.cumsum(x ** 2)])
+    L = 8 * SR
+    starts = np.arange(0, max(1, len(x) - L), SR // 4)
+    a = int(starts[np.argmax(cs[np.minimum(starts + L, len(x))] - cs[starts])])
+    c = x[a:a + L].copy()
+    f = int(0.5 * SR)
+    c[:f] *= np.linspace(0, 1, f)
+    c[-f:] *= np.linspace(1, 0, f)
+    save('enten', c, 0.1)
+
+
+if __name__ == '__main__' and sys.argv[1:] == ['last']:
+    os.makedirs(OUT, exist_ok=True)
+    last()
+    sys.exit(0)
+
 if __name__ == '__main__' and sys.argv[1:] == ['rain']:
     os.makedirs(OUT, exist_ok=True)
     rain()
