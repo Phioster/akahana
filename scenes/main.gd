@@ -289,7 +289,7 @@ func _on_travel(to: Vector2) -> void:
 	_cam_at = Vector2.INF
 	_last_pos = player.position
 	if _apply_memory_events(keeper.step(player.position, "", MemoryKeeper.DWELL)):   # a jump counts as a visit
-		_store()
+		save.save_to()                                 # the finds only; where he stands is saved on its own beat
 
 
 ## Hands first visits on: the name scroll for regions and places, the page and the bookmark for places.
@@ -419,7 +419,7 @@ func _process(delta: float) -> void:
 	if _mem_in <= 0.0 and not _going and _memories_allowed():
 		_mem_in = MEM_EVERY
 		if _apply_memory_events(keeper.step(player.position, _room_name(), MEM_EVERY)):
-			_store()
+			save.save_to()                             # the finds only; where he stands is saved on its own beat
 	var u: Array = trail.uniforms()
 	view_node.set_trail(u[0], u[1])
 	_canopy = move_toward(_canopy, CANOPY_WALK if player.is_walking() else CANOPY_REST, delta * (CANOPY_REST - CANOPY_WALK) / CANOPY_EASE)
