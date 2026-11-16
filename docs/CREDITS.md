@@ -60,3 +60,4 @@ Alles hier ist frei nutzbar. Die Namen stehen trotzdem hier, aus Dank.
 - Das Akahana-Thema: Komposition, Satz und alle Gegenden-Fassungen selbst (tools/gen_thema_midi.py)
 - Flügel: „Splendid Grand Piano“ (Steinway), Aufnahmen von AKAI, gemeinfrei (Public Domain); SFZ-Fassung von kinwie / sfzinstruments.github.io
 - Abgespielt mit sfizz (BSD-2-Clause) beim Erzeugen der Dateien
+- Skizzen der Erinnerungsseiten (assets/erinnerungen): nach Ausschnitten aus dem Spiel gezeichnet von Philip mit ChatGPT, die Mühle mit Higgsfield (GPT Image), danach eigener Buchfilter (Tinte auf Papier).

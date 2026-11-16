@@ -36,3 +36,54 @@ Entschieden von Philip, 2026-10-27: alles japanisch, angezeigt in japanischer Sc
 | 小橋 | Kobashi | kleine Brücke | über den alten Bach |
 
 Beim ersten Betreten eines Gebiets oder Orts erscheint der Name kurz auf einer Schriftrolle (Kanji und Umschrift).
+
+
+## Erinnerungsorte (abgenommen 2026-11-16)
+Gilt für Schriftrollen und Buchseiten (`core/memories.gd`). Bei Doppelungen entschieden: Das Dorf heißt 忘れ里
+Wasure-zato, das Gewächshaus 硝子室 Garasu-muro, die Hütte am See 湖畔の小屋 Kohan-no-koya (Ryōshi-goya bleibt die
+Fischerhütte im Westen).
+
+### Gebiete
+| Schlüssel | Japanisch | Umschrift | Bedeutung |
+|---|---|---|---|
+| mitte | 赤花の原 | Akahana-no-hara | Ebene der roten Blume |
+| kogarashi | 木枯らし | Kogarashi | Kalter Wind am Winteranfang |
+| norden | 雪峰峠 | Yukimine-tōge | Pass am Schneegipfel |
+| osten | 蛍森 | Hotarumori | Glühwürmchenwald |
+| sueden | 鏡湖 | Kagami-ko | Spiegelsee |
+| westen | 忘れ里 | Wasure-zato | Vergessenes Dorf |
+
+### Orte
+| Schlüssel | Japanisch | Umschrift | Seitentitel |
+|---|---|---|---|
+| lager | 焚き火 | Takibi | Lagerfeuer |
+| schrein | 赤花神社 | Akahana-jinja | Schrein der roten Blume |
+| ruine | 古宮 | Furumiya | Alter Schrein |
+| bachbruecke | 小橋 | Kobashi | Kleine Brücke |
+| gluehwuermchen | 蛍野 | Hotaru-no | Glühwürmchenfeld |
+| baeche | 細流 | Seseragi | Das Plätschern |
+| seesteg | 灯の桟橋 | Hi-no-sanbashi | Lichtsteg |
+| seehuette | 湖畔の小屋 | Kohan-no-koya | Hütte am Seeufer |
+| graeber | 苔の墓 | Koke-no-haka | Moosgräber |
+| steinbruecke | 石橋 | Ishibashi | Steinbrücke |
+| waldteich | 大樹の池 | Taiju-no-ike | Teich des großen Baums |
+| ritual | 祈りの場 | Inori-no-ba | Ort des Gebets |
+| jizo | 地蔵道 | Jizō-michi | Jizō-Weg |
+| felstor | 岩門 | Iwakado | Felstor |
+| holzfaeller | 木樵の小屋 | Kikori-no-koya | Holzfällerhütte |
+| hoehle | 氷の岩屋 | Kōri-no-iwaya | Eishöhle |
+| hoehle_innen | 氷の岩屋 | Kōri-no-iwaya | Eishöhle, innen |
+| schlucht | 雪谷 | Yukidani | Schneeschlucht |
+| aussicht | 見晴らし | Miharashi | Aussicht |
+| pass | 峠の地蔵 | Tōge-no-jizō | Jizō am Pass |
+| bergsee | 白滝 | Shirataki | Weißer Wasserfall |
+| einsiedelei | 雪の庵 | Yuki-no-iori | Klause im Schnee |
+| dorfplatz | 井戸端 | Idobata | Brunnenplatz |
+| gewaechshaus | 硝子室 | Garasu-muro | Glashaus |
+| gewaechshaus_innen | 硝子室 | Garasu-muro | Glashaus, innen |
+| dorfschrein | 里の社 | Sato-no-yashiro | Dorfschrein |
+| obstwiese | 果樹の原 | Kaju-no-hara | Obstwiese |
+| muehle | 水車小屋 | Suisha-goya | Wassermühle |
+| bambus | 竹藪 | Takeyabu | Bambushain |
+| fischer | 漁師小屋 | Ryōshi-goya | Fischerhütte |
+| teehaus | 水辺の茶屋 | Mizube-no-chaya | Teehaus am Wasser |
