@@ -1,5 +1,5 @@
 ## Builds the world from the generated assets, follows the wanderer, feeds the atmosphere and poppy
-## shaders, and wires in the journal (start, settings), sound, birds, wisps and the saved position.
+## shaders, and wires in the journal (start, settings, memories), sound, birds, wisps and the saved position.
 extends Node2D
 
 const MAX_LIGHTS := 16
@@ -54,6 +54,10 @@ var inside := false
 var _going := false                  # the screen is fading in or out of the cave
 var _fade: ColorRect
 const FADE := 0.4                    # s to black and back again
+const MEM_EVERY := 0.25              # s between the memory keeper's looks at where he is
+var keeper := MemoryKeeper.new()     # first visits: name scrolls and pages in the book
+var scroll: NameScroll
+var _mem_in := 0.0
 
 
 func _ready() -> void:
@@ -203,6 +207,15 @@ func _ready() -> void:
 	book.camera_mode_changed.connect(_on_camera_mode)
 	book.travel.connect(_on_travel)                       # testing aid (core/test_travel.gd)
 	book.rain_test.connect(weather.toggle_now)            # testing aid
+	book.memories = save.found.duplicate()
+	book.set_bookmark(save.bookmark)
+	book.bookmark_seen.connect(func(): save.bookmark = false; save.save_to())
+	keeper.save = save
+	var scroll_layer := CanvasLayer.new()                 # under the book (layer 20)
+	scroll_layer.layer = 19
+	add_child(scroll_layer)
+	scroll = NameScroll.new()
+	scroll_layer.add_child(scroll)
 	book.show_start(save.has_position)
 
 
@@ -275,6 +288,30 @@ func _on_travel(to: Vector2) -> void:
 	player.position = TestTravel.nearest_open(store, to)
 	_cam_at = Vector2.INF
 	_last_pos = player.position
+	if _apply_memory_events(keeper.step(player.position, "", MemoryKeeper.DWELL)):   # a jump counts as a visit
+		_store()
+
+
+## Hands first visits on: the name scroll for regions and places, the page and the bookmark for places.
+## Returns whether anything new was found (then the caller saves).
+func _apply_memory_events(events: Array[Dictionary]) -> bool:
+	var page := false
+	for e in events:
+		var d: Dictionary = Memories.region(e.key) if e.kind == "region" else Memories.place(e.key)
+		scroll.show_name(d.kanji, d.romaji)
+		if e.kind == "place":
+			book.memories.append(e.key)
+			book.set_bookmark(true)
+			page = true
+	if page:
+		book._play("seite_%d" % (randi() % 3))          # the soft rustle of a page laid in
+	return not events.is_empty()
+
+
+func _room_name() -> String:
+	if not inside:
+		return ""
+	return "cave" if room == cave else "glashaus"
 
 
 func _on_volumes(music: float, sounds: float) -> void:
@@ -371,6 +408,11 @@ func _process(delta: float) -> void:
 	trail.update(delta, player.position, moved, player.is_walking())
 	_last_pos = player.position
 	_cave_doors(moved)
+	_mem_in -= delta
+	if _mem_in <= 0.0 and not _going and book.mode != BookUI.Mode.START:
+		_mem_in = MEM_EVERY
+		if _apply_memory_events(keeper.step(player.position, _room_name(), MEM_EVERY)):
+			_store()
 	var u: Array = trail.uniforms()
 	view_node.set_trail(u[0], u[1])
 	_canopy = move_toward(_canopy, CANOPY_WALK if player.is_walking() else CANOPY_REST, delta * (CANOPY_REST - CANOPY_WALK) / CANOPY_EASE)

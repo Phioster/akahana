@@ -47,3 +47,22 @@ func test_new_place_sets_the_bookmark() -> void:
 	k.save.bookmark = false
 	k.step(Vector2(500, 3288), "", 0.25)
 	assert_true(k.save.bookmark)
+
+
+func test_travel_to_the_mill_writes_the_page() -> void:
+	# main.gd hands the keeper's events on: scroll, book, bookmark (the game itself is too big to load here)
+	var m: Node2D = load("res://scenes/main.gd").new()
+	var tree := Engine.get_main_loop() as SceneTree
+	m.book = BookUI.new()
+	tree.root.add_child(m.book)
+	m.scroll = NameScroll.new()
+	m.keeper.save = m.save
+	m.book.mode = BookUI.Mode.CLOSED
+	m._apply_memory_events(m.keeper.step(Vector2(500, 3288), "", 2.0))
+	assert_true(m.save.found.has("muehle"))
+	assert_eq(m.book.memories, PackedStringArray(["muehle"]))
+	assert_true(m.book.has_bookmark(), "Lesezeichen am Buch")
+	assert_eq(m.scroll.showing(), Memories.region("westen").kanji, "erst das Gebiet")
+	m.book.queue_free()
+	m.scroll.free()
+	m.free()
