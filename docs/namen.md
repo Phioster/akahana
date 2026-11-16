@@ -57,7 +57,7 @@ Fischerhütte im Westen).
 | Schlüssel | Japanisch | Umschrift | Seitentitel |
 |---|---|---|---|
 | lager | 焚き火 | Takibi | Lagerfeuer |
-| schrein | 赤花神社 | Akahana-jinja | Schrein der roten Blume |
+| schrein | 赤花神社 | Akahana-jinja | Schrein im Mohn |
 | ruine | 古宮 | Furumiya | Alter Schrein |
 | bachbruecke | 小橋 | Kobashi | Kleine Brücke |
 | gluehwuermchen | 蛍野 | Hotaru-no | Glühwürmchenfeld |
@@ -66,7 +66,7 @@ Fischerhütte im Westen).
 | seehuette | 湖畔の小屋 | Kohan-no-koya | Hütte am Seeufer |
 | graeber | 苔の墓 | Koke-no-haka | Moosgräber |
 | steinbruecke | 石橋 | Ishibashi | Steinbrücke |
-| waldteich | 大樹の池 | Taiju-no-ike | Teich des großen Baums |
+| waldteich | 大樹の池 | Taiju-no-ike | Waldteich |
 | ritual | 祈りの場 | Inori-no-ba | Ort des Gebets |
 | jizo | 地蔵道 | Jizō-michi | Jizō-Weg |
 | felstor | 岩門 | Iwakado | Felstor |

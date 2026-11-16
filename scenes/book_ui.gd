@@ -9,8 +9,9 @@ signal camera_mode_changed(on: bool)
 signal volumes_changed(music: float, sounds: float)
 signal travel(to: Vector2)              # testing aid only (core/test_travel.gd)
 signal rain_test                        # testing aid only: a shower now, or let it pass
+signal bookmark_seen                    # the book was opened while the bookmark hung out
 
-enum Mode { START, MAIN, SETTINGS, CLOSED, CAMERA, TRAVEL }
+enum Mode { START, MAIN, SETTINGS, CLOSED, CAMERA, TRAVEL, MEMORIES }
 
 const TITLE := "Akahana"                  # the world and the game (docs/namen.md); Poppyveil is the subtitle
 const GRAPHITE := Color(58 / 255.0, 54 / 255.0, 54 / 255.0)
@@ -24,6 +25,7 @@ var mode := Mode.START
 var has_save := false
 var music := 1.0
 var sounds := 1.0
+var memories := PackedStringArray()   # the pages found, in the order found (Memories)
 
 var _root: Control
 var _dim: ColorRect
@@ -36,6 +38,9 @@ var _sfx: AudioStreamPlayer
 var _confirm_restart := false
 var _in_game := false               # opened from the game (not from the start screen)
 var _travel_page := 0
+var _mem_page := 0
+var _bookmark := false
+var _mark: TextureRect                # the ribbon hanging out of the book button (tools/gen_bookmark.py)
 var _turn: ColorRect                # the page turn over the page (shaders/page_turn.gdshader)
 var _turn_mat: ShaderMaterial
 var _turning := false
@@ -88,6 +93,9 @@ void fragment() {
 	bs.name = "KnopfSchatten"
 	_root.add_child(bs)
 	_root.move_child(bs, _root.get_child_count() - 2)
+	_mark = _image("buch_lesezeichen")
+	_mark.visible = false
+	_root.add_child(_mark)
 	_hint = _label("", 8, CHALK, false)
 	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_root.add_child(_hint)
@@ -179,6 +187,7 @@ func _layout() -> void:
 	_button.position = (v - bs - Vector2(7, 9)).round()
 	var shadow: TextureRect = _root.get_node("KnopfSchatten")
 	shadow.position = _button.position + Vector2(-7, -5)
+	_mark.position = _button.position
 	_hint.position = Vector2(0, v.y - 30)
 	_hint.size = Vector2(v.x, 12)
 
@@ -255,6 +264,8 @@ func _show_main() -> void:
 		y = _entry(2, "weiterlaufen" if has_save else "loslaufen", y, func(): _start(false))
 		if has_save:
 			y = _entry(3, "von vorn", y, _restart_tapped)
+	if _in_game and not memories.is_empty():
+		y = _entry(-1, "Erinnerungen", y, func(): _mem_page = 0; _turn_to(Mode.MEMORIES))
 	y = _entry(-1, "Einstellungen", y, func(): _turn_to(Mode.SETTINGS))
 	if _in_game and travel_offered():                      # testing aid, under the settings (no room there)
 		y = _entry(-1, "Reisen (Test)", y, func(): _travel_page = 0; _turn_to(Mode.TRAVEL))
@@ -298,6 +309,36 @@ func _show_travel() -> void:
 				_text_right() - w)
 
 
+## A memory page: the place found (oldest first); "weiter" turns to the next and from the last back to the first.
+func _show_memories() -> void:
+	_clear()
+	if memories.is_empty():
+		return
+	_mem_page = clampi(_mem_page, 0, memories.size() - 1)
+	MemoryPage.build(_content, memories[_mem_page])
+	var probe := _label("zurück", 16, GRAPHITE)
+	var bw := probe.get_minimum_size().x + 13 + 8
+	probe.free()
+	_entry(3, "zurück", 184, func(): _turn_to(Mode.MAIN), 0.0, bw)
+	if memories.size() > 1:
+		var on := "weiter" if _mem_page < memories.size() - 1 else "erste Seite"
+		probe = _label(on, 16, GRAPHITE)
+		var w := probe.get_minimum_size().x
+		probe.free()
+		_entry(-1, on, 184, func(): _mem_page = (_mem_page + 1) % memories.size(); _turn_to(Mode.MEMORIES),
+				_text_right() - w)
+
+
+## A new page lies in the book: the ribbon hangs out of the closed book until it is opened.
+func set_bookmark(on: bool) -> void:
+	_bookmark = on
+	_mark.visible = _bookmark and mode == Mode.CLOSED
+
+
+func has_bookmark() -> bool:
+	return _bookmark
+
+
 func _show_settings() -> void:
 	_clear()
 	var y := _heading("Einstellungen", 0)
@@ -327,6 +368,9 @@ func show_start(save_exists: bool) -> void:
 
 func open_in_game() -> void:
 	_in_game = true
+	if _bookmark:
+		_bookmark = false
+		bookmark_seen.emit()
 	Ducker.duck()
 	_play("seite_%d" % (randi() % 3))
 	mode = Mode.MAIN
@@ -349,6 +393,8 @@ func back() -> bool:
 		Mode.SETTINGS:
 			_turn_to(Mode.MAIN)
 		Mode.TRAVEL:
+			_turn_to(Mode.MAIN)
+		Mode.MEMORIES:
 			_turn_to(Mode.MAIN)
 		Mode.MAIN:
 			if _in_game:
@@ -451,6 +497,8 @@ func _depth(m: int) -> int:
 			return 1
 		Mode.TRAVEL:
 			return 1 + _travel_page
+		Mode.MEMORIES:
+			return 1 + _mem_page
 	return 0
 
 
@@ -491,16 +539,17 @@ func _slide_in(n: Control) -> void:
 
 
 func _apply_mode() -> void:
-	var book_open := mode in [Mode.START, Mode.MAIN, Mode.SETTINGS, Mode.TRAVEL]
+	var book_open := mode in [Mode.START, Mode.MAIN, Mode.SETTINGS, Mode.TRAVEL, Mode.MEMORIES]
 	_dim.visible = book_open
 	_dim.mouse_filter = Control.MOUSE_FILTER_STOP if book_open else Control.MOUSE_FILTER_IGNORE
 	_cover.visible = mode == Mode.START
-	_page.visible = mode in [Mode.MAIN, Mode.SETTINGS, Mode.TRAVEL]
+	_page.visible = mode in [Mode.MAIN, Mode.SETTINGS, Mode.TRAVEL, Mode.MEMORIES]
 	if not _page.visible or mode == Mode.MAIN and not _turning:
 		_sheets = 0                                  # closed or back at the start: nothing lies turned
 	_turn.visible = _page.visible and (_turning or _sheets > 0)
 	_button.visible = mode == Mode.CLOSED
 	_root.get_node("KnopfSchatten").visible = mode == Mode.CLOSED
+	_mark.visible = _bookmark and mode == Mode.CLOSED
 	_hint.visible = mode == Mode.CAMERA
 	if mode == Mode.MAIN:
 		_show_main()
@@ -508,10 +557,12 @@ func _apply_mode() -> void:
 		_show_settings()
 	elif mode == Mode.TRAVEL:
 		_show_travel()
+	elif mode == Mode.MEMORIES:
+		_show_memories()
 
 
 func is_blocking() -> bool:
-	return mode in [Mode.START, Mode.MAIN, Mode.SETTINGS, Mode.TRAVEL]
+	return mode in [Mode.START, Mode.MAIN, Mode.SETTINGS, Mode.TRAVEL, Mode.MEMORIES]
 
 
 ## Paper sounds stay small: the book is a quiet thing in the hand, not an event.

@@ -49,6 +49,13 @@ func test_texts_fit_three_lines() -> void:
 			assert_true(w <= Memories.TEXT_W, "%s: '%s' %d px" % [p.key, l, w])
 
 
+func test_titles_fit_one_line_with_their_stroke() -> void:
+	var f := PixelFont.hand()
+	for p in Memories.PLACES:
+		var w := f.get_string_size(p.title, HORIZONTAL_ALIGNMENT_LEFT, -1, PixelFont.HAND_SIZE).x
+		assert_true(w + 6.0 <= Memories.TEXT_W, "%s: Titel %d px" % [p.key, w])
+
+
 func test_every_kanji_is_in_the_font() -> void:
 	var f := PixelFont.kanji()
 	var all := ""
