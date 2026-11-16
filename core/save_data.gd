@@ -1,4 +1,5 @@
-## What survives closing the game: where the wanderer stood and the two volume sliders.
+## What survives closing the game: where the wanderer stood, the two volume sliders and the memories
+## (pages found in the order found, regions whose name scroll was shown, the bookmark on the book).
 class_name SaveData
 extends RefCounted
 
@@ -10,6 +11,9 @@ var world_h := 3600                  # the world's height when the position was 
 var world_w := 1800                  # ... and its width (before the west, 0.18: 1800)
 var music := 1.0
 var sounds := 1.0
+var found := PackedStringArray()
+var regions_seen := PackedStringArray()
+var bookmark := false
 
 
 static func load_from(path: String = DEFAULT_PATH) -> SaveData:
@@ -24,6 +28,9 @@ static func load_from(path: String = DEFAULT_PATH) -> SaveData:
 		s.world_w = int(c.get_value("weg", "weltbreite", 1800))
 	s.music = float(c.get_value("ton", "musik", 1.0))
 	s.sounds = float(c.get_value("ton", "geraeusche", 1.0))
+	s.found = PackedStringArray(c.get_value("erinnerungen", "orte", PackedStringArray()))
+	s.regions_seen = PackedStringArray(c.get_value("erinnerungen", "gebiete", PackedStringArray()))
+	s.bookmark = bool(c.get_value("erinnerungen", "lesezeichen", false))
 	return s
 
 
@@ -35,6 +42,9 @@ func save_to(path: String = DEFAULT_PATH) -> void:
 		c.set_value("weg", "weltbreite", world_w)
 	c.set_value("ton", "musik", music)
 	c.set_value("ton", "geraeusche", sounds)
+	c.set_value("erinnerungen", "orte", found)
+	c.set_value("erinnerungen", "gebiete", regions_seen)
+	c.set_value("erinnerungen", "lesezeichen", bookmark)
 	c.save(path)
 
 

@@ -60,3 +60,24 @@ func test_old_position_moves_right_when_the_west_grew_on_the_left() -> void:
 	var again := SaveData.load_from(PATH)
 	again.fit_to(4800, 2700)
 	assert_eq(again.position, Vector2(1143, 2270), "nur einmal verschieben")
+
+func test_memories_survive_a_round_trip() -> void:
+	var s := SaveData.new()
+	s.found = PackedStringArray(["lager", "muehle"])
+	s.regions_seen = PackedStringArray(["mitte"])
+	s.bookmark = true
+	s.save_to(PATH)
+	var r := SaveData.load_from(PATH)
+	assert_eq(r.found, PackedStringArray(["lager", "muehle"]), "Fundreihenfolge")
+	assert_eq(r.regions_seen, PackedStringArray(["mitte"]))
+	assert_true(r.bookmark)
+
+func test_old_save_has_an_empty_book() -> void:
+	var c := ConfigFile.new()
+	c.set_value("weg", "position", Vector2(1143, 2270))
+	c.set_value("ton", "musik", 0.5)
+	c.save(PATH)
+	var r := SaveData.load_from(PATH)
+	assert_eq(r.found.size(), 0)
+	assert_eq(r.regions_seen.size(), 0)
+	assert_false(r.bookmark)
