@@ -308,6 +308,12 @@ func _apply_memory_events(events: Array[Dictionary]) -> bool:
 	return not events.is_empty()
 
 
+## Only while he is out walking with the book shut: not on the start screen, not with the book open,
+## not in camera mode (a scroll there would roll unseen under the book or into the picture).
+func _memories_allowed() -> bool:
+	return book.mode == BookUI.Mode.CLOSED and not _camera_mode
+
+
 func _room_name() -> String:
 	if not inside:
 		return ""
@@ -409,7 +415,8 @@ func _process(delta: float) -> void:
 	_last_pos = player.position
 	_cave_doors(moved)
 	_mem_in -= delta
-	if _mem_in <= 0.0 and not _going and book.mode != BookUI.Mode.START:
+	scroll.paused = not _memories_allowed()
+	if _mem_in <= 0.0 and not _going and _memories_allowed():
 		_mem_in = MEM_EVERY
 		if _apply_memory_events(keeper.step(player.position, _room_name(), MEM_EVERY)):
 			_store()

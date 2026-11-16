@@ -34,3 +34,15 @@ func test_scroll_stays_on_screen() -> void:
 			wide = p.romaji
 	r = NameScroll.bounds("火", wide)
 	assert_true(Rect2(0, 0, 180, 400).encloses(r), "Schild " + str(r))
+
+
+func test_a_paused_scroll_waits_and_hides() -> void:
+	var s := NameScroll.new()
+	s.show_name("焚き火", "Takibi")
+	s.paused = true
+	s._process(10.0)
+	assert_eq(s.showing(), "焚き火", "läuft nicht ab")
+	assert_false(s.visible, "unsichtbar solange pausiert")
+	s.paused = false
+	assert_true(s.visible)
+	s.free()

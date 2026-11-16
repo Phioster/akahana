@@ -498,7 +498,7 @@ func _depth(m: int) -> int:
 		Mode.TRAVEL:
 			return 1 + _travel_page
 		Mode.MEMORIES:
-			return 1 + _mem_page
+			return 1 + mini(_mem_page, 7)          # the page-turn shader draws 8 sheets lying back (MAX_STACK)
 	return 0
 
 

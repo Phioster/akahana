@@ -18,6 +18,10 @@ const INK := Color(58 / 255.0, 54 / 255.0, 54 / 255.0)
 const SHADOW := Color(10 / 255.0, 6 / 255.0, 6 / 255.0, 0.35)
 
 var _queue: Array = []               # [kanji, romaji]
+var paused := false:                 # the book is open or the camera looks: wait unseen, go on after
+	set(v):
+		paused = v
+		visible = not v
 var _t := 0.0
 
 
@@ -38,7 +42,7 @@ func showing() -> String:
 
 
 func _process(delta: float) -> void:
-	if not _queue.is_empty():
+	if not _queue.is_empty() and not paused:
 		advance(delta)
 
 

@@ -24,6 +24,11 @@ func step(p: Vector2, room: String, dt: float) -> Array[Dictionary]:
 			events.append({"kind": "region", "key": r})
 	var key := Memories.place_in_room(room) if room != "" else Memories.place_at(p)
 	if key != "" and not save.found.has(key):
+		if room == "":                       # a place in a region not yet named brings the region first
+			var r := Memories.region_at(p)
+			if not save.regions_seen.has(r):
+				save.regions_seen.append(r)
+				events.append({"kind": "region", "key": r})
 		save.found.append(key)
 		save.bookmark = true
 		events.append({"kind": "place", "key": key})

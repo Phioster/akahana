@@ -66,3 +66,26 @@ func test_travel_to_the_mill_writes_the_page() -> void:
 	m.book.queue_free()
 	m.scroll.free()
 	m.free()
+
+
+func test_start_at_the_camp_brings_the_region_first() -> void:
+	# the game ticks every 0.25 s: a place in a region not yet seen brings that region's scroll first
+	var k := _keeper()
+	var ev := k.step(Vector2(1143, 2270), "", 0.25)
+	assert_eq(ev, [{"kind": "region", "key": "mitte"}, {"kind": "place", "key": "lager"}])
+
+
+func test_memories_wait_while_the_book_is_open_or_the_camera_looks() -> void:
+	var m: Node2D = load("res://scenes/main.gd").new()
+	var tree := Engine.get_main_loop() as SceneTree
+	m.book = BookUI.new()
+	tree.root.add_child(m.book)
+	m.book.mode = BookUI.Mode.CLOSED
+	assert_true(m._memories_allowed(), "Buch zu: ja")
+	m.book.mode = BookUI.Mode.MAIN
+	assert_false(m._memories_allowed(), "Buch offen: nein")
+	m.book.mode = BookUI.Mode.CLOSED
+	m._camera_mode = true
+	assert_false(m._memories_allowed(), "Kameramodus: nein")
+	m.book.queue_free()
+	m.free()
