@@ -105,3 +105,10 @@ func test_the_turned_stack_stays_within_the_drawn_sheets() -> void:
 	b._mem_page = 20
 	assert_true(b._depth(BookUI.Mode.MEMORIES) <= 8, str(b._depth(BookUI.Mode.MEMORIES)))
 	b.queue_free()
+
+
+func test_the_turning_page_keeps_the_phones_resolution() -> void:
+	# the old page was read once per art pixel, so the fine sketch turned to noise while turning (Philip 0.23.1)
+	var code: String = load("res://shaders/page_turn.gdshader").code
+	assert_false(code.contains("texture(old_tex, (q + 0.5)"), "old page read on the art pixel grid")
+	assert_true(code.contains("texture(old_tex, fine"), "old page read at the fragment")

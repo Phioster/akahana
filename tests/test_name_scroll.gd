@@ -46,3 +46,11 @@ func test_a_paused_scroll_waits_and_hides() -> void:
 	s.paused = false
 	assert_true(s.visible)
 	s.free()
+
+
+func test_the_tag_holds_the_letters_hanging_below_the_line() -> void:
+	# "Tōge": the g's tail sat on the tag's edge (Philip 0.23.1)
+	var hf := PixelFont.hand()
+	var baseline := NameScroll.TAG_BASELINE
+	var tag := NameScroll._tag("Tōge")
+	assert_true(tag.size.y >= baseline + hf.get_descent(PixelFont.HAND_SIZE) + 1, "tag %d high" % tag.size.y)

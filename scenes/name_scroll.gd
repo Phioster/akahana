@@ -10,6 +10,7 @@ const ROLL := 0.4
 const AT := Vector2(14, 12)          # left edge of the paper, its top (the cord peaks 10 px higher)
 const W := 24                        # paper width
 const STEP := 17                     # per kanji
+const TAG_BASELINE := 12.0     # the romaji's line on the tag; the tag reaches below it for g, y, j
 const PAPER := Color(233 / 255.0, 224 / 255.0, 203 / 255.0)
 const WOOD := Color(92 / 255.0, 62 / 255.0, 40 / 255.0)
 const CORD := Color(70 / 255.0, 50 / 255.0, 36 / 255.0)
@@ -64,7 +65,8 @@ static func _height(kanji: String) -> int:
 static func _tag(romaji: String) -> Rect2:
 	var uw := PixelFont.hand().get_string_size(romaji, HORIZONTAL_ALIGNMENT_LEFT, -1, PixelFont.HAND_SIZE).x
 	var tw := int(uw) + 8
-	return Rect2(maxf(2.0, AT.x + (W - tw) / 2.0), 0, tw, 13)
+	var hf := PixelFont.hand()
+	return Rect2(maxf(2.0, AT.x + (W - tw) / 2.0), 0, tw, TAG_BASELINE + ceilf(hf.get_descent(PixelFont.HAND_SIZE)) + 1)
 
 
 ## Everything the scroll covers when fully open: rod and cord on top to the tag below.
@@ -111,5 +113,5 @@ func _draw() -> void:
 		draw_rect(Rect2(tag.position + Vector2(2, 2), tag.size), SHADOW)
 		draw_rect(tag, PAPER)
 		var hf := PixelFont.hand()
-		draw_string(hf, Vector2(tag.position.x + 4, tag.position.y - 3 + hf.get_ascent(PixelFont.HAND_SIZE)), romaji,
+		draw_string(hf, Vector2(tag.position.x + 4, tag.position.y + TAG_BASELINE), romaji,
 			HORIZONTAL_ALIGNMENT_LEFT, -1, PixelFont.HAND_SIZE, INK)

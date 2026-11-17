@@ -12,6 +12,15 @@ WIDTH = 800
 COLOURS = 48          # ink on paper needs few tones; a palette keeps each page well under 600 kB
 
 
+def whiten(im: Image.Image) -> Image.Image:
+    """Paper to white: the page is drawn multiplied onto the book, a tinted paper would darken it into a box."""
+    paper = max(im.getcolors(1 << 24), key=lambda c: c[0])[1]
+    lut = []
+    for ch in paper:
+        lut += [min(255, round(v * 255 / max(ch, 1))) for v in range(256)]
+    return im.point(lut)
+
+
 def prep(src: str) -> list:
     os.makedirs(OUT, exist_ok=True)
     done = []
@@ -19,6 +28,7 @@ def prep(src: str) -> list:
         if not f.endswith('.png'):
             continue
         im = Image.open(os.path.join(src, f)).convert('RGB')
+        im = whiten(im)
         im = im.resize((WIDTH, round(im.height * WIDTH / im.width)), Image.LANCZOS)
         im = im.quantize(COLOURS, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
         im.save(os.path.join(OUT, f), optimize=True)

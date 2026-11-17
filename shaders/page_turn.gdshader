@@ -126,7 +126,8 @@ void fragment() {
 		// which part is the picture: the old page not yet lifted (forward), the covered page lifted (backward)
 		bool pic = has_old && paper && (forward ? !lifted : lifted);
 		if (pic) {
-			vec3 o = texture(old_tex, (q + 0.5) / vec2(W, H)).rgb;
+			vec2 fine = (UV * rect - margin) / vec2(W, H);   // at the phone's pixels, not the art grid: sketches stay fine
+			vec3 o = texture(old_tex, fine).rgb;
 			COLOR = vec4(o * dark, 1.0);
 		} else if (on_page && dark < 1.0) {
 			COLOR = vec4(0.0, 0.0, 0.0, 1.0 - dark);
