@@ -87,18 +87,7 @@ def south():
     sud = os.path.join(FS, 'sueden')
     for f in sorted(glob.glob(os.path.join(sud, 'hochgras', 'rascheln_*.ogg'))):   # cut from #559082 (CC0)
         shutil.copy(f, os.path.join(OUT, os.path.basename(f)))
-    # fireflies: BBC "Several hovering" (NHU05086119, BBC licence: personal use only - replace before any
-    # release) with the moth's flutter (#693457, CC0) far below it
-    hum = load(os.path.join(SRC, 'bbc', 'NHU05086119.mp3'), 2, 22)
-    fl = load(os.path.join(sud, '693457.ogg'), 0, 22)
-    n = min(len(hum), len(fl))
-    mix = hum[:n] / (np.sqrt(np.mean(hum[:n] ** 2)) + 1e-9) + 0.2 * fl[:n] / (np.sqrt(np.mean(fl[:n] ** 2)) + 1e-9)
-    f = int(2.0 * SR)
-    m = n - f
-    out = mix[:m].copy()
-    ramp = np.linspace(0, 1, f)
-    out[:f] = mix[:f] * ramp + mix[m:m + f] * (1 - ramp)
-    save('gluehwuermchen', out, 0.08)
+    firefly_hum()
     # wading at the lake rim: single splashes cut from #861369 (CC0), chosen over #612964
     from scipy import signal as sg
     x = load(f'{FS}/861369.ogg')
@@ -117,6 +106,30 @@ def south():
         st = sg.sosfiltfilt(sg.butter(4, 200, 'high', fs=SR, output='sos'), st)
         save(f'schritt_waten_{k:02d}', st, 0.09)
         k += 1
+
+
+def firefly_hum():
+    """The fireflies' hum (Philip 2026-11-20, replaces the BBC recording): two CC0 swarms, #528060 csaszi
+    "Flies swarm" and #709277 professionalaudioprofessional "Swarm of insects" (10 s, laid end to end),
+    equally loud, with the moth's flutter (#693457, CC0) below."""
+    sud = os.path.join(FS, 'sueden')
+    rms = lambda x: np.sqrt(np.mean(x ** 2)) + 1e-9
+    a = load(os.path.join(sud, 'summen', '528060.ogg'), 5, 22)
+    b0 = load(os.path.join(sud, 'summen', '709277.ogg'), 0, 10)
+    f = int(1.5 * SR)
+    b = b0.copy()
+    while len(b) < len(a):
+        r = np.linspace(0, 1, f)
+        b = np.concatenate([b[:-f], b[-f:] * (1 - r) + b0[:f] * r, b0[f:]])
+    fl = load(os.path.join(sud, '693457.ogg'), 0, 22)
+    n = min(len(a), len(b), len(fl))
+    mix = a[:n] / rms(a[:n]) + b[:n] / rms(b[:n]) + 0.28 * fl[:n] / rms(fl[:n])
+    f = int(2.0 * SR)
+    m = n - f
+    out = mix[:m].copy()
+    ramp = np.linspace(0, 1, f)
+    out[:f] = mix[:f] * ramp + mix[m:m + f] * (1 - ramp)
+    save('gluehwuermchen', out, 0.08)
 
 
 def east():
@@ -226,6 +239,10 @@ if __name__ == '__main__' and sys.argv[1:] == ['east']:
 
 if __name__ == '__main__' and sys.argv[1:] == ['south']:
     south()
+    sys.exit(0)
+
+if __name__ == '__main__' and sys.argv[1:] == ['summen']:
+    firefly_hum()
     sys.exit(0)
 
 if __name__ == '__main__':

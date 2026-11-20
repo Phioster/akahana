@@ -37,7 +37,7 @@ Alles hier ist frei nutzbar. Die Namen stehen trotzdem hier, aus Dank.
   - #559082 „Foley_Movement_High_Grass_Mono.wav“ von Nox_Sound
   - #693457 „moth1.wav“ von HYPERBLOODHELL
   - #861369 „Splashing Footsteps Shallow Water“ von ChristopherJngs (Waten)
-- Glühwürmchen-Summen: BBC Sound Effects NHU05086119 „Several hovering“ — BBC-Lizenz nur für private Nutzung; vor einer Veröffentlichung ersetzen
+- Glühwürmchen-Summen: Freesound #528060 „Flies swarm“ von csaszi und #709277 „Swarm of insects“ von professionalaudioprofessional (beide CC0 1.0), dazu #693457 (siehe oben)
 
 
 ## Figur
