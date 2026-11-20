@@ -1,4 +1,5 @@
 name: Shader-Pruefung
+# (neu eingelesen nach dem Neuanlegen des Repos, 2026-11-20)
 
 # Uebersetzt den Spiegelbild-Shader, an dem Safari auf iOS scheiterte, in Varianten im iOS-Simulator.
 on:

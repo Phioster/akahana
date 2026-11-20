@@ -1,4 +1,5 @@
 name: Web-Test
+# (neu eingelesen nach dem Neuanlegen des Repos, 2026-11-20)
 
 # Baut die Browserfassung und prueft sie in Safaris Engine (WebKit), im iOS-Simulator (iPhone, iPad) und in
 # Chromium. Nur von Hand gestartet. Die Pruefschritte brechen nie ab (keine Fehlermails): das Ergebnis

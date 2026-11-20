@@ -1,4 +1,5 @@
 name: APK bauen
+# (neu eingelesen nach dem Neuanlegen des Repos, 2026-11-20)
 
 on:
   workflow_dispatch:
