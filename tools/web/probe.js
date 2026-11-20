@@ -4,6 +4,8 @@
   if (!location.search.includes('probe')) return;
   const dev = new URLSearchParams(location.search).get('dev') || 'unbekannt';
   const t0 = performance.now();
+  const dpr = new URLSearchParams(location.search).get('dpr');   // test: draw at fewer pixels than the screen has
+  if (dpr) Object.defineProperty(window, 'devicePixelRatio', { get: () => Number(dpr) });
   function send(o) {
     o.dev = dev;
     o.t = Math.round(performance.now() - t0);
@@ -14,6 +16,10 @@
     console[k] = function (...a) { send({ type: k, msg: a.map(String).join(' ').slice(0, 2000) }); f(...a); };
   }
   addEventListener('error', e => send({ type: 'pageerror', msg: String(e.message) + ' @' + e.filename + ':' + e.lineno }));
+  // Safari takes the GPU away from a page that uses too much: every shader after that fails
+  document.addEventListener('webglcontextlost', e => send({ type: 'contextlost', msg: String(e.statusMessage || '') }), true);
+  document.addEventListener('webglcontextrestored', () => send({ type: 'contextrestored' }), true);
+  addEventListener('pagehide', () => send({ type: 'pagehide' }));
   addEventListener('unhandledrejection', e => send({ type: 'rejection', msg: String(e.reason) }));
 
   let mem = null;                       // the engine's memory: Safari kills a tab that grows too big

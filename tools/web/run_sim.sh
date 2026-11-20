@@ -20,12 +20,13 @@ done_in() { [ -f "$LOGS/$1.jsonl" ] && grep -q 'kind\\": \\"done\|kind\\":\\"don
 for kind in iPhone iPad; do
 	read -r UDID NAME RT <<< "$(pick "$kind")"
 	[ -z "${UDID:-}" ] && { echo "kein $kind-Simulator"; continue; }
-	DEV="sim-$NAME"
-	echo "$DEV ($RT)"
 	xcrun simctl boot "$UDID" 2>/dev/null
 	xcrun simctl bootstatus "$UDID" -b > /dev/null
 	sleep 20                                  # Safari's first start settles
-	xcrun simctl openurl "$UDID" "$BASE/index.html?probe&dev=$DEV"
+	for DPR in "" 1; do                       # as the device draws, then at one pixel per point
+	DEV="sim-$NAME${DPR:+-dpr$DPR}"
+	echo "$DEV ($RT)"
+	xcrun simctl openurl "$UDID" "$BASE/index.html?probe&dev=$DEV${DPR:+&dpr=$DPR}"
 	n=0; start=$SECONDS
 	while (( SECONDS - start < 420 )) && ! done_in "$DEV"; do
 		sleep 15
@@ -33,6 +34,8 @@ for kind in iPhone iPad; do
 	done
 	xcrun simctl io "$UDID" screenshot "$SHOTS/${DEV}_ende.png" > /dev/null 2>&1
 	if done_in "$DEV"; then echo "$DEV fertig in $((SECONDS - start)) s"; else echo "$DEV NICHT fertig"; fi
+	xcrun simctl terminate "$UDID" com.apple.mobilesafari 2>/dev/null; sleep 3
+	done
 	xcrun simctl shutdown "$UDID"
 done
 exit 0

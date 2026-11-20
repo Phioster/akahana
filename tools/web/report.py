@@ -35,6 +35,9 @@ def device(path):
         out.append(f"- Start bis Spiel läuft: {boot['t'] / 1000:.1f} s")
     done = any(p.get('kind') == 'done' for p in probes)
     out.append(f"- Rundgang: {'durch' if done else 'NICHT zu Ende'}")
+    lost = [r for r in rows if r.get('type') == 'contextlost']
+    if lost:
+        out.append(f"- **Grafik weggenommen (WebGL context lost)** nach {lost[0].get('t', 0) / 1000:.1f} s")
     if any(r.get('type') == 'crash' for r in rows):
         out.append('- **Seite abgestürzt**')
     wasm = [r['wasm_mb'] for r in rows if r.get('type') == 'mem' and r.get('wasm_mb')]
