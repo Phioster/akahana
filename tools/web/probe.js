@@ -6,9 +6,36 @@
   const t0 = performance.now();
   const dpr = new URLSearchParams(location.search).get('dpr');   // test: draw at fewer pixels than the screen has
   if (dpr) Object.defineProperty(window, 'devicePixelRatio', { get: () => Number(dpr) });
+  const local = ['localhost', '127.0.0.1'].includes(location.hostname);   // the test server collects; Pages does not
+  let box = null;                       // elsewhere the findings stay on screen for a screenshot
+  function show(line) {
+    if (local) return;
+    if (!box) {
+      if (!document.body) { addEventListener('DOMContentLoaded', () => show(line)); return; }
+      box = document.createElement('pre');
+      box.style.cssText = 'position:fixed;left:0;right:0;bottom:0;max-height:45vh;overflow:auto;margin:0;padding:6px 8px;' +
+        'font:11px/1.35 ui-monospace,monospace;color:#f3ead8;background:rgba(20,16,12,.82);z-index:9;white-space:pre-wrap';
+      document.body.appendChild(box);
+    }
+    box.textContent += line + '\n';
+    box.scrollTop = box.scrollHeight;
+  }
+  function note(o) {
+    const s = (o.t / 1000).toFixed(1) + 's ';
+    if (o.type === 'log' && o.msg.startsWith('PROBE ')) {
+      let p; try { p = JSON.parse(o.msg.slice(6)); } catch (e) { return; }
+      if (p.kind === 'boot') show(s + 'Spiel laeuft (' + p.window + ')');
+      else if (p.kind === 'stage') show(s + p.stage + ': ' + p.fps + ' B/s, laengstes ' + p.max_ms + ' ms, Ruckler ' + p.hitches + ', Grafik ' + p.video_mb + ' MB');
+      else if (p.kind === 'done') show(s + 'FERTIG - Rundgang durch');
+    } else if (o.type === 'error' && /ERROR|TypeError/.test(o.msg)) show(s + 'Fehler: ' + o.msg.slice(0, 120));
+    else if (['pageerror', 'rejection', 'contextlost', 'webgl', 'ua'].includes(o.type))
+      show(s + o.type + ': ' + (o.msg || o.renderer || (o.ok === false ? 'WebGL2 fehlt' : '')).slice(0, 160));
+  }
   function send(o) {
     o.dev = dev;
     o.t = Math.round(performance.now() - t0);
+    note(o);
+    if (!local) return;
     try { fetch('/log', { method: 'POST', body: JSON.stringify(o), keepalive: true }); } catch (e) { /* page leaving */ }
   }
   for (const k of ['log', 'warn', 'error']) {
