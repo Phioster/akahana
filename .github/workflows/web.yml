@@ -46,8 +46,8 @@ jobs:
           godot --headless --import --quit-after 2000 || true
           mkdir -p build/web
           godot --headless --export-release "Web" build/web/index.html
-          cp tools/web/probe.js build/web/
-          sed -i 's|<head>|<head><script src="probe.js"></script>|' build/web/index.html
+          cp tools/web/probe.js tools/web/audio.js build/web/
+          sed -i 's|<head>|<head><script src="audio.js"></script><script src="probe.js"></script>|' build/web/index.html
           ls -la build/web | tee build/groessen.txt
           echo "gzip:" >> build/groessen.txt
           for f in build/web/*.wasm build/web/*.pck; do echo "$(basename $f) $(gzip -c $f | wc -c | awk '{printf "%.1f MB", $1/1048576}')"; done >> build/groessen.txt

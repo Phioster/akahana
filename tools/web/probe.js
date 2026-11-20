@@ -28,7 +28,7 @@
       else if (p.kind === 'stage') show(s + p.stage + ': ' + p.fps + ' B/s, laengstes ' + p.max_ms + ' ms, Ruckler ' + p.hitches + ', Grafik ' + p.video_mb + ' MB');
       else if (p.kind === 'done') show(s + 'FERTIG - Rundgang durch');
     } else if (o.type === 'error' && /ERROR|TypeError/.test(o.msg)) show(s + 'Fehler: ' + o.msg.slice(0, 120));
-    else if (['pageerror', 'rejection', 'contextlost', 'webgl', 'ua'].includes(o.type))
+    else if (['pageerror', 'rejection', 'contextlost', 'webgl', 'ua', 'audio'].includes(o.type))
       show(s + o.type + ': ' + (o.msg || o.renderer || (o.ok === false ? 'WebGL2 fehlt' : '')).slice(0, 160));
   }
   function send(o) {
@@ -86,6 +86,11 @@
     const n = performance.getEntriesByType('resource').map(r => [r.name.split('/').pop(), Math.round(r.duration)]);
     send({ type: 'load', resources: n });
   });
+  let heard = '';                       // the sound's state, shown when it changes (iPad was silent)
+  setInterval(() => {
+    const a = window.akahanaAudio ? window.akahanaAudio().join(',') : 'kein audio.js';
+    if (a !== heard) { heard = a; send({ type: 'audio', msg: a || 'noch kein Ton' }); }
+  }, 1000);
   setInterval(() => send({ type: 'mem', wasm_mb: mem ? Math.round(mem.buffer.byteLength / 1048576) : null,
     js_mb: performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : null }), 5000);
 })();
