@@ -6,6 +6,16 @@ name: Web-Test
 # steht im Bericht am Release "web-test".
 on:
   workflow_dispatch:
+    inputs:
+      varianten:
+        description: "Simulator-Varianten (normal, noreflect, stay, dpr=1)"
+        default: "normal"
+      geraete:
+        description: "Simulatoren (iPhone, iPad)"
+        default: "iPhone iPad"
+      playwright:
+        description: "Auch WebKit/Chromium per Playwright (ja/nein)"
+        default: "ja"
 
 permissions:
   contents: write
@@ -62,8 +72,12 @@ jobs:
           sleep 2 && curl -sI http://localhost:8000/index.html | head -1
       - name: Safari im iOS-Simulator (iPhone, iPad)
         continue-on-error: true
+        env:
+          SIM_VARIANTS: ${{ inputs.varianten }}
+          SIM_KINDS: ${{ inputs.geraete }}
         run: bash tools/web/run_sim.sh http://localhost:8000 logs shots
       - name: WebKit und Chromium (Playwright)
+        if: inputs.playwright == 'ja'
         continue-on-error: true
         run: |
           cd tools/web && npm init -y > /dev/null && npm install --silent playwright@1.52.0 && npx playwright install webkit chromium > /dev/null

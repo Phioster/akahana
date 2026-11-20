@@ -8,6 +8,8 @@ const HITCH_MS := 50.0                 # a frame this long is a visible stutter
 var main: Node
 var _stage := ""
 var _frames: PackedFloat32Array = []
+var _flags := ""                       # from the address: noreflect, stay (narrowing down a fault)
+var _beat := 0.0
 
 
 static func wanted() -> bool:
@@ -36,6 +38,13 @@ static func stats(ms: PackedFloat32Array) -> Dictionary:
 func _process(delta: float) -> void:
 	if _stage != "":
 		_frames.append(delta * 1000.0)
+	_beat += delta
+	if _beat >= 1.0:                   # a heartbeat: the last one before a fault shows where it stood
+		_beat = 0.0
+		var m := _memory()
+		m["stage"] = _stage
+		m["pos"] = main.player.position
+		_report("beat", m)
 
 
 func _ready() -> void:
@@ -75,10 +84,19 @@ func _run() -> void:
 	_report("boot", {"adapter": RenderingServer.get_video_adapter_name(), "vendor": RenderingServer.get_video_adapter_vendor(),
 			"api": RenderingServer.get_video_adapter_api_version(), "screen": DisplayServer.screen_get_size(),
 			"window": DisplayServer.window_get_size()})
+	_flags = str(JavaScriptBridge.eval("location.search", true))
 	var book: BookUI = main.book
+	if _flags.contains("noreflect"):
+		main.player.mirror.material = null
+		main.player.mirror.visible = false
+		main.player.mirror.set_process(false)
 	await _measure("startbild", 3.0)
 	book._start(true)
 	await _measure("lager_stehen", 5.0)
+	if _flags.contains("stay"):
+		await _measure("nur_stehen", 60.0)
+		_report("done", _memory())
+		return
 	for target in [Vector2(1200, 2600), Vector2(1262, 3150), Vector2(1494, 3500)]:
 		var way: PackedVector2Array = main.pathing.find_path_in(main.store, main.player.position, target)
 		main.player.walk_to(way)
