@@ -275,7 +275,19 @@ func _on_start_walking(fresh: bool) -> void:
 		player.path = PackedVector2Array()
 		view_node.load_around(world.start)              # the ground must be there before the jump shows it
 		player.position = world.start
+		_forget_memories()
 		_store()
+
+
+## "von vorn" begins the walk anew, the book with it: no pages, no regions, no bookmark (Philip 2026-11-20).
+func _forget_memories() -> void:
+	save.found = PackedStringArray()
+	save.regions_seen = PackedStringArray()
+	save.bookmark = false
+	keeper = MemoryKeeper.new()
+	keeper.save = save
+	book.memories = PackedStringArray()
+	book.set_bookmark(false)
 
 
 ## Testing aid: put him at a place at once (debug builds only; there is no fast travel in the game).

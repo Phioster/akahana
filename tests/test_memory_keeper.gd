@@ -89,3 +89,25 @@ func test_memories_wait_while_the_book_is_open_or_the_camera_looks() -> void:
 	assert_false(m._memories_allowed(), "Kameramodus: nein")
 	m.book.queue_free()
 	m.free()
+
+
+func test_starting_over_empties_the_book() -> void:
+	# "von vorn" begins the game anew: no pages, no regions seen, no bookmark (Philip 2026-11-20)
+	var m: Node2D = load("res://scenes/main.gd").new()
+	var tree := Engine.get_main_loop() as SceneTree
+	m.book = BookUI.new()
+	tree.root.add_child(m.book)
+	m.scroll = NameScroll.new()
+	m.keeper.save = m.save
+	m.book.mode = BookUI.Mode.CLOSED
+	m._apply_memory_events(m.keeper.step(Vector2(500, 3288), "", 2.0))
+	m._forget_memories()
+	assert_eq(m.save.found.size(), 0, "keine Seiten")
+	assert_eq(m.save.regions_seen.size(), 0, "keine Gebiete")
+	assert_false(m.save.bookmark, "kein Lesezeichen gespeichert")
+	assert_eq(m.book.memories.size(), 0, "Buch leer")
+	assert_false(m.book.has_bookmark(), "kein Band am Buch")
+	assert_eq(m.keeper.step(Vector2(500, 3288), "", 2.0).size(), 2, "die Mühle kommt wieder")
+	m.book.queue_free()
+	m.scroll.free()
+	m.free()
