@@ -217,6 +217,10 @@ func _ready() -> void:
 	scroll = NameScroll.new()
 	scroll_layer.add_child(scroll)
 	book.show_start(save.has_position)
+	if WebProbe.wanted():                                # browser test run (?probe), see scenes/web_probe.gd
+		var probe := WebProbe.new()
+		probe.main = self
+		add_child(probe)
 
 
 func _make_wisp(at: Vector2) -> Node:

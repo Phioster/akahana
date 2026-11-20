@@ -1,0 +1,79 @@
+name: Web-Test
+
+# Baut die Browserfassung und prueft sie in Safaris Engine (WebKit), im iOS-Simulator (iPhone, iPad) und in
+# Chromium. Nur von Hand gestartet. Die Pruefschritte brechen nie ab (keine Fehlermails): das Ergebnis
+# steht im Bericht am Release "web-test".
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GODOT_VERSION: 4.7.2
+
+jobs:
+  bauen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Godot und Export-Vorlagen holen
+        run: |
+          wget -q "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q "Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          chmod +x "Godot_v${GODOT_VERSION}-stable_linux.x86_64"
+          sudo mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" /usr/local/bin/godot
+          wget -q "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          unzip -q "Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          mkdir -p "$HOME/.local/share/godot/export_templates"
+          mv templates "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+      - name: Exportieren
+        run: |
+          godot --headless --import --quit-after 2000 || true
+          mkdir -p build/web
+          godot --headless --export-release "Web" build/web/index.html
+          cp tools/web/probe.js build/web/
+          sed -i 's|<head>|<head><script src="probe.js"></script>|' build/web/index.html
+          ls -la build/web | tee build/groessen.txt
+          echo "gzip:" >> build/groessen.txt
+          for f in build/web/*.wasm build/web/*.pck; do echo "$(basename $f) $(gzip -c $f | wc -c | awk '{printf "%.1f MB", $1/1048576}')"; done >> build/groessen.txt
+          cd build/web && zip -q -r ../web.zip .
+      - name: Ans Release "web-test" haengen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view web-test >/dev/null 2>&1 || gh release create web-test --prerelease --title "Browser-Test" --notes "Browserfassung und Testbericht, wird ersetzt."
+          gh release upload web-test build/web.zip build/groessen.txt --clobber
+
+  pruefen:
+    needs: bauen
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Browserfassung holen und ausliefern
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download web-test -p web.zip -p groessen.txt -D dl --clobber
+          mkdir -p web && unzip -q dl/web.zip -d web
+          nohup python3 tools/web/probe_server.py web logs 8000 > server.log 2>&1 &
+          sleep 2 && curl -sI http://localhost:8000/index.html | head -1
+      - name: Safari im iOS-Simulator (iPhone, iPad)
+        continue-on-error: true
+        run: bash tools/web/run_sim.sh http://localhost:8000 logs shots
+      - name: WebKit und Chromium (Playwright)
+        continue-on-error: true
+        run: |
+          cd tools/web && npm init -y > /dev/null && npm install --silent playwright@1.52.0 && npx playwright install webkit chromium > /dev/null
+          node run_browsers.mjs http://localhost:8000 ../../logs ../../shots
+      - name: Bericht ans Release
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p logs shots
+          python3 tools/web/report.py logs dl/groessen.txt > bericht.md
+          cat bericht.md
+          zip -q -r ergebnisse.zip bericht.md logs shots server.log
+          gh release upload web-test ergebnisse.zip bericht.md --clobber

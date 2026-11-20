@@ -21,6 +21,7 @@ const SUITES := [
 	"res://tests/test_memory_keeper.gd",
 	"res://tests/test_name_scroll.gd",
 	"res://tests/test_memory_book.gd",
+	"res://tests/test_web_probe.gd",
 ]
 
 func _init() -> void:
