@@ -1,0 +1,29 @@
+name: Shader-Pruefung
+
+# Uebersetzt den Spiegelbild-Shader, an dem Safari auf iOS scheiterte, in Varianten im iOS-Simulator.
+on:
+  workflow_dispatch:
+
+jobs:
+  pruefen:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Im iOS-Simulator pruefen
+        continue-on-error: true
+        run: |
+          nohup python3 tools/web/probe_server.py tools/web/shadercheck logs 8000 > server.log 2>&1 &
+          sleep 2
+          xcrun simctl list devices available -j > /tmp/sims.json
+          UDID=$(python3 -c "
+          import json,re
+          d=json.load(open('/tmp/sims.json'))['devices']
+          ios=sorted((k for k in d if 'iOS' in k), key=lambda k:[int(x) for x in re.findall(r'\d+',k)], reverse=True)
+          print(next(x['udid'] for k in ios for x in d[k] if x['name'].startswith('iPhone')))")
+          xcrun simctl boot "$UDID"; xcrun simctl bootstatus "$UDID" -b > /dev/null; sleep 20
+          xcrun simctl openurl "$UDID" "http://localhost:8000/index.html?dev=sim"
+          for i in $(seq 40); do sleep 5; grep -q '"fertig"' logs/sim.jsonl 2>/dev/null && break; done
+      - name: Ergebnis
+        if: always()
+        run: cat logs/*.jsonl || echo "keine Ergebnisse"

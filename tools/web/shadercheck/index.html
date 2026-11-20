@@ -1,0 +1,40 @@
+<!doctype html><meta charset="utf-8"><title>Shader-Pruefung</title><body><pre id="o">laeuft</pre>
+<script>
+// Compiles the vertex shader Safari on iOS refused (reflection.gdshader, from the probe log) in variants,
+// to see which part it chokes on. Results go to /log like the probe.
+(async () => {
+  const dev = new URLSearchParams(location.search).get('dev') || 'unbekannt';
+  const send = o => fetch('/log', { method: 'POST', body: JSON.stringify(Object.assign({ dev }, o)) });
+  const src = await (await fetch('vertex.json')).json();
+  const gl = document.createElement('canvas').getContext('webgl2');
+  if (!gl) { send({ type: 'check', name: 'webgl2', ok: false }); return; }
+  const P = n => gl.getParameter(gl[n]);
+  send({ type: 'limits', MAX_VERTEX_TEXTURE_IMAGE_UNITS: P('MAX_VERTEX_TEXTURE_IMAGE_UNITS'),
+    MAX_VARYING_VECTORS: P('MAX_VARYING_VECTORS'), MAX_VERTEX_UNIFORM_VECTORS: P('MAX_VERTEX_UNIFORM_VECTORS'),
+    MAX_VERTEX_UNIFORM_BLOCKS: P('MAX_VERTEX_UNIFORM_BLOCKS'), MAX_UNIFORM_BLOCK_SIZE: P('MAX_UNIFORM_BLOCK_SIZE'),
+    MAX_VERTEX_OUTPUT_COMPONENTS: P('MAX_VERTEX_OUTPUT_COMPONENTS'), ua: navigator.userAgent });
+  const cut = (s, a, b) => s.split(a).join(b);
+  const V = {
+    original: src,
+    ohne_samplers: cut(cut(src, 'uniform highp sampler2D m_open_water;', ''), 'uniform highp sampler2D m_puddles;', ''),
+    ein_sampler: cut(src, 'uniform highp sampler2D m_puddles;', ''),
+    ohne_varying: cut(src, 'out highp vec2 m_world;', 'highp vec2 m_world;'),
+    ohne_beides: cut(cut(cut(src, 'uniform highp sampler2D m_open_water;', ''), 'uniform highp sampler2D m_puddles;', ''), 'out highp vec2 m_world;', 'highp vec2 m_world;'),
+    mediump_samplers: cut(src, 'uniform highp sampler2D m_', 'uniform mediump sampler2D m_'),
+    ohne_material: cut(src, '#define MATERIAL_UNIFORMS_USED', ''),
+    lights_16: cut(src, '#define MAX_LIGHTS 64', '#define MAX_LIGHTS 16'),
+  };
+  const defs = ['', '#define USE_ATTRIBUTES\n', '#define USE_ATTRIBUTES\n#define USE_INSTANCING\n', '#define USE_PRIMITIVE\n', '#define USE_NINEPATCH\n'];
+  let out = '';
+  for (const [name, s] of Object.entries(V)) for (const d of defs) {
+    const code = s.replace('\n', '\n' + d);
+    const sh = gl.createShader(gl.VERTEX_SHADER);
+    gl.shaderSource(sh, code); gl.compileShader(sh);
+    const ok = gl.getShaderParameter(sh, gl.COMPILE_STATUS);
+    const r = { type: 'check', name, defs: d.trim().replace(/\n/g, ' '), ok, log: ok ? '' : gl.getShaderInfoLog(sh) };
+    out += JSON.stringify(r) + '\n'; await send(r);
+  }
+  document.getElementById('o').textContent = out;
+  send({ type: 'check', name: 'fertig', ok: true });
+})();
+</script>
