@@ -5,7 +5,7 @@
 class_name Snowfall
 extends Node2D
 
-const VIEW := Vector2(180, 400)            # the flakes live in a box of one screen, wrapped round the view
+static var VIEW := Vector2(180, 400)            # the flakes live in a box of one screen, wrapped round the view
 # (per 10k px at full fall, fall px/s, size, colour, alpha, shadow offset = its height)
 const LAYERS := [
 	[55, 8.0, 1, Color8(214, 218, 226), 0.6, 0],

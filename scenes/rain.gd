@@ -5,7 +5,7 @@
 class_name Rain
 extends Node2D
 
-const VIEW := Vector2(180, 400)
+static var VIEW := Vector2(180, 400)
 # (share of the drops, streak px, colour, alpha, fall px/s)
 const LAYERS := [
 	[0.5, 5, Color8(150, 160, 175), 0.35, 285.0],      # 0.16.3 (Philip): still too slow, x1.35; streak >= the

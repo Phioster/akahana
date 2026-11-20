@@ -16,6 +16,9 @@ on:
       playwright:
         description: "Auch WebKit/Chromium per Playwright (ja/nein)"
         default: "ja"
+      modus:
+        description: "probe (Messung) oder shots (Vorschaubilder in mehreren Groessen)"
+        default: "probe"
 
 permissions:
   contents: write
@@ -71,13 +74,20 @@ jobs:
           nohup python3 tools/web/probe_server.py web logs 8000 > server.log 2>&1 &
           sleep 2 && curl -sI http://localhost:8000/index.html | head -1
       - name: Safari im iOS-Simulator (iPhone, iPad)
+        if: inputs.modus != 'shots'
         continue-on-error: true
         env:
           SIM_VARIANTS: ${{ inputs.varianten }}
           SIM_KINDS: ${{ inputs.geraete }}
         run: bash tools/web/run_sim.sh http://localhost:8000 logs shots
+      - name: Vorschaubilder (Playwright WebKit)
+        if: inputs.modus == 'shots'
+        continue-on-error: true
+        run: |
+          cd tools/web && npm init -y > /dev/null && npm install --silent playwright@1.52.0 && npx playwright install webkit > /dev/null
+          node run_shots.mjs http://localhost:8000 ../../shots
       - name: WebKit und Chromium (Playwright)
-        if: inputs.playwright == 'ja'
+        if: inputs.playwright == 'ja' && inputs.modus != 'shots'
         continue-on-error: true
         run: |
           cd tools/web && npm init -y > /dev/null && npm install --silent playwright@1.52.0 && npx playwright install webkit chromium > /dev/null

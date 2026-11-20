@@ -62,6 +62,10 @@ var _mem_in := 0.0
 
 func _ready() -> void:
 	get_tree().set_auto_accept_quit(false)
+	if OS.has_feature("web"):                           # wider screens show more world (core/web_fit.gd)
+		WebFit.follow(get_tree().root)
+		Rain.VIEW.x = WebFit.MAX_W                        # rain and snow cover the widest picture
+		Snowfall.VIEW.x = WebFit.MAX_W
 	world = WorldData.load_default()
 	if world == null:
 		return

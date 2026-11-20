@@ -86,6 +86,9 @@ func _run() -> void:
 			"window": DisplayServer.window_get_size()})
 	_flags = str(JavaScriptBridge.eval("location.search", true))
 	var book: BookUI = main.book
+	if _flags.contains("shots"):
+		await _shots(book)
+		return
 	if _flags.contains("noreflect"):
 		main.player.mirror.material = null
 		main.player.mirror.visible = false
@@ -116,3 +119,30 @@ func _run() -> void:
 		book._turn_to(BookUI.Mode.MEMORIES)
 		await _measure("umblaettern_%d" % i, 1.5)
 	_report("done", _memory())
+
+
+## Preview pictures (?shots): a scene, a moment to settle, "shot" for the runner to take the screenshot.
+func _shot(name: String, wait: float) -> void:
+	await get_tree().create_timer(wait).timeout
+	_report("shot", {"name": name})
+	await get_tree().create_timer(0.6).timeout
+
+
+func _shots(book: BookUI) -> void:
+	await _shot("startbild", 3.0)
+	book._start(true)
+	await _shot("lager", 3.0)
+	main._on_travel(Vector2(560, 3340))               # the mill: new region and place, the scroll unrolls
+	await _shot("schriftrolle", 1.6)
+	main._on_travel(Vector2(1474, 4145))
+	await _shot("see", 3.0)
+	main._on_travel(Vector2(1380, 135))
+	await _shot("norden_schnee", 3.0)
+	main.weather.toggle_now()
+	await _shot("regen", 6.0)
+	main.weather.toggle_now()
+	book.open_in_game()
+	await _shot("buch", 1.5)
+	book._turn_to(BookUI.Mode.MEMORIES)
+	await _shot("erinnerung", 1.5)
+	_report("done", {})
